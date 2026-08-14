@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractTextFromBuffer } from '@/lib/pdf-parser';
+import { parsePdfBuffer, isHumanResumeText } from '@/lib/parsers/pdf-parser';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// Role-specific intelligence map to guarantee rich, relevant Career DNA synthesis
 const ROLE_INTELLIGENCE: Record<
   string,
   {
@@ -120,14 +119,14 @@ export async function POST(request: Request) {
     let parsedResumeText = '';
     let storageResumeUrl = '';
 
-    // 2. Extract text from PDF / DOCX
+    // 2. Extract text from PDF buffer
     if (file && file.size > 0) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        parsedResumeText = await extractTextFromBuffer(buffer, file.name);
+        parsedResumeText = await parsePdfBuffer(buffer, file.name);
 
-        // 3. Upload raw PDF to Supabase Storage bucket 'resumes' under ${user.id}/${Date.now()}-resume.pdf
+        // Upload raw PDF to Supabase Storage bucket 'resumes'
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
 
@@ -141,15 +140,14 @@ export async function POST(request: Request) {
         if (!uploadError) {
           const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(storagePath);
           storageResumeUrl = publicUrlData?.publicUrl || storagePath;
-        } else {
-          console.warn('Supabase storage upload notice:', uploadError.message);
         }
       } catch (fileErr) {
         console.warn('File processing notice:', fileErr);
       }
     }
 
-    if (!parsedResumeText) {
+    // Verify human resume text or use structured metadata
+    if (!parsedResumeText || !isHumanResumeText(parsedResumeText)) {
       parsedResumeText = `${metadata.fullName || 'Candidate'}
 Target Role: ${targetRole}
 Experience Level: ${expLevel}
@@ -163,7 +161,7 @@ Career Intent:
 ${careerIntent}`;
     }
 
-    // 4. Dispatch to n8n Career DNA Agent Webhook
+    // 3. Dispatch to n8n Career DNA Agent Webhook
     let n8nData: any = null;
     if (process.env.N8N_WEBHOOK_CAREER_DNA) {
       try {
@@ -201,7 +199,7 @@ ${careerIntent}`;
       }
     }
 
-    // 5. Synthesize structured Career DNA with dual fallback
+    // 4. Synthesize structured Career DNA
     const roleKey =
       Object.keys(ROLE_INTELLIGENCE).find((key) => targetRole.toLowerCase().includes(key.toLowerCase())) ||
       'Full-Stack Development';
@@ -229,7 +227,7 @@ ${careerIntent}`;
       experienceLevel: expLevel,
     };
 
-    // 6. Upsert data directly into public.career_dna using server Supabase client
+    // 5. Upsert directly into Supabase public.career_dna using exact schema columns
     try {
       const careerDnaPayload = {
         user_id: user.id,
@@ -240,11 +238,6 @@ ${careerIntent}`;
         target_roles: structuredOutput.targetRoles,
         recommended_actions: structuredOutput.recommendedActions,
         raw_resume_text: parsedResumeText,
-        target_role: targetRole,
-        health_score: structuredOutput.healthScore,
-        readiness_score: structuredOutput.readinessScore,
-        summary: structuredOutput.summary,
-        target_companies: structuredOutput.targetCompanies,
         updated_at: new Date().toISOString(),
       };
 
@@ -256,7 +249,7 @@ ${careerIntent}`;
         console.warn('career_dna upsert note:', dnaError.message);
       }
 
-      // Update profiles onboarding status
+      // Update profiles
       await supabase
         .from('profiles')
         .update({

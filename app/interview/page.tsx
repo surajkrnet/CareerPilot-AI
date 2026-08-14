@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
   Mic,
@@ -14,75 +14,235 @@ import {
   Clock,
   Volume2,
   Zap,
+  RotateCcw,
+  Trophy,
+  Check,
+  ChevronRight,
+  Loader2,
+  Bot,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { VideoCard } from '@/components/ui/video-card';
 import { useCareer } from '@/lib/career-store';
+import confetti from 'canvas-confetti';
 
 export default function MockInterviewPage() {
-  const {
-    interviewMessages,
-    addInterviewMessage,
-    activeInterviewRole,
-    activeInterviewCompany,
-    profile,
-  } = useCareer();
+  const { profile } = useCareer();
 
-  const [inputAnswer, setInputAnswer] = useState('');
-  const [isMicActive, setIsMicActive] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<string>(profile.targetRole || 'Full-Stack Development');
+  const [selectedCompany, setSelectedCompany] = useState<string>('Linear');
+  const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
+  const [isMicActive, setIsMicActive] = useState<boolean>(false);
+  const [inputText, setInputText] = useState<string>('');
+  const [isTyping, setIsTyping] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [showScorecard, setShowScorecard] = useState<boolean>(false);
 
-  const handleSend = () => {
-    if (!inputAnswer.trim()) return;
-    addInterviewMessage(inputAnswer.trim(), 'user');
-    setInputAnswer('');
-  };
+  const [messages, setMessages] = useState<Array<{
+    id: string;
+    sender: 'ai' | 'user';
+    text: string;
+    feedback?: {
+      confidence: number;
+      accuracy: number;
+      starScore: number;
+      structureTip?: string;
+    };
+    timestamp: string;
+  }>>([
+    {
+      id: 'init-1',
+      sender: 'ai',
+      text: `Hello! I'm Alex, your AI Engineering Interviewer. Today we're running a technical drill for ${profile.targetRole || 'Full-Stack Development'} at Linear. \n\nLet's start: Tell me about a challenging technical project you built recently, the architectural decisions you made, and how you measured its success.`,
+      feedback: {
+        confidence: 90,
+        accuracy: 92,
+        starScore: 88,
+        structureTip: 'Ready to evaluate your STAR response structure & technical depth.',
+      },
+      timestamp: '00:01',
+    },
+  ]);
 
-  const handleQuickAnswer = (sampleText: string) => {
-    addInterviewMessage(sampleText, 'user');
-  };
-
-  const latestFeedback = interviewMessages.slice().reverse().find((m) => m.sender === 'user')?.feedback || {
-    confidence: 89,
+  const [scores, setScores] = useState({
+    confidence: 88,
     accuracy: 92,
-    structureTip: 'STAR technique executed cleanly! Clear Situation & Action stated.',
+    starScore: 86,
+    overall: 89,
+  });
+
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat transcript to bottom
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  // Session timer
+  useEffect(() => {
+    let timer: any;
+    if (isSessionActive) {
+      timer = setInterval(() => {
+        setSecondsElapsed((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isSessionActive]);
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const handleSendMessage = async (textToSend?: string) => {
+    const text = textToSend || inputText;
+    if (!text.trim() || isTyping) return;
+
+    const userMsg = {
+      id: `msg-${Date.now()}`,
+      sender: 'user' as const,
+      text: text.trim(),
+      timestamp: formatTimer(secondsElapsed),
+    };
+
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setInputText('');
+    setIsTyping(true);
+    if (!isSessionActive) setIsSessionActive(true);
+
+    try {
+      const res = await fetch('/api/interview/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: updatedMessages,
+          role: selectedTrack,
+          company: selectedCompany,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          setMessages((prev) => [...prev, data.message]);
+        }
+        if (data.scores) {
+          setScores(data.scores);
+        }
+      }
+    } catch (err) {
+      console.warn('Interview message notice:', err);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleEndSession = async () => {
+    setIsSessionActive(false);
+    setIsTyping(true);
+
+    try {
+      await fetch('/api/interview/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
+          role: selectedTrack,
+          company: selectedCompany,
+          isFinal: true,
+        }),
+      });
+    } catch (e) {
+      console.warn('End session save note:', e);
+    } finally {
+      setIsTyping(false);
+      setShowScorecard(true);
+      try {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      } catch {}
+    }
+  };
+
+  const handleRestart = () => {
+    setSecondsElapsed(0);
+    setIsSessionActive(false);
+    setShowScorecard(false);
+    setMessages([
+      {
+        id: `init-${Date.now()}`,
+        sender: 'ai',
+        text: `Welcome to your fresh interview simulation for ${selectedTrack} at ${selectedCompany}. \n\nLet's begin: Walk me through a complex technical challenge you faced while building an application and how you resolved it.`,
+        feedback: {
+          confidence: 88,
+          accuracy: 90,
+          starScore: 86,
+          structureTip: 'Focus on Action and Result metrics to maximize your STAR rating.',
+        },
+        timestamp: '00:00',
+      },
+    ]);
   };
 
   return (
     <div className="bg-[#181715] min-h-screen text-[#faf9f5] pt-28 pb-16 px-4 sm:px-8">
       <div className="max-w-[1400px] mx-auto space-y-6">
         
-        {/* INTERVIEW STUDIO TOP HEADER */}
-        <div className="bg-[#252320] border border-white/10 rounded-xl p-4 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* INTERVIEW STUDIO TOP CONTROL BAR */}
+        <div className="bg-[#252320] border border-white/10 rounded-xl p-4 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-[#cc785c] text-white flex items-center justify-center font-bold">
               AI
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#5db872] animate-pulse" />
+                <span className={`w-2.5 h-2.5 rounded-full ${isSessionActive ? 'bg-[#5db872] animate-pulse' : 'bg-[#6c6a64]'}`} />
                 <h1 className="font-display text-xl sm:text-2xl text-white">
-                  Mock Interview Studio: {activeInterviewRole}
+                  Mock Interview Studio: {selectedTrack}
                 </h1>
                 <Badge variant="coral" size="sm">
-                  {activeInterviewCompany}
+                  {selectedCompany}
                 </Badge>
               </div>
               <p className="text-xs text-[#a09d96]">
-                Target Candidate: <strong className="text-white">{profile.name}</strong> • Mode: Technical STAR & Performance Profiling
+                Candidate: <strong className="text-white">{profile.name || 'Candidate'}</strong> • Mode: Live STAR Technique &amp; Technical Accuracy
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
+            {/* Target Role Selector */}
+            <select
+              value={selectedTrack}
+              onChange={(e) => setSelectedTrack(e.target.value)}
+              className="bg-[#181715] border border-white/10 rounded px-2.5 py-1.5 text-xs text-[#faf9f5] font-mono focus:outline-none focus:border-[#cc785c]"
+            >
+              <option value="Software Engineering">Software Engineering</option>
+              <option value="Full-Stack Development">Full-Stack Development</option>
+              <option value="Frontend Development">Frontend Development</option>
+              <option value="Backend Development">Backend Development</option>
+              <option value="AI/ML Engineering">AI/ML Engineering</option>
+              <option value="Product Management">Product Management</option>
+            </select>
+
             <div className="flex items-center gap-2 text-xs font-mono text-[#a09d96] bg-[#181715] px-3 py-1.5 rounded border border-white/10">
               <Clock className="w-3.5 h-3.5 text-[#cc785c]" />
-              <span>12:45 Elapsed</span>
+              <span>{formatTimer(secondsElapsed)}</span>
             </div>
 
-            <Button variant="secondary-dark" size="sm">
-              End Session & Export PDF
+            <Button
+              variant="secondary-dark"
+              size="sm"
+              onClick={handleEndSession}
+              disabled={messages.length <= 1}
+              className="border-white/20 hover:border-[#cc785c] text-xs font-mono"
+            >
+              End Session &amp; Scorecard ↗
             </Button>
           </div>
         </div>
@@ -97,14 +257,14 @@ export default function MockInterviewPage() {
             <div className="bg-[#181715] px-6 py-3 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-[#a09d96]">
                 <Volume2 className="w-4 h-4 text-[#cc785c]" />
-                <span>Audio Synthesis Engine: Active (Alex - AI Lead)</span>
+                <span>Interviewer: Alex (Lead Technical Evaluator)</span>
               </div>
-              <span className="text-xs text-[#5db872] font-mono">Live Stream 60FPS</span>
+              <span className="text-xs text-[#5db872] font-mono">Live Stream Active</span>
             </div>
 
             {/* Chat Transcript Area */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-4 no-scrollbar">
-              {interviewMessages.map((msg) => (
+            <div ref={chatContainerRef} className="flex-1 p-6 overflow-y-auto space-y-4 no-scrollbar">
+              {messages.map((msg) => (
                 <motion.div
                   key={msg.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -118,168 +278,252 @@ export default function MockInterviewPage() {
                         : 'bg-[#181715] text-[#faf9f5] border border-white/10 rounded-bl-none'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[11px] opacity-80 pb-1 border-b border-white/10 font-mono">
-                      <span>{msg.sender === 'user' ? `${profile.name} (Candidate)` : 'Alex (AI Lead Interviewer)'}</span>
+                    <div className="flex items-center justify-between gap-4 text-[10px] font-mono opacity-75 border-b border-white/10 pb-1">
+                      <span className="font-bold uppercase tracking-wider flex items-center gap-1">
+                        {msg.sender === 'user' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3 text-[#cc785c]" />}
+                        <span>{msg.sender === 'user' ? 'You (Candidate)' : 'Alex (Interviewer)'}</span>
+                      </span>
                       <span>{msg.timestamp}</span>
                     </div>
-                    <p className="font-sans">{msg.text}</p>
-                  </div>
+                    <p className="whitespace-pre-line font-sans">{msg.text}</p>
 
-                  {/* Immediate Feedback Badge under candidate messages */}
-                  {msg.sender === 'user' && msg.feedback && (
-                    <div className="mt-1 text-[11px] text-[#5db872] bg-[#181715] px-2.5 py-1 rounded border border-[#5db872]/30 flex items-center gap-1.5 font-mono">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>STAR Confidence: {msg.feedback.confidence}% | Accuracy: {msg.feedback.accuracy}%</span>
-                    </div>
-                  )}
+                    {msg.feedback?.structureTip && (
+                      <div className="pt-2 border-t border-white/10 text-[11px] font-mono text-[#a09d96] flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-[#cc785c] shrink-0" />
+                        <span>{msg.feedback.structureTip}</span>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ))}
+
+              {isTyping && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-[#181715] border border-white/10 max-w-[200px] text-xs font-mono text-[#a09d96]">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#cc785c]" />
+                  <span>Alex is evaluating...</span>
+                </div>
+              )}
             </div>
 
-            {/* Quick Answer Suggestion Shortcuts for Demo */}
-            <div className="bg-[#181715] p-3 border-t border-white/10 space-y-1.5">
-              <span className="text-[11px] text-[#a09d96] uppercase font-mono block">Quick Technical Response Templates:</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleQuickAnswer("I used Next.js 14 Server Components to reduce client JS bundle size by 40% and implemented optimistic UI updates for instant interaction feedback.")}
-                  className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white transition-colors"
-                >
-                  + Next.js 14 Server Components
-                </button>
-                <button
-                  onClick={() => handleQuickAnswer("For state synchronization, I leveraged React 18 useTransition with URL state parameters to maintain layout stability during heavy filtering.")}
-                  className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white transition-colors"
-                >
-                  + React 18 Concurrency & URL State
-                </button>
-              </div>
-            </div>
-
-            {/* Input Bar & Mic Toggle */}
-            <div className="p-4 bg-[#1f1e1b] border-t border-white/10 flex items-center gap-3">
+            {/* Quick Sample Prompts */}
+            <div className="px-6 py-2 bg-[#1f1e1b] border-t border-white/10 flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <span className="text-[10px] font-mono text-[#6c6a64] uppercase shrink-0">Sample Answers:</span>
               <button
+                type="button"
+                onClick={() => handleSendMessage("In my previous project, I built a high-throughput Next.js application with TypeScript and PostgreSQL. When faced with slow API response times, I implemented Redis caching and query indexing, reducing p99 latency by 42% across 50k active sessions.")}
+                className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white shrink-0 transition-colors"
+              >
+                Architecture &amp; Caching (STAR)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage("I led a team of 4 engineers to migrate our monolithic backend to distributed Go microservices with Kafka queues, achieving zero downtime during peak traffic.")}
+                className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white shrink-0 transition-colors"
+              >
+                Distributed Systems Migration
+              </button>
+            </div>
+
+            {/* Chat Input Box */}
+            <div className="p-4 bg-[#181715] border-t border-white/10 flex items-center gap-3">
+              <button
+                type="button"
                 onClick={() => setIsMicActive(!isMicActive)}
-                className={`p-2.5 rounded-lg border transition-colors ${
+                className={`p-3 rounded-lg border transition-all ${
                   isMicActive
-                    ? 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse'
+                    ? 'bg-[#cc785c] text-white border-[#cc785c] animate-pulse'
                     : 'bg-[#252320] text-[#a09d96] border-white/10 hover:text-white'
                 }`}
+                title={isMicActive ? 'Mute Mic' : 'Activate Voice Input'}
               >
                 {isMicActive ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
               </button>
 
               <input
                 type="text"
-                placeholder={isMicActive ? 'Listening to voice response...' : 'Type your answer or select a template...'}
-                value={inputAnswer}
-                onChange={(e) => setInputAnswer(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                className="flex-1 bg-[#181715] text-white px-4 py-2.5 rounded-lg border border-white/10 text-xs sm:text-sm focus:outline-none focus:border-[#cc785c] font-sans"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={isMicActive ? 'Listening to your voice answer...' : 'Type your STAR interview response and press Enter...'}
+                className="flex-1 bg-[#252320] border border-white/10 rounded-lg px-4 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-[#cc785c] transition-colors"
               />
 
               <Button
                 variant="primary"
                 size="md"
-                onClick={handleSend}
+                onClick={() => handleSendMessage()}
+                disabled={!inputText.trim() || isTyping}
+                className="bg-[#cc785c] hover:bg-[#a9583e] px-5"
               >
-                Send
+                <Send className="w-4 h-4" />
               </Button>
             </div>
 
           </div>
 
-          {/* RIGHT COLUMN: VIDEO ASSET 2 & REAL-TIME METERS */}
+          {/* RIGHT COLUMN: REAL-TIME EVALUATION METERS & RADIAL METRICS */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* VIDEO ASSET 2 FRAME: mock-interview-session.mp4 */}
-            <VideoCard
-              src="/videos/mock-interview-session.mp4"
-              title="Live AI Interviewer View"
-              subtitle={`Simulating ${activeInterviewCompany} Interviewer Alex`}
-              variant="dark"
-              showMeters={false}
-            />
-
-            <Card variant="dark-elevated" className="space-y-6">
+            {/* REAL-TIME RADIAL SCORES */}
+            <Card variant="dark-elevated" className="p-6 border-white/10 space-y-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-5 h-5 text-[#cc785c]" />
+                  <h3 className="font-display text-xl text-white">Live Performance Meters</h3>
+                </div>
+                <Badge variant="teal" size="sm">Dynamic AI Eval</Badge>
+              </div>
+
+              {/* 3 Metric Gauges */}
+              <div className="space-y-4">
+                
+                {/* 1. Confidence Score */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-[#a09d96]">Delivery Confidence</span>
+                    <span className="text-[#5db872] font-bold">{scores.confidence}% High</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-[#5db872] rounded-full"
+                      animate={{ width: `${scores.confidence}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Technical Accuracy */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-[#a09d96]">Technical Accuracy &amp; Depth</span>
+                    <span className="text-[#cc785c] font-bold">{scores.accuracy}% Verified</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-[#cc785c] rounded-full"
+                      animate={{ width: `${scores.accuracy}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+
+                {/* 3. STAR Structure */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-[#a09d96]">STAR Structure (Situation/Task/Action/Result)</span>
+                    <span className="text-[#5db8a6] font-bold">{scores.starScore}% Structured</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-[#5db8a6] rounded-full"
+                      animate={{ width: `${scores.starScore}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Overall Readiness Pill */}
+              <div className="p-4 rounded-lg bg-[#181715] border border-white/10 flex items-center justify-between">
                 <div>
-                  <Badge variant="coral" size="sm" className="mb-1">Real-Time Evaluation</Badge>
-                  <h3 className="font-display text-xl text-white">Live Candidate Metrics</h3>
+                  <span className="text-[10px] font-mono uppercase text-[#6c6a64] block">Composite Drill Score</span>
+                  <span className="text-2xl font-bold font-sans text-[#faf9f5]">{scores.overall}/100</span>
                 </div>
-                <Zap className="w-5 h-5 text-[#cc785c]" />
+                <Badge variant="coral" size="sm">Top 8% Candidate</Badge>
               </div>
-
-              {/* Meter 1: Confidence Score */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#a09d96] uppercase font-mono">Confidence Meter</span>
-                  <span className="text-[#5db872] font-bold">{latestFeedback.confidence}% — Articulate</span>
-                </div>
-                <div className="w-full bg-[#181715] h-2.5 rounded-full overflow-hidden border border-white/5">
-                  <motion.div
-                    className="bg-[#5db872] h-full rounded-full"
-                    animate={{ width: `${latestFeedback.confidence}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-              </div>
-
-              {/* Meter 2: Technical Accuracy */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#a09d96] uppercase font-mono">Technical Accuracy</span>
-                  <span className="text-[#5db8a6] font-bold">{latestFeedback.accuracy}% — High Depth</span>
-                </div>
-                <div className="w-full bg-[#181715] h-2.5 rounded-full overflow-hidden border border-white/5">
-                  <motion.div
-                    className="bg-[#5db8a6] h-full rounded-full"
-                    animate={{ width: `${latestFeedback.accuracy}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-              </div>
-
-              {/* Meter 3: Answer Structure (STAR Framework Breakdown) */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
-                <span className="text-xs text-[#a09d96] uppercase font-mono block">STAR Framework Coverage</span>
-
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="bg-[#181715] p-2.5 rounded border border-white/5 space-y-1">
-                    <span className="text-[#a09d96] block text-[10px]">SITUATION</span>
-                    <span className="text-[#5db872] font-bold">100%</span>
-                  </div>
-                  <div className="bg-[#181715] p-2.5 rounded border border-white/5 space-y-1">
-                    <span className="text-[#a09d96] block text-[10px]">TASK</span>
-                    <span className="text-[#5db872] font-bold">100%</span>
-                  </div>
-                  <div className="bg-[#181715] p-2.5 rounded border border-white/5 space-y-1">
-                    <span className="text-[#a09d96] block text-[10px]">ACTION</span>
-                    <span className="text-[#e8a55a] font-bold">85%</span>
-                  </div>
-                  <div className="bg-[#181715] p-2.5 rounded border border-white/5 space-y-1">
-                    <span className="text-[#a09d96] block text-[10px]">RESULT</span>
-                    <span className="text-[#5db872] font-bold">90%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Live Coaching Tip Box */}
-              <div className="bg-[#181715] p-4 rounded-lg border border-white/10 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#cc785c]">
-                  <Sparkles className="w-4 h-4" />
-                  <span>Real-Time AI Coaching Tip</span>
-                </div>
-                <p className="text-xs text-[#a09d96] leading-relaxed">
-                  {latestFeedback.structureTip || "Great callout on Server Components! Mention caching strategy and fallback states in your next response."}
-                </p>
-              </div>
-
             </Card>
+
+            {/* STAR TECHNIQUE FRAMEWORK REMINDER */}
+            <Card variant="dark-elevated" className="p-6 border-white/10 space-y-4">
+              <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                <Sparkles className="w-4 h-4 text-[#cc785c]" />
+                <h4 className="font-display text-lg text-white">How Alex Evaluates STAR</h4>
+              </div>
+
+              <ul className="space-y-2.5 text-xs font-sans text-[#a09d96]">
+                <li className="flex items-start gap-2">
+                  <strong className="text-[#cc785c] font-mono">S · Situation:</strong>
+                  <span>Set the scene &amp; context (e.g. legacy monorepo, 80k users).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <strong className="text-[#cc785c] font-mono">T · Task:</strong>
+                  <span>State the exact bottleneck or objective you had to solve.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <strong className="text-[#cc785c] font-mono">A · Action:</strong>
+                  <span>Detail the technical implementation, frameworks, and architecture.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <strong className="text-[#5db872] font-mono">R · Result:</strong>
+                  <span>Quantify the impact with numbers (e.g. 42% latency reduction).</span>
+                </li>
+              </ul>
+            </Card>
+
           </div>
 
         </div>
 
       </div>
+
+      {/* FINAL SCORECARD MODAL */}
+      <AnimatePresence>
+        {showScorecard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#181715]/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-xl bg-[#252320] border border-white/15 rounded-2xl p-8 shadow-2xl space-y-6"
+            >
+              <div className="text-center space-y-2">
+                <div className="w-16 h-16 rounded-full bg-[#cc785c]/20 border border-[#cc785c] text-[#cc785c] flex items-center justify-center mx-auto mb-2">
+                  <Trophy className="w-8 h-8" />
+                </div>
+                <h2 className="font-display text-3xl text-[#faf9f5]">Mock Drill Scorecard</h2>
+                <p className="text-xs font-mono text-[#a09d96]">{selectedTrack} • {selectedCompany} Simulation</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3.5 bg-[#181715] rounded-xl border border-white/10">
+                  <span className="text-2xl font-bold font-sans text-[#5db872]">{scores.confidence}%</span>
+                  <span className="text-[10px] uppercase font-mono text-[#6c6a64] block mt-0.5">Confidence</span>
+                </div>
+                <div className="p-3.5 bg-[#181715] rounded-xl border border-white/10">
+                  <span className="text-2xl font-bold font-sans text-[#cc785c]">{scores.accuracy}%</span>
+                  <span className="text-[10px] uppercase font-mono text-[#6c6a64] block mt-0.5">Accuracy</span>
+                </div>
+                <div className="p-3.5 bg-[#181715] rounded-xl border border-white/10">
+                  <span className="text-2xl font-bold font-sans text-[#5db8a6]">{scores.starScore}%</span>
+                  <span className="text-[10px] uppercase font-mono text-[#6c6a64] block mt-0.5">STAR Format</span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#181715] border border-white/10 space-y-2 text-xs">
+                <h4 className="font-bold text-[#faf9f5] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#cc785c]" />
+                  <span>Actionable Drill Exercises</span>
+                </h4>
+                <p className="text-[#a09d96] leading-relaxed">
+                  1. Practice leading with measurable outcomes before detailing implementation.<br />
+                  2. Review distributed caching patterns and Redis pipelining for your next technical round.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="secondary" size="md" onClick={handleRestart} className="flex-1 font-mono text-xs uppercase">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Start New Drill
+                </Button>
+                <Button variant="primary" size="md" onClick={() => setShowScorecard(false)} className="flex-1 bg-[#cc785c] hover:bg-[#a9583e] font-mono text-xs uppercase">
+                  Back to Studio
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
