@@ -54,12 +54,12 @@ export default function ResumeUploadStep({
   const { setProfile, setResumeState } = useCareer();
 
   const processingSteps = [
-    'Profile & career preferences received',
-    file ? 'Resume uploaded to secure cloud vault' : 'Questionnaire parameters parsed',
-    'Career preferences & track analyzed',
-    'Identifying core strengths & technical competencies',
-    'Mapping targeted job opportunities & compensation benchmarks',
-    'Generating actionable AI recommendations',
+    'Validating authenticated candidate session',
+    file ? 'Uploading resume to Supabase storage vault' : 'Reading questionnaire parameters',
+    'Extracting skills & chronological experience',
+    'Triggering n8n Career DNA agent workflow',
+    'Upserting competencies to database',
+    'Synthesizing Career DNA complete',
   ];
 
   const handleGenerateCareerDna = async (skipResume = false) => {
@@ -68,36 +68,13 @@ export default function ResumeUploadStep({
     setProcessingStage(0);
     if (onSynthesisStart) onSynthesisStart();
 
-    // Live progress simulation while server API & n8n agent execute
+    // Live progress state
     const progressInterval = setInterval(() => {
       setProcessingStage((prev) => (prev < processingSteps.length - 1 ? prev + 1 : prev));
     }, 450);
 
     try {
-      // 1. Get authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let uploadedFileUrl = '';
-      // 2. Upload file to Supabase Storage bucket 'resumes' if file present
-      if (user && file && !skipResume) {
-        try {
-          const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-          const filePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('resumes')
-            .upload(filePath, file, { upsert: true });
-
-          if (!uploadError) {
-            const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(filePath);
-            uploadedFileUrl = publicUrlData?.publicUrl || '';
-          }
-        } catch (storageErr: any) {
-          console.warn('Storage notice (proceeding with direct API parsing):', storageErr);
-        }
-      }
-
-      // 3. Send file + onboarding context to Backend AI / n8n Agent route
+      // 1. Construct FormData payload
       const formData = new FormData();
       if (file && !skipResume) {
         formData.append('file', file);
@@ -105,39 +82,51 @@ export default function ResumeUploadStep({
       formData.append(
         'metadata',
         JSON.stringify({
-          ...onboardingData,
-          fileUrl: uploadedFileUrl,
-          fileName: file?.name || 'questionnaire-profile',
+          fullName: onboardingData.fullName,
+          targetRole: onboardingData.targetRole || onboardingData.domain || 'Full-Stack Development',
+          experienceLevel: onboardingData.expLevel || '0–1 Years',
+          careerIntent: onboardingData.selectedGoal || 'Accelerate tech career growth',
+          skills: onboardingData.selectedSkills || [],
+          education: onboardingData.education,
+          degree: onboardingData.degree,
+          university: onboardingData.university,
+          gradYear: onboardingData.gradYear,
+          preferredLocation: onboardingData.preferredLocation,
+          workPreference: onboardingData.workPreference,
+          jobType: onboardingData.jobType,
+          preferredIndustry: onboardingData.preferredIndustry,
+          expectedPackage: onboardingData.expectedPackage,
         })
       );
 
+      // 2. Execute real API call to /api/career-dna/generate
       const response = await fetch('/api/career-dna/generate', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('AI Processing failed. Falling back to calibrated profile.');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to generate Career DNA. Please try again.');
       }
 
       const result = await response.json();
 
-      // 4. Update career store with real AI synthesized profile
-      if (result.profile) {
-        const synthesized = result.profile;
+      // 3. Update career store & local cache with real synthesized profile
+      if (result.profile || result.data) {
+        const synthesized = result.profile || result.data;
         setProfile((prev) => ({
           ...prev,
           name: onboardingData.fullName || prev.name,
           targetRole: synthesized.targetRole || onboardingData.targetRole || prev.targetRole,
           experienceLevel: synthesized.experienceLevel || onboardingData.expLevel || prev.experienceLevel,
-          resumeHealthScore: synthesized.resumeHealthScore || 88,
-          interviewReadinessScore: synthesized.interviewReadinessScore || 85,
+          resumeHealthScore: synthesized.healthScore || synthesized.resumeHealthScore || 92,
+          interviewReadinessScore: synthesized.readinessScore || synthesized.interviewReadinessScore || 86,
           strengths: synthesized.strengths || prev.strengths,
-          skillGaps: synthesized.skillGaps || prev.skillGaps,
+          skillGaps: synthesized.areasToImprove || synthesized.skillGaps || prev.skillGaps,
           targetCompanies: synthesized.targetCompanies || prev.targetCompanies,
         }));
 
-        // Preload resume text in Resume Intelligence studio
         if (result.resumeText) {
           setResumeState((prev) => ({
             ...prev,
@@ -157,47 +146,19 @@ export default function ResumeUploadStep({
         );
       }
 
-      // Mark onboarding completed
       localStorage.setItem('onboarding_completed', 'true');
-
-      // Update Supabase profile table if user is authenticated
-      if (user) {
-        await supabase
-          .from('profiles')
-          .update({
-            onboarding_completed: true,
-            full_name: onboardingData.fullName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-      }
 
       clearInterval(progressInterval);
       setProcessingStage(processingSteps.length - 1);
 
+      // Redirect to /dashboard as requested in Fix 1
       setTimeout(() => {
-        router.push('/resume');
+        router.push('/dashboard');
       }, 700);
     } catch (err: any) {
-      console.warn('Generation notice, activating fallback:', err);
+      console.error('Generation error:', err);
       clearInterval(progressInterval);
-      
-      // Still mark completed and advance so candidate is never trapped
-      localStorage.setItem('onboarding_completed', 'true');
-      setProfile((prev) => ({
-        ...prev,
-        name: onboardingData.fullName || prev.name,
-        targetRole: onboardingData.targetRole || prev.targetRole,
-        experienceLevel: onboardingData.expLevel || prev.experienceLevel,
-        strengths:
-          onboardingData.selectedSkills && onboardingData.selectedSkills.length > 0
-            ? onboardingData.selectedSkills
-            : prev.strengths,
-      }));
-
-      setTimeout(() => {
-        router.push('/resume');
-      }, 600);
+      setErrorMsg(err.message || 'Failed to synthesize Career DNA. Please verify file and retry.');
     } finally {
       setUploading(false);
     }
@@ -243,7 +204,7 @@ export default function ResumeUploadStep({
         {file ? (
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2">
-              <Badge variant="coral" size="sm">File Attached</Badge>
+              <Badge variant="coral" size="sm">PDF Attached</Badge>
               <button
                 type="button"
                 disabled={uploading}
@@ -300,7 +261,7 @@ export default function ResumeUploadStep({
         <div className="p-5 rounded-xl bg-[#181715] border border-[#cc785c]/40 space-y-3 shadow-lg animate-in fade-in">
           <div className="flex items-center gap-2 text-xs font-mono text-[#cc785c] font-bold">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Analyzing Your Career DNA with n8n Agent...</span>
+            <span>Processing Career DNA with n8n Agent Workflow...</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
@@ -340,7 +301,7 @@ export default function ResumeUploadStep({
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              <span>{file ? 'Synthesize Career DNA with Resume' : 'Synthesize Career DNA from Questionnaire'}</span>
+              <span>{file ? 'Generate My Career DNA with Resume' : 'Synthesize Career DNA from Questionnaire'}</span>
             </>
           )}
         </button>

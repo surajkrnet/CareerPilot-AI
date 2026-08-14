@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { extractTextFromBuffer } from '@/lib/pdf-parser';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 // Role-specific intelligence map to guarantee rich, relevant Career DNA synthesis
@@ -90,145 +92,193 @@ const ROLE_INTELLIGENCE: Record<
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+
+    // 1. Authenticate user session
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const rawMetadata = formData.get('metadata') as string | null;
 
     const metadata = rawMetadata ? JSON.parse(rawMetadata) : {};
     const targetRole = metadata.targetRole || metadata.domain || 'Full-Stack Development';
-    const expLevel = metadata.expLevel || '0-1 Years';
+    const expLevel = metadata.experienceLevel || metadata.expLevel || '0–1 Years';
+    const careerIntent = metadata.careerIntent || metadata.selectedGoal || 'Accelerate career growth';
+    const candidateSkills = Array.isArray(metadata.skills)
+      ? metadata.skills
+      : Array.isArray(metadata.selectedSkills)
+      ? metadata.selectedSkills
+      : [];
 
     let parsedResumeText = '';
+    let storageResumeUrl = '';
 
-    // 1. Extract text from uploaded resume PDF / DOCX / text file
+    // 2. Extract text from PDF / DOCX
     if (file && file.size > 0) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         parsedResumeText = await extractTextFromBuffer(buffer, file.name);
-      } catch (err) {
-        console.warn('Text extraction notice:', err);
+
+        // 3. Upload raw PDF to Supabase Storage bucket 'resumes' under ${user.id}/${Date.now()}-resume.pdf
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('resumes')
+          .upload(storagePath, buffer, {
+            contentType: file.type || 'application/pdf',
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(storagePath);
+          storageResumeUrl = publicUrlData?.publicUrl || storagePath;
+        } else {
+          console.warn('Supabase storage upload notice:', uploadError.message);
+        }
+      } catch (fileErr) {
+        console.warn('File processing notice:', fileErr);
       }
     }
 
-    // If no resume uploaded, create structured representation from metadata
     if (!parsedResumeText) {
       parsedResumeText = `${metadata.fullName || 'Candidate'}
 Target Role: ${targetRole}
 Experience Level: ${expLevel}
-Education: ${metadata.education || 'B.Tech / B.E.'} - ${metadata.degree || 'Computer Science'} (${metadata.gradYear || '2025'})
+Education: ${metadata.education || 'B.Tech / B.E.'} - ${metadata.degree || 'Computer Science'}
 Preferred Location: ${metadata.preferredLocation || 'Bangalore'} (${metadata.workPreference || 'Hybrid'})
 
 Technical Competencies:
-${Array.isArray(metadata.selectedSkills) ? metadata.selectedSkills.join(', ') : 'React, TypeScript, Node.js, SQL, System Design'}
+${candidateSkills.join(', ') || 'React, TypeScript, Node.js, SQL, System Design'}
 
-Career Goals:
-${metadata.selectedGoal || 'Land top-tier engineering role with high career growth.'}`;
+Career Intent:
+${careerIntent}`;
     }
 
-    // 2. Dispatch to n8n Agent Webhook if configured
+    // 4. Dispatch to n8n Career DNA Agent Webhook
+    let n8nData: any = null;
     if (process.env.N8N_WEBHOOK_CAREER_DNA) {
-      fetch(process.env.N8N_WEBHOOK_CAREER_DNA, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'career_dna_generation',
-          targetRole,
-          experienceLevel: expLevel,
-          education: metadata.education,
-          degree: metadata.degree,
-          university: metadata.university,
-          location: metadata.preferredLocation,
-          workPreference: metadata.workPreference,
-          jobType: metadata.jobType,
-          selectedSkills: metadata.selectedSkills,
-          resumeSnippet: parsedResumeText.slice(0, 4000),
-          fileUrl: metadata.fileUrl || '',
-          timestamp: new Date().toISOString(),
-        }),
-      }).catch((n8nErr) => console.warn('n8n webhook notification notice:', n8nErr.message));
+      try {
+        const n8nRes = await fetch(process.env.N8N_WEBHOOK_CAREER_DNA, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            resumeText: parsedResumeText.slice(0, 4000),
+            metadata: {
+              targetRole,
+              experienceLevel: expLevel,
+              careerIntent,
+              skills: candidateSkills,
+              education: metadata.education,
+              degree: metadata.degree,
+              university: metadata.university,
+              preferredLocation: metadata.preferredLocation,
+              workPreference: metadata.workPreference,
+              jobType: metadata.jobType,
+              resumeUrl: storageResumeUrl,
+            },
+            timestamp: new Date().toISOString(),
+          }),
+        });
+
+        if (n8nRes.ok) {
+          const contentType = n8nRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            n8nData = await n8nRes.json();
+          }
+        }
+      } catch (n8nErr: any) {
+        console.warn('n8n webhook execution notice:', n8nErr.message);
+      }
     }
 
-    // 3. Match Role Intelligence Profile
+    // 5. Synthesize structured Career DNA with dual fallback
     const roleKey =
       Object.keys(ROLE_INTELLIGENCE).find((key) => targetRole.toLowerCase().includes(key.toLowerCase())) ||
       'Full-Stack Development';
     const intelligence = ROLE_INTELLIGENCE[roleKey] || ROLE_INTELLIGENCE['Full-Stack Development'];
 
-    // Combine user selected skills with role core competencies
-    const userSelectedSkills = Array.isArray(metadata.selectedSkills) && metadata.selectedSkills.length > 0
-      ? metadata.selectedSkills
-      : intelligence.defaultStrengths;
-
+    const userSelectedSkills = candidateSkills.length > 0 ? candidateSkills : intelligence.defaultStrengths;
     const synthesizedStrengths = Array.from(new Set([...userSelectedSkills, ...intelligence.defaultStrengths])).slice(0, 8);
 
-    const synthesizedDNA = {
+    const structuredOutput = {
+      strengths: n8nData?.strengths || synthesizedStrengths,
+      areasToImprove: n8nData?.areasToImprove || n8nData?.areas_to_improve || intelligence.skillGaps,
+      currentSkills: n8nData?.currentSkills || n8nData?.current_skills || userSelectedSkills,
+      skillsToAcquire: n8nData?.skillsToAcquire || n8nData?.skills_to_acquire || intelligence.skillGaps,
+      targetRoles: n8nData?.targetRoles || n8nData?.target_roles || [targetRole],
+      recommendedActions: n8nData?.recommendedActions || n8nData?.recommended_actions || [
+        `Complete a production project in ${intelligence.skillGaps[0] || 'System Design'}.`,
+        'Run an ATS match scan on your resume to boost keyword alignment.',
+        'Rehearse STAR technical interview scenarios in the Mock Studio.',
+      ],
+      healthScore: parsedResumeText.length > 200 ? 94 : 88,
+      readinessScore: 86,
+      targetCompanies: intelligence.targetCompanies,
+      summary: n8nData?.summary || intelligence.summaryTemplate(targetRole, expLevel),
       targetRole,
       experienceLevel: expLevel,
-      education: metadata.education || 'B.Tech / B.E.',
-      degree: metadata.degree || 'Computer Science & Engineering',
-      university: metadata.university || 'Tier 1-2 University',
-      workPreference: metadata.workPreference || 'Hybrid',
-      preferredLocation: metadata.preferredLocation || 'Bangalore',
-      resumeHealthScore: parsedResumeText.length > 200 ? 94 : 88,
-      interviewReadinessScore: 86,
-      strengths: synthesizedStrengths,
-      skillGaps: intelligence.skillGaps,
-      targetCompanies: intelligence.targetCompanies,
-      summary: intelligence.summaryTemplate(targetRole, expLevel),
-      source: 'n8n-agentic-workflow',
     };
 
-    // 4. Connect to Supabase and persist into career_dna and profiles table
+    // 6. Upsert data directly into public.career_dna using server Supabase client
     try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const careerDnaPayload = {
+        user_id: user.id,
+        strengths: structuredOutput.strengths,
+        areas_to_improve: structuredOutput.areasToImprove,
+        current_skills: structuredOutput.currentSkills,
+        skills_to_acquire: structuredOutput.skillsToAcquire,
+        target_roles: structuredOutput.targetRoles,
+        recommended_actions: structuredOutput.recommendedActions,
+        raw_resume_text: parsedResumeText,
+        target_role: targetRole,
+        health_score: structuredOutput.healthScore,
+        readiness_score: structuredOutput.readinessScore,
+        summary: structuredOutput.summary,
+        target_companies: structuredOutput.targetCompanies,
+        updated_at: new Date().toISOString(),
+      };
 
-      if (user) {
-        const safePayload = {
-          user_id: user.id,
-          target_role: synthesizedDNA.targetRole,
-          health_score: synthesizedDNA.resumeHealthScore,
-          readiness_score: synthesizedDNA.interviewReadinessScore,
-          strengths: synthesizedDNA.strengths,
-          skill_gaps: synthesizedDNA.skillGaps,
-          target_companies: synthesizedDNA.targetCompanies,
-          summary: synthesizedDNA.summary,
-          updated_at: new Date().toISOString(),
-        };
+      const { error: dnaError } = await supabase
+        .from('career_dna')
+        .upsert(careerDnaPayload, { onConflict: 'user_id' });
 
-        const { error: dbError } = await supabase
-          .from('career_dna')
-          .upsert(safePayload, { onConflict: 'user_id' });
-
-        if (dbError) {
-          console.warn('career_dna upsert note:', dbError.message);
-        }
-
-        // Update profile status
-        await supabase
-          .from('profiles')
-          .update({
-            onboarding_completed: true,
-            full_name: metadata.fullName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
+      if (dnaError) {
+        console.warn('career_dna upsert note:', dnaError.message);
       }
-    } catch (dbEx) {
-      console.warn('Supabase session note:', dbEx);
+
+      // Update profiles onboarding status
+      await supabase
+        .from('profiles')
+        .update({
+          onboarding_completed: true,
+          full_name: metadata.fullName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    } catch (dbErr) {
+      console.warn('Supabase DB persistence note:', dbErr);
     }
 
     return NextResponse.json({
       success: true,
-      profile: synthesizedDNA,
+      data: structuredOutput,
+      profile: structuredOutput,
       resumeText: parsedResumeText,
-      fileName: file?.name || 'questionnaire-resume.txt',
+      resumeUrl: storageResumeUrl,
+      fileName: file?.name || 'resume.pdf',
     });
   } catch (error: any) {
-    console.error('Career DNA generation error:', error);
+    console.error('Career DNA generate error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal Server Error' },
       { status: 500 }

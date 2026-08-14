@@ -41,12 +41,24 @@ export interface DashboardViewProps {
     readiness_score?: number;
     strengths?: string[];
     skill_gaps?: string[];
+    areas_to_improve?: string[];
     current_skills?: string[];
+    skills_to_acquire?: string[];
+    target_roles?: string[];
+    recommended_actions?: string[];
     summary?: string;
     education?: string;
     preferred_location?: string;
     work_preference?: string;
   } | null;
+  resumeScansData?: Array<{
+    id?: string;
+    ats_score?: number;
+    missing_skills?: string[];
+    feedback_summary?: any;
+    target_jd?: string;
+    created_at?: string;
+  }> | null;
   applicationsData?: Array<{
     id: string;
     company: string;
@@ -61,6 +73,7 @@ export default function DashboardView({
   userEmail,
   userName,
   careerDnaData,
+  resumeScansData,
   applicationsData,
 }: DashboardViewProps) {
   const { profile, applications, resumeState } = useCareer();
@@ -98,8 +111,14 @@ export default function DashboardView({
   const appliedCount = currentApps.filter((a) => a.status === 'applied').length;
   const offeredCount = currentApps.filter((a) => a.status === 'offered').length || 1;
 
+  // Read latest scan from database if available
+  const latestDbScan = resumeScansData && resumeScansData.length > 0 ? resumeScansData[0] : null;
+  const latestAtsScore = latestDbScan?.ats_score || resumeState.atsScore || healthScore;
+  const latestMissingSkills = latestDbScan?.missing_skills || resumeState.missingSkills || skillGaps;
+  const latestBullet = latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] || resumeState.tailoredBulletPoints?.[0];
+
   // Has resume analysis been run?
-  const hasResumeAnalysis = resumeState.atsScore > 0 && resumeState.matchStrengths.length > 0;
+  const hasResumeAnalysis = (latestDbScan !== null) || (resumeState.atsScore > 0 && resumeState.matchStrengths.length > 0);
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
@@ -280,7 +299,7 @@ export default function DashboardView({
                   <p className="text-[11px] text-[#6c6a64]">Keyword density, formatting &amp; bullet points</p>
                 </div>
               </div>
-              <Badge variant="coral" size="sm">{healthScore}% ATS Score</Badge>
+              <Badge variant="coral" size="sm">{latestAtsScore}% ATS Score</Badge>
             </div>
 
             {hasResumeAnalysis ? (
@@ -288,23 +307,23 @@ export default function DashboardView({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
                     <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Match Strengths</span>
-                    <p className="text-xs text-[#5db872] font-semibold">{resumeState.matchStrengths?.length || 3} Core Areas</p>
+                    <p className="text-xs text-[#5db872] font-semibold">{strengths?.length || 3} Core Areas</p>
                   </div>
                   <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
                     <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Missing Keywords</span>
-                    <p className="text-xs text-[#e8a55a] font-semibold">{resumeState.missingSkills?.length || 2} Keyword Gaps</p>
+                    <p className="text-xs text-[#e8a55a] font-semibold">{latestMissingSkills?.length || 2} Keyword Gaps</p>
                   </div>
                 </div>
 
                 {/* Sample Tailored Bullet */}
-                {resumeState.tailoredBulletPoints?.[0] && (
+                {latestBullet && (
                   <div className="p-3 bg-[#181715] rounded-lg border border-[#cc785c]/30 space-y-1.5">
                     <span className="text-[10px] font-mono text-[#cc785c] uppercase font-bold flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       <span>Optimized Active Bullet Available:</span>
                     </span>
                     <p className="text-xs text-[#faf9f5] italic font-sans leading-relaxed">
-                      &quot;{resumeState.tailoredBulletPoints[0].suggestedText}&quot;
+                      &quot;{latestBullet.suggestedText || latestBullet}&quot;
                     </p>
                   </div>
                 )}

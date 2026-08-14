@@ -1,22 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, UploadCloud, CheckCircle2, ArrowRight, ArrowLeft, Sparkles, FileText, Target, ShieldCheck, RefreshCw } from 'lucide-react';
+import { X, UploadCloud, CheckCircle2, ArrowRight, ArrowLeft, Sparkles, FileText, Target, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCareer } from '@/lib/career-store';
-import useRouter from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export function OnboardingWizard() {
-  const { isOnboardingOpen, setIsOnboardingOpen, onboardingStep, setOnboardingStep, profile, setProfile, switchProfile } = useCareer();
-  const [selectedRole, setSelectedRole] = useState(profile.targetRole);
-  const [selectedExp, setSelectedExp] = useState(profile.experienceLevel);
+  const router = useRouter();
+  const { isOnboardingOpen, setIsOnboardingOpen, onboardingStep, setOnboardingStep, profile, setProfile } = useCareer();
+  const [selectedRole, setSelectedRole] = useState(profile.targetRole || 'Software Engineer (Frontend / Full-Stack)');
+  const [selectedExp, setSelectedExp] = useState(profile.experienceLevel || 'Early Career (1-3 Yrs)');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatusText, setUploadStatusText] = useState('Parsing resume structure...');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOnboardingOpen) return null;
 
@@ -35,29 +37,55 @@ export function OnboardingWizard() {
     'Senior Specialist (5+ Yrs)',
   ];
 
-  const handleSimulateUpload = (persona?: 'rahul' | 'priya') => {
-    if (persona) {
-      switchProfile(persona);
-    }
+  const handleRealUpload = async () => {
     setIsUploading(true);
-    setUploadProgress(15);
-    setUploadStatusText('Extracting work history & education...');
+    setErrorMessage(null);
 
-    setTimeout(() => {
-      setUploadProgress(50);
-      setUploadStatusText('Synthesizing core competencies & skill gaps...');
-    }, 700);
+    try {
+      const formData = new FormData();
+      if (uploadedFile) {
+        formData.append('file', uploadedFile);
+      }
+      formData.append(
+        'metadata',
+        JSON.stringify({
+          targetRole: selectedRole,
+          experienceLevel: selectedExp,
+          careerIntent: 'Accelerate tech career growth',
+          skills: profile.strengths,
+        })
+      );
 
-    setTimeout(() => {
-      setUploadProgress(85);
-      setUploadStatusText('Calculating ATS compatibility index...');
-    }, 1400);
+      const res = await fetch('/api/career-dna/generate', {
+        method: 'POST',
+        body: formData,
+      });
 
-    setTimeout(() => {
-      setUploadProgress(100);
+      if (!res.ok) {
+        throw new Error('Career DNA generation failed. Please try again.');
+      }
+
+      const result = await res.json();
+      if (result.success && result.profile) {
+        setProfile((prev) => ({
+          ...prev,
+          targetRole: result.profile.targetRole || selectedRole,
+          experienceLevel: result.profile.experienceLevel || selectedExp,
+          resumeHealthScore: result.profile.healthScore || result.profile.resumeHealthScore || 92,
+          interviewReadinessScore: result.profile.readinessScore || 86,
+          strengths: result.profile.strengths || prev.strengths,
+          skillGaps: result.profile.areasToImprove || result.profile.skillGaps || prev.skillGaps,
+        }));
+        
+        localStorage.setItem('onboarding_completed', 'true');
+        setOnboardingStep(3);
+      }
+    } catch (err: any) {
+      console.warn('Upload error:', err);
+      setErrorMessage(err.message || 'Failed to process resume. Please try again.');
+    } finally {
       setIsUploading(false);
-      setOnboardingStep(3);
-    }, 2100);
+    }
   };
 
   const handleAddStrength = () => {
@@ -121,6 +149,13 @@ export function OnboardingWizard() {
 
           {/* Modal Content Body */}
           <div className="p-6 sm:p-8">
+            {errorMessage && (
+              <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             {/* STEP 1: CAREER INTENT & TARGET ROLE */}
             {onboardingStep === 1 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -193,7 +228,7 @@ export function OnboardingWizard() {
               </motion.div>
             )}
 
-            {/* STEP 2: RESUME UPLOAD DROPZONE & PROGRESS */}
+            {/* STEP 2: REAL RESUME UPLOAD DROPZONE */}
             {onboardingStep === 2 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                 <div>
@@ -203,51 +238,58 @@ export function OnboardingWizard() {
                   </p>
                 </div>
 
-                {isUploading ? (
-                  <div className="p-8 rounded-lg bg-[#1f1e1b] border border-white/10 text-center space-y-4">
-                    <div className="w-12 h-12 rounded-full bg-[#181715] text-[#cc785c] flex items-center justify-center mx-auto animate-spin">
-                      <RefreshCw className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-[#faf9f5]">{uploadStatusText}</h4>
-                      <p className="text-xs text-[#6c6a64] mt-1">Analyzing skill density, experience chronology, and impact metrics</p>
-                    </div>
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  disabled={isUploading}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      setUploadedFile(e.target.files[0]);
+                      setErrorMessage(null);
+                    }
+                  }}
+                  className="hidden"
+                />
 
-                    <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-                      <motion.div
-                        className="bg-[#cc785c] h-full rounded-full"
-                        animate={{ width: `${uploadProgress}%` }}
-                        transition={{ duration: 0.5 }}
-                      />
-                    </div>
+                {/* Drag and Drop Zone */}
+                <div
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed ${
+                    uploadedFile ? 'border-[#cc785c] bg-[#1f1e1b]' : 'border-[#cc785c]/40 hover:border-[#cc785c] bg-[#1f1e1b]/40 hover:bg-[#1f1e1b]'
+                  } p-8 sm:p-10 rounded-lg text-center cursor-pointer transition-all group`}
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#252320] border border-white/10 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    {uploadedFile ? <FileText className="w-6 h-6 text-[#cc785c]" /> : <UploadCloud className="w-6 h-6 text-[#cc785c]" />}
                   </div>
-                ) : (
-                  <>
-                    {/* Drag and Drop Zone */}
-                    <div
-                      onClick={() => handleSimulateUpload()}
-                      className="border-2 border-dashed border-[#cc785c]/40 hover:border-[#cc785c] bg-[#1f1e1b]/40 hover:bg-[#1f1e1b] p-8 sm:p-10 rounded-lg text-center cursor-pointer transition-all group"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-[#252320] border border-white/10 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                        <UploadCloud className="w-6 h-6 text-[#cc785c]" />
-                      </div>
-                      <h3 className="font-medium text-[#faf9f5] text-base mb-1">Drag & drop your resume PDF here</h3>
+                  {uploadedFile ? (
+                    <div className="space-y-1">
+                      <p className="font-semibold text-sm text-[#faf9f5]">{uploadedFile.name}</p>
+                      <p className="text-xs text-[#a09d96]">{(uploadedFile.size / 1024).toFixed(1)} KB • Click to replace file</p>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-medium text-[#faf9f5] text-base mb-1">Drag &amp; drop your resume PDF here</h3>
                       <p className="text-xs text-[#6c6a64] mb-3">Supports PDF, DOCX, or Plain Text up to 10MB</p>
                       <Badge variant="coral" size="sm">Browse Files</Badge>
-                    </div>
+                    </>
+                  )}
+                </div>
 
-                    {/* Quick Demo Pre-fill options */}
-                    <div className="p-4 rounded-lg bg-[#1f1e1b]/60 border border-white/10 text-center">
-                      <p className="text-xs text-[#a09d96]">
-                        Upload your authentic resume PDF to calibrate your unique competency vector.
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                <div className="flex justify-between pt-4 border-t border-white/10">
-                  <Button variant="secondary" onClick={() => setOnboardingStep(1)}>
+                <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                  <Button variant="secondary" disabled={isUploading} onClick={() => setOnboardingStep(1)}>
                     Back
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    disabled={isUploading}
+                    onClick={handleRealUpload}
+                    icon={isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    className="bg-[#cc785c] hover:bg-[#a9583e]"
+                  >
+                    {isUploading ? 'Generating with n8n Agent...' : 'Generate My Career DNA'}
                   </Button>
                 </div>
               </motion.div>
@@ -271,7 +313,7 @@ export function OnboardingWizard() {
                 {/* Strengths Tags */}
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-[#faf9f5] uppercase tracking-wider">
-                    Extracted Strengths & Skills ({profile.strengths.length})
+                    Extracted Strengths &amp; Skills ({profile.strengths.length})
                   </label>
                   <div className="flex flex-wrap gap-2 p-3 rounded-lg bg-[#1f1e1b]/50 border border-white/10">
                     {profile.strengths.map((skill) => (
@@ -323,10 +365,11 @@ export function OnboardingWizard() {
                     iconPosition="right"
                     onClick={() => {
                       setIsOnboardingOpen(false);
-                      window.location.href = '/dashboard';
+                      router.push('/dashboard');
                     }}
+                    className="bg-[#cc785c] hover:bg-[#a9583e]"
                   >
-                    Open Career Workspace
+                    Open Dashboard ↗
                   </Button>
                 </div>
               </motion.div>

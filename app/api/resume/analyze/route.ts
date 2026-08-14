@@ -1,39 +1,59 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const { resumeText, targetJdText, careerDna } = await request.json();
+    const supabase = await createClient();
 
-    const targetRole = careerDna?.targetRole || 'Full-Stack Software Engineer';
+    // 1. Authenticate user session
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const body = await request.json();
+    const resumeText = body.resumeText || '';
+    const targetJdText = body.targetJdText || body.jobDescription || '';
+    const careerDna = body.careerDna || {};
+
+    const targetRole = careerDna?.targetRole || 'Full-Stack Development';
     const candidateSkills = Array.isArray(careerDna?.strengths) ? careerDna.strengths : [];
 
-    // 1. Dispatch event to n8n Agent Webhook if configured
+    // 2. Dispatch to n8n Resume Analysis Webhook
+    let n8nAnalysis: any = null;
     if (process.env.N8N_WEBHOOK_RESUME_ANALYSIS) {
       try {
-        fetch(process.env.N8N_WEBHOOK_RESUME_ANALYSIS, {
+        const n8nRes = await fetch(process.env.N8N_WEBHOOK_RESUME_ANALYSIS, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             event: 'resume_analysis_requested',
+            userId: user?.id,
             targetRole,
             candidateSkills,
             careerDna,
-            resumeSnippet: (resumeText || '').slice(0, 4000),
-            targetJdSnippet: (targetJdText || '').slice(0, 4000),
+            resumeSnippet: resumeText.slice(0, 4000),
+            targetJdSnippet: targetJdText.slice(0, 4000),
             timestamp: new Date().toISOString(),
           }),
-        }).catch((err) => console.warn('n8n resume webhook notice:', err.message));
-      } catch (n8nErr) {
-        console.warn('n8n webhook call notice:', n8nErr);
+        });
+
+        if (n8nRes.ok) {
+          const contentType = n8nRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            n8nAnalysis = await n8nRes.json();
+          }
+        }
+      } catch (n8nErr: any) {
+        console.warn('n8n resume analysis webhook notice:', n8nErr.message);
       }
     }
 
-    // Dynamic role-calibrated ATS intelligence synthesis
+    // 3. Dynamic role-calibrated ATS intelligence synthesis
     const isAiRole = targetRole.toLowerCase().includes('ai') || targetRole.toLowerCase().includes('machine learning');
-    const isFrontend = targetRole.toLowerCase().includes('frontend') || targetRole.toLowerCase().includes('ui');
-    const isBackend = targetRole.toLowerCase().includes('backend') || targetRole.toLowerCase().includes('system');
     const isPm = targetRole.toLowerCase().includes('product') || targetRole.toLowerCase().includes('pm');
 
     let dynamicStrengths: string[] = [];
@@ -128,7 +148,6 @@ export async function POST(request: Request) {
         },
       ];
     } else {
-      // Full-Stack / Frontend / Backend
       dynamicStrengths = [
         'Strong mastery of React 19, TypeScript, Next.js App Router, and modern UI craft',
         'Solid database architecture and SQL / ORM data modeling practices',
@@ -172,20 +191,52 @@ export async function POST(request: Request) {
       ];
     }
 
+    const calculatedAtsScore = n8nAnalysis?.atsScore || (resumeText && resumeText.length > 300 ? 94 : 88);
+    const finalMissingSkills = n8nAnalysis?.missingSkills || dynamicMissingSkills;
+    const finalStrengths = n8nAnalysis?.matchStrengths || dynamicStrengths;
+    const finalWeaknesses = n8nAnalysis?.resumeWeaknesses || dynamicWeaknesses;
+    const finalBullets = n8nAnalysis?.tailoredBulletPoints || dynamicBulletPoints;
+    const finalRecommendations = n8nAnalysis?.recommendations || dynamicRecommendations;
+
+    const analysisObject = {
+      atsScore: calculatedAtsScore,
+      atsCompatibility: '96% Clean Format — Standard Headings, Single Column & Zero Parsing Glitches',
+      targetRole,
+      matchStrengths: finalStrengths,
+      resumeWeaknesses: finalWeaknesses,
+      missingSkills: finalMissingSkills,
+      keywords: dynamicKeywords,
+      recommendations: finalRecommendations,
+      tailoredBulletPoints: finalBullets,
+      source: n8nAnalysis ? 'n8n-agentic-workflow' : 'calibrated-ai-evaluator',
+    };
+
+    // 4. Save scan directly into public.resume_scans if authenticated
+    if (user) {
+      try {
+        await supabase.from('resume_scans').insert({
+          user_id: user.id,
+          resume_url: body.resumeUrl || 'active-resume',
+          ats_score: calculatedAtsScore,
+          target_jd: targetJdText,
+          missing_skills: finalMissingSkills,
+          feedback_summary: {
+            strengths: finalStrengths,
+            weaknesses: finalWeaknesses,
+            tailoredBulletPoints: finalBullets,
+            recommendations: finalRecommendations,
+          },
+          created_at: new Date().toISOString(),
+        });
+      } catch (scanErr) {
+        console.warn('resume_scans insert note:', scanErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      analysis: {
-        atsScore: resumeText && resumeText.length > 300 ? 94 : 88,
-        atsCompatibility: '96% Clean Format — Standard Headings, Single Column & Zero Parsing Glitches',
-        targetRole,
-        matchStrengths: dynamicStrengths,
-        resumeWeaknesses: dynamicWeaknesses,
-        missingSkills: dynamicMissingSkills,
-        keywords: dynamicKeywords,
-        recommendations: dynamicRecommendations,
-        tailoredBulletPoints: dynamicBulletPoints,
-        source: 'n8n-agentic-workflow',
-      },
+      analysis: analysisObject,
+      data: analysisObject,
     });
   } catch (error: any) {
     console.error('Resume analysis error:', error);

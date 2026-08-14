@@ -3,40 +3,41 @@ import { redirect } from 'next/navigation';
 import DashboardView from '@/components/dashboard-view';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function DashboardPage() {
-  let user = null;
-  let profile = null;
-  let careerDna = null;
-  let applications = null;
+  const supabase = await createClient();
 
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-    user = data?.user ?? null;
+  // 1. Authenticate user session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (user) {
-      const [{ data: pData }, { data: cData }, { data: aData }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-        supabase.from('career_dna').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('applications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      ]);
-      profile = pData;
-      careerDna = cData;
-      applications = aData;
-    }
-  } catch (err) {
-    console.warn('Dashboard server session notice:', err);
+  if (!user) {
+    redirect('/auth');
   }
 
-  // If user is unauthenticated on server, still render dashboard view gracefully
-  // (client side will also check Supabase / careerStore local cache)
+  // 2. Fetch user profile, Career DNA, resume scans, and applications in parallel
+  const [{ data: profile }, { data: careerDna }, { data: resumeScans }, { data: applications }] =
+    await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+      supabase.from('career_dna').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('resume_scans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+      supabase.from('applications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ]);
+
+  // 3. If Career DNA is missing for the authenticated user, guide candidate to onboarding
+  if (!careerDna) {
+    redirect('/onboarding');
+  }
+
   return (
     <div className="min-h-screen bg-[#181715] flex flex-col justify-between">
       <DashboardView
-        userEmail={user?.email}
+        userEmail={user.email}
         userName={profile?.full_name || profile?.name}
         careerDnaData={careerDna}
+        resumeScansData={resumeScans}
         applicationsData={applications}
       />
     </div>
