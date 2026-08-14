@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-serif: 'Cormorant Garamond', 'Tiempos Headline', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --canvas: #faf9f5;
+    --almost-black: #181715;
+    --dark-grey: #6c6a64;
+    --peach-cream: #efe9de;
+    --sunset-orange: #cc785c;
+    --coral-red: #cc785c;
+    --hairline: #e6dfd8;
+  }
+
+  /* Lenis smooth scrolling defaults */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  .lenis.lenis-scrolling iframe {
+    pointer-events: none;
+  }
+
+  /* Tinted Cream Canvas Floor */
+  body {
+    background-color: var(--canvas);
+    color: #141413;
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Dark mode variant support */
+  .dark body,
+  body.dark-theme {
+    background-color: #181715;
+    color: #faf9f5;
+  }
+}
+
+/* Custom Serif display utility class */
+.font-display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+/* Glassmorphism nav blur utility */
+.nav-blur-cream {
+  background-color: rgba(250, 249, 245, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.nav-blur-dark {
+  background-color: rgba(24, 23, 21, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Micro-animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s infinite ease-in-out;
+}
