@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -12,6 +12,19 @@ import {
   Briefcase,
   BarChart3,
   Zap,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Lightbulb,
+  ExternalLink,
+  Target,
+  Edit3,
+  BookOpen,
+  Layers,
+  MapPin,
+  GraduationCap,
+  Clock,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,6 +42,10 @@ export interface DashboardViewProps {
     strengths?: string[];
     skill_gaps?: string[];
     current_skills?: string[];
+    summary?: string;
+    education?: string;
+    preferred_location?: string;
+    work_preference?: string;
   } | null;
   applicationsData?: Array<{
     id: string;
@@ -36,6 +53,7 @@ export interface DashboardViewProps {
     role: string;
     status: string;
     match_score?: number;
+    salary?: string;
   }> | null;
 }
 
@@ -45,26 +63,48 @@ export default function DashboardView({
   careerDnaData,
   applicationsData,
 }: DashboardViewProps) {
-  const { profile, applications, setIsOnboardingOpen, setOnboardingStep } = useCareer();
+  const { profile, applications, resumeState } = useCareer();
+  const [cachedDna, setCachedDna] = useState<any>(null);
 
-  // Merge server Supabase data with career store defaults
-  const displayName = userName || profile.name || userEmail?.split('@')[0] || 'Job Seeker';
-  const targetRole = careerDnaData?.target_role || profile.targetRole;
-  const experienceLevel = careerDnaData?.experience_level || profile.experienceLevel;
-  const healthScore = careerDnaData?.health_score || profile.resumeHealthScore;
-  const readinessScore = careerDnaData?.readiness_score || profile.interviewReadinessScore;
-  const strengths = careerDnaData?.strengths || careerDnaData?.current_skills || profile.strengths;
-  const skillGaps = careerDnaData?.skill_gaps || profile.skillGaps;
+  // Read cached Career DNA from localStorage if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('careerpilot_career_dna');
+      if (saved) {
+        try {
+          setCachedDna(JSON.parse(saved));
+        } catch (e) {
+          console.warn('Cache read note:', e);
+        }
+      }
+    }
+  }, []);
+
+  // Merge server Supabase data + local cache + store defaults
+  const displayName = userName || cachedDna?.fullName || profile.name || userEmail?.split('@')[0] || 'Suraj K R';
+  const targetRole = careerDnaData?.target_role || cachedDna?.targetRole || profile.targetRole || 'Full-Stack Development';
+  const experienceLevel = careerDnaData?.experience_level || cachedDna?.experienceLevel || profile.experienceLevel || '0–1 Years';
+  const healthScore = careerDnaData?.health_score || cachedDna?.resumeHealthScore || profile.resumeHealthScore || 92;
+  const readinessScore = careerDnaData?.readiness_score || cachedDna?.interviewReadinessScore || profile.interviewReadinessScore || 86;
+  const strengths = careerDnaData?.strengths || cachedDna?.strengths || profile.strengths;
+  const skillGaps = careerDnaData?.skill_gaps || cachedDna?.skillGaps || profile.skillGaps;
+  const summary = careerDnaData?.summary || cachedDna?.summary || profile.title || 'Technical professional with modern web and distributed architecture focus.';
+  const education = cachedDna?.education || 'B.Tech / B.E.';
+  const location = cachedDna?.preferredLocation || 'Bangalore';
+  const workPreference = cachedDna?.workPreference || 'Hybrid';
 
   const currentApps = applicationsData && applicationsData.length > 0 ? applicationsData : applications;
   const interviewingCount = currentApps.filter((a) => a.status === 'interviewing').length;
   const appliedCount = currentApps.filter((a) => a.status === 'applied').length;
   const offeredCount = currentApps.filter((a) => a.status === 'offered').length || 1;
 
+  // Has resume analysis been run?
+  const hasResumeAnalysis = resumeState.atsScore > 0 && resumeState.matchStrengths.length > 0;
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
       
-      {/* HEADER ROW: Candidate Profile Overview */}
+      {/* 1. HEADER ROW: CANDIDATE CAREER IDENTITY & QUICK STATS */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 sm:p-8 rounded-xl bg-[#252320] border border-white/10 shadow-lg">
         <div className="flex items-center gap-4">
           <img
@@ -78,40 +118,42 @@ export default function DashboardView({
               <Badge variant="coral" size="sm">{experienceLevel}</Badge>
             </div>
             <p className="text-sm font-medium text-[#a09d96]">{targetRole}</p>
-            <p className="text-xs text-[#6c6a64] flex items-center gap-2">
-              <span>Target Role: <strong className="text-[#faf9f5]">{targetRole}</strong></span>
+            <p className="text-xs text-[#6c6a64] flex flex-wrap items-center gap-2">
+              <span>Target: <strong className="text-[#faf9f5]">{targetRole}</strong></span>
               <span>•</span>
-              <span>Target Companies: <strong className="text-[#faf9f5]">{profile.targetCompanies.join(', ')}</strong></span>
+              <span>Location: <strong className="text-[#faf9f5]">{location} ({workPreference})</strong></span>
+              <span>•</span>
+              <span>Degree: <strong className="text-[#faf9f5]">{education}</strong></span>
             </p>
           </div>
         </div>
 
-        {/* Quick Stats Summary */}
+        {/* Action & Stats summary */}
         <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-4 md:pt-0">
           <div className="text-center px-4 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
-            <div className="text-2xl font-bold text-[#cc785c]">{healthScore}%</div>
-            <div className="text-[11px] text-[#6c6a64] font-medium">ATS Resume Fit</div>
+            <div className="text-2xl font-bold text-[#cc785c] font-sans">{healthScore}%</div>
+            <div className="text-[11px] text-[#6c6a64] font-medium">ATS Match</div>
           </div>
 
           <div className="text-center px-4 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
-            <div className="text-2xl font-bold text-[#5db872]">{readinessScore}%</div>
-            <div className="text-[11px] text-[#6c6a64] font-medium font-sans">Interview Ready</div>
+            <div className="text-2xl font-bold text-[#5db872] font-sans">{readinessScore}%</div>
+            <div className="text-[11px] text-[#6c6a64] font-medium">Interview Ready</div>
           </div>
 
-          <Button
-            variant="secondary-dark"
-            size="sm"
-            onClick={() => {
-              setOnboardingStep(3);
-              setIsOnboardingOpen(true);
-            }}
-          >
-            Edit DNA
-          </Button>
+          <Link href="/onboarding?edit=true">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Edit3 className="w-3.5 h-3.5" />}
+              className="border-white/20 hover:border-[#cc785c]"
+            >
+              Edit DNA
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* AI NEXT-BEST ACTION BANNER (Full-width Coral #cc785c Callout Card) */}
+      {/* 2. AI NEXT-BEST ACTION PRIORITY BANNER */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -124,15 +166,15 @@ export default function DashboardView({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider bg-[#1f1e1b]/30 px-2 py-0.5 rounded text-white font-mono">
-                ⚡ Priority AI Recommendation
+                ⚡ Priority AI Next Action
               </span>
-              <span className="text-xs text-white/90">• High Impact (+18% Offer Probability)</span>
+              <span className="text-xs text-white/90">• High Impact (+22% Interview Conversion)</span>
             </div>
             <h2 className="font-display text-2xl sm:text-3xl text-white">
-              Run a JD-Aligned Resume Scan for your target {targetRole.split('(')[0]} roles.
+              Scan &amp; Optimize Your Resume for target {targetRole} roles.
             </h2>
             <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-              Tailor your resume against your saved roles to boost your ATS match score before applying. Practicing 15 mins now boosts confidence score by 24%.
+              Your Career DNA has been synthesized. Run a live JD-aligned scan in Resume Intelligence to inject active STAR bullet points and increase your ATS pass rate.
             </p>
           </div>
         </div>
@@ -142,232 +184,245 @@ export default function DashboardView({
             <Button
               variant="secondary"
               size="md"
-              className="w-full sm:w-auto bg-[#1f1e1b] text-[#faf9f5] hover:bg-[#252320] border-none shadow-md font-semibold"
+              className="w-full sm:w-auto bg-[#1f1e1b] text-[#faf9f5] hover:bg-[#252320] border-none shadow-md font-semibold font-mono text-xs uppercase"
               icon={<ArrowRight className="w-4 h-4 text-[#cc785c]" />}
               iconPosition="right"
             >
-              Scan Resume
+              Resume Studio
             </Button>
           </Link>
-          <Link href="/interview">
+          <Link href="/jobs">
             <Button
               variant="secondary-dark"
               size="md"
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-md font-semibold"
+              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-md font-semibold font-mono text-xs uppercase"
               icon={<ArrowRight className="w-4 h-4" />}
               iconPosition="right"
             >
-              Mock Interview
+              Explore Jobs
             </Button>
           </Link>
         </div>
       </motion.div>
 
-      {/* CAPABILITY GRID: 6 INTERACTIVE MODULE CARDS */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-3xl text-[#faf9f5]">Connected Workspace Capabilities</h2>
-          <span className="text-xs text-[#6c6a64]">6 Modules Active</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* 3. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* PILLAR 1 & 2 (LEFT 7 COLS): CAREER DNA + RESUME INTELLIGENCE */}
+        <div className="lg:col-span-7 space-y-6">
           
-          {/* Card 1: Career DNA */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
+          {/* SECTION: CAREER DNA SUMMARY */}
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <Badge variant="teal" size="sm">Synthesized</Badge>
-              </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">1. Career DNA Studio</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                Profile strengths: {strengths.slice(0, 3).join(', ')}. Target gaps identified: {skillGaps.slice(0, 2).join(', ')}.
-              </p>
-
-              <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-xs text-[#6c6a64]">
-                  <span>Competency Density</span>
-                  <span className="font-semibold text-[#faf9f5]">{healthScore}%</span>
-                </div>
-                <div className="w-full bg-[#1f1e1b] h-2 rounded-full overflow-hidden border border-white/5">
-                  <div className="bg-[#cc785c] h-full rounded-full" style={{ width: `${healthScore}%` }} />
+                <div>
+                  <h3 className="font-display text-xl text-[#faf9f5]">Career DNA Profile</h3>
+                  <p className="text-[11px] text-[#6c6a64]">Synthesized by n8n Agent Workflow</p>
                 </div>
               </div>
+              <Badge variant="teal" size="sm">Active Vector</Badge>
             </div>
 
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">{strengths.length} Core Strengths</span>
-              <Link href="/dashboard" onClick={() => { setOnboardingStep(3); setIsOnboardingOpen(true); }} className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                Edit DNA Profile <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </Card>
+            <p className="text-xs text-[#a09d96] leading-relaxed bg-[#1f1e1b] p-3.5 rounded-lg border border-white/5 font-sans">
+              &quot;{summary}&quot;
+            </p>
 
-          {/* Card 2: Resume Intelligence */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <Badge variant="coral" size="sm">{healthScore}% ATS Score</Badge>
+            {/* Core Competencies Matrix */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Core Technical Strengths ({strengths.length})</span>
+                <span className="text-[#5db872] font-mono text-[11px]">✓ Verified Match</span>
               </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">2. Resume Intelligence</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                3 AI-tailored bullet points ready to copy. Target JD alignment for Linear & Stripe verified.
-              </p>
-
-              <div className="p-2.5 rounded bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#a09d96]">
-                ✓ Tailored bullet: &quot;Architected Next.js 14 App Router...&quot;
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">3 Tailored Bullets</span>
-              <Link href="/resume" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                Open Studio <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card 3: Job Intelligence */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <Cpu className="w-5 h-5" />
-                </div>
-                <Badge variant="amber" size="sm">6 Roles Mapped</Badge>
-              </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">3. Job Fit Intelligence</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                Top match: Linear (94% Fit). Missing skills: System Architecture, Docker, WebGL.
-              </p>
-
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="dark" size="sm">Linear (94%)</Badge>
-                <Badge variant="dark" size="sm">Stripe (91%)</Badge>
-                <Badge variant="dark" size="sm">Vercel (89%)</Badge>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">4 High Alignment</span>
-              <Link href="/jobs" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                View Job Fit <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card 4: Mock Interview */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5" />
-                </div>
-                <Badge variant="success" size="sm">Live Session Ready</Badge>
-              </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">4. Mock Interview Agent</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                Live interviewer simulator active for Linear (Frontend Engineer). Real-time STAR score feedback.
-              </p>
-
-              <div className="p-2.5 rounded bg-[#181715] text-white text-xs space-y-1 font-mono">
-                <div className="flex justify-between text-[#a09d96]">
-                  <span>Confidence: <strong className="text-emerald-400">89%</strong></span>
-                  <span>Accuracy: <strong className="text-emerald-400">92%</strong></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">STAR Feedback</span>
-              <Link href="/interview" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                Launch Studio <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card 5: Progress Analytics */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5" />
-                </div>
-                <Badge variant="teal" size="sm">+14% Growth</Badge>
-              </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">5. Career Progress Stats</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                Weekly application pipeline velocity: 3 applications, 2 interview rounds active, 1 job offer extended.
-              </p>
-
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-[#1f1e1b] p-2 rounded border border-white/10">
-                  <div className="font-bold text-[#faf9f5] text-sm">{interviewingCount}</div>
-                  <div className="text-[10px] text-[#6c6a64]">Interviewing</div>
-                </div>
-                <div className="bg-[#1f1e1b] p-2 rounded border border-white/10">
-                  <div className="font-bold text-[#faf9f5] text-sm">{appliedCount}</div>
-                  <div className="text-[10px] text-[#6c6a64]">Applied</div>
-                </div>
-                <div className="bg-[#1f1e1b] p-2 rounded border border-white/10">
-                  <div className="font-bold text-[#5db872] text-sm">{offeredCount}</div>
-                  <div className="text-[10px] text-[#6c6a64]">Offered</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">Weekly Benchmark</span>
-              <Link href="/tracker" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                View Velocity <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </Card>
-
-          {/* Card 6: Application Tracker */}
-          <Card variant="dark-elevated" hoverable className="space-y-5 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
-                  <Briefcase className="w-5 h-5" />
-                </div>
-                <Badge variant="coral" size="sm">{currentApps.length} Roles</Badge>
-              </div>
-
-              <h3 className="font-display text-2xl text-[#faf9f5]">6. Application Tracker</h3>
-              <p className="text-xs text-[#a09d96] leading-relaxed">
-                Kanban pipeline managing active roles across Linear, Stripe, Vercel, Google, and Figma.
-              </p>
-
-              <div className="space-y-1 text-xs">
-                {currentApps.slice(0, 2).map((app) => (
-                  <div key={app.id} className="flex justify-between items-center bg-[#1f1e1b] p-2 rounded border border-white/10">
-                    <span className="font-medium text-[#faf9f5]">{app.company}</span>
-                    <Badge variant="teal" size="sm">{app.status}</Badge>
-                  </div>
+              <div className="flex flex-wrap gap-1.5">
+                {strengths.map((str: string) => (
+                  <Badge key={str} variant="dark" size="sm" className="bg-[#1f1e1b] border-white/10 text-xs">
+                    ✓ {str}
+                  </Badge>
                 ))}
               </div>
             </div>
 
-            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64]">Kanban Workspace</span>
-              <Link href="/tracker" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
-                Open Tracker <ArrowRight className="w-3.5 h-3.5" />
+            {/* Target Skill Gaps to Close */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#e8a55a] uppercase font-mono text-[11px]">Identified Skill Gaps ({skillGaps.length})</span>
+                <span className="text-[#e8a55a] font-mono text-[11px]">! Recommended to Learn</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {skillGaps.map((gap: string) => (
+                  <Badge key={gap} variant="amber" size="sm" className="text-xs">
+                    + {gap}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#6c6a64] font-mono">Readiness: {readinessScore}%</span>
+              <Link href="/onboarding?edit=true" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+                Edit Preferences <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </Card>
+
+          {/* SECTION: RESUME INTELLIGENCE & ATS SUMMARY */}
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl text-[#faf9f5]">Resume &amp; ATS Intelligence</h3>
+                  <p className="text-[11px] text-[#6c6a64]">Keyword density, formatting &amp; bullet points</p>
+                </div>
+              </div>
+              <Badge variant="coral" size="sm">{healthScore}% ATS Score</Badge>
+            </div>
+
+            {hasResumeAnalysis ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
+                    <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Match Strengths</span>
+                    <p className="text-xs text-[#5db872] font-semibold">{resumeState.matchStrengths?.length || 3} Core Areas</p>
+                  </div>
+                  <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
+                    <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Missing Keywords</span>
+                    <p className="text-xs text-[#e8a55a] font-semibold">{resumeState.missingSkills?.length || 2} Keyword Gaps</p>
+                  </div>
+                </div>
+
+                {/* Sample Tailored Bullet */}
+                {resumeState.tailoredBulletPoints?.[0] && (
+                  <div className="p-3 bg-[#181715] rounded-lg border border-[#cc785c]/30 space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#cc785c] uppercase font-bold flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Optimized Active Bullet Available:</span>
+                    </span>
+                    <p className="text-xs text-[#faf9f5] italic font-sans leading-relaxed">
+                      &quot;{resumeState.tailoredBulletPoints[0].suggestedText}&quot;
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-6 rounded-lg bg-[#1f1e1b] border border-white/10 text-center space-y-3">
+                <p className="text-xs text-[#a09d96]">
+                  Resume analysis ready to run against your target job posting.
+                </p>
+                <Link href="/resume">
+                  <Button variant="primary" size="sm" className="bg-[#cc785c] hover:bg-[#a9583e]">
+                    Open Resume Studio
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#6c6a64] font-mono">3 Tailored Bullet Points</span>
+              <Link href="/resume" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+                Open Resume Studio <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </Card>
 
         </div>
+
+        {/* PILLAR 3 & 4 (RIGHT 5 COLS): JOB FIT + INTERVIEWS + RECOMMENDATIONS */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* SECTION: JOB FIT OPPORTUNITIES */}
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl text-[#faf9f5]">Job Fit Matches</h3>
+                  <p className="text-[11px] text-[#6c6a64]">8 Hiring Engines Connected</p>
+                </div>
+              </div>
+              <Badge variant="teal" size="sm">India &amp; Global</Badge>
+            </div>
+
+            <div className="space-y-2">
+              {currentApps.slice(0, 3).map((app) => (
+                <div key={app.id} className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-xs text-[#faf9f5]">{app.company}</h4>
+                    <p className="text-[11px] text-[#6c6a64] truncate max-w-[180px]">{app.role}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-mono text-[#5db872] font-bold">{(app as any).match_score || (app as any).matchScore || 92}% Fit</span>
+                    <p className="text-[10px] text-[#a09d96] font-mono">{app.salary || '₹28L - ₹42L LPA'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#6c6a64] font-mono">LinkedIn, Naukri, Indeed</span>
+              <Link href="/jobs" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+                Explore All Jobs <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </Card>
+
+          {/* SECTION: CAREERPILOT AI RECOMMENDATIONS */}
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-[#cc785c]" />
+                <h3 className="font-display text-lg text-[#faf9f5]">CareerPilot Recommendations</h3>
+              </div>
+              <Badge variant="coral" size="sm">Action Items</Badge>
+            </div>
+
+            <ul className="space-y-3">
+              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
+                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#5db872]">1.</span> Target Role Alignment
+                </span>
+                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
+                  Your profile shows strong mastery in {strengths.slice(0, 2).join(' and ')}. Highlight your production projects on your resume header.
+                </p>
+              </li>
+
+              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
+                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#e8a55a]">2.</span> Close Top Skill Gap: {skillGaps[0] || 'System Architecture'}
+                </span>
+                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
+                  High-paying roles in {location} frequently test for this competency during technical rounds.
+                </p>
+              </li>
+
+              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
+                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#cc785c]">3.</span> Rehearse STAR Interview Scenarios
+                </span>
+                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
+                  Practice 15 minutes of roleplay drills in the AI Mock Studio to boost live response clarity.
+                </p>
+              </li>
+            </ul>
+
+            <div className="pt-2">
+              <Link href="/interview">
+                <Button variant="outline" size="sm" className="w-full text-xs font-mono" icon={<MessageSquare className="w-3.5 h-3.5" />}>
+                  Launch Mock Interview Simulator
+                </Button>
+              </Link>
+            </div>
+          </Card>
+
+        </div>
+
       </div>
 
     </div>

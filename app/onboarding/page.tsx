@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2,
@@ -22,6 +23,8 @@ import {
   AlertCircle,
   Loader2,
   Save,
+  ChevronDown,
+  Edit3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -30,852 +33,1109 @@ import { useCareer } from '@/lib/career-store';
 import { createClient } from '@/lib/supabase/client';
 import ResumeUploadStep from '@/components/resume-upload-step';
 
-// Dynamic skill suggestions tailored for each career track
+// ----------------------------------------------------------------------
+// PREDEFINED DROPDOWN & SELECT OPTIONS AS PER MASTER REQUIREMENTS
+// ----------------------------------------------------------------------
+
+const EDUCATION_OPTIONS = [
+  'High School',
+  'Diploma',
+  'B.Tech / B.E.',
+  'BCA',
+  'MCA',
+  'B.Sc.',
+  'M.Sc.',
+  'MBA',
+  'M.Tech',
+  'PhD',
+  'Other',
+];
+
+const EXPERIENCE_LEVEL_OPTIONS = [
+  'Student',
+  'Final-Year Student',
+  'Fresh Graduate',
+  '0–1 Years',
+  '1–3 Years',
+  '3–5 Years',
+  '5+ Years',
+  'Other',
+];
+
+const CAREER_TRACK_OPTIONS = [
+  'Software Engineering',
+  'Full-Stack Development',
+  'Frontend Development',
+  'Backend Development',
+  'AI/ML Engineering',
+  'Data Science',
+  'Data Analytics',
+  'AI Product Management',
+  'Product Management',
+  'UX/UI Design',
+  'Cybersecurity',
+  'Cloud/DevOps',
+  'Business Analysis',
+  'Digital Marketing',
+  'Sales',
+  'Finance',
+  'Consulting',
+  'Other',
+];
+
+const WORK_PREFERENCE_OPTIONS = [
+  'Remote',
+  'Hybrid',
+  'On-site',
+  'Flexible',
+  'Other',
+];
+
+const JOB_TYPE_OPTIONS = [
+  'Full-time',
+  'Part-time',
+  'Internship',
+  'Contract',
+  'Freelance',
+  'Other',
+];
+
+const PREFERRED_INDUSTRY_OPTIONS = [
+  'Technology',
+  'FinTech',
+  'HealthTech',
+  'EdTech',
+  'E-commerce',
+  'SaaS',
+  'AI',
+  'Automotive',
+  'Manufacturing',
+  'Consulting',
+  'Banking',
+  'Healthcare',
+  'Government',
+  'Media',
+  'Gaming',
+  'Other',
+];
+
+const PREFERRED_LOCATION_OPTIONS = [
+  'Bangalore',
+  'Hyderabad',
+  'Mumbai',
+  'Delhi NCR',
+  'Pune',
+  'Chennai',
+  'Kolkata',
+  'Ahmedabad',
+  'Gurgaon',
+  'Noida',
+  'Remote',
+  'Other',
+];
+
+const CAREER_GOALS = [
+  { id: 'first_job', title: 'Land My First Tech Job', desc: 'Break into high-paying technology & product roles', icon: '🎯' },
+  { id: 'switch', title: 'Switch Career Domain', desc: 'Transition seamlessly into AI, Data, or Product roles', icon: '🔄' },
+  { id: 'growth', title: 'Accelerate Career Growth', desc: 'Level up from junior to senior / lead engineer', icon: '📈' },
+  { id: 'higher_salary', title: 'Maximize Compensation', desc: 'Target top-tier ₹25L–₹50L LPA salary brackets', icon: '💰' },
+  { id: 'remote', title: 'Secure Global Remote Role', desc: 'Work internationally from anywhere with flexibility', icon: '🌍' },
+  { id: 'startup', title: 'Join High-Growth Startup', desc: 'Build 0-to-1 products with high equity ownership', icon: '🚀' },
+  { id: 'mnc', title: 'Crack Tier 1 MNC / FAANG', desc: 'System design, DSA & large-scale distributed impact', icon: '🏢' },
+  { id: 'freelancing', title: 'High-Ticket Freelancing', desc: 'Consult for international clients on high hourly rates', icon: '💻' },
+  { id: 'entrepreneur', title: 'Launch AI Startup / Product', desc: 'Master technical chops to build indie products', icon: '💡' },
+  { id: 'higher_studies', title: 'Higher Studies & Research', desc: 'Prepare portfolio for MS / M.Tech admissions', icon: '🎓' },
+];
+
+// Dynamic Track Skills Map calibrated for each career track
 const TRACK_SKILLS_MAP: Record<string, string[]> = {
-  'Software Engineer / Full-Stack': [
+  'Software Engineering': [
     'Data Structures & Algorithms',
-    'JavaScript / TypeScript',
-    'Python',
+    'System Design',
     'Java & Spring Boot',
+    'Python',
+    'TypeScript',
     'React & Next.js',
-    'Node.js & Express',
     'PostgreSQL & SQL',
     'REST & GraphQL APIs',
-    'Databases & Redis',
-    'Git & Version Control',
-    'System Design',
     'Docker & CI/CD',
+    'Git & Version Control',
+    'Redis Caching',
+    'Microservices',
   ],
-  'AI & Machine Learning Engineer': [
+  'Full-Stack Development': [
+    'React 19 & Next.js',
+    'TypeScript',
+    'Node.js & Express',
+    'PostgreSQL & Prisma',
+    'Tailwind CSS',
+    'RESTful APIs',
+    'GraphQL',
+    'MongoDB',
+    'Docker',
+    'State Management (Zustand/Redux)',
+    'Authentication & JWT',
+    'CI/CD Workflows',
+  ],
+  'Frontend Development': [
+    'React & Next.js',
+    'TypeScript',
+    'JavaScript (ES6+)',
+    'HTML5 & Modern CSS',
+    'Tailwind CSS',
+    'State Management (Zustand/Redux)',
+    'Performance Optimization & Core Web Vitals',
+    'Responsive Web Design',
+    'Testing (Jest/Playwright)',
+    'Webpack & Vite',
+  ],
+  'Backend Development': [
+    'Node.js / Express',
+    'Python (FastAPI / Django)',
+    'Java & Spring Boot',
+    'Go / Golang',
+    'PostgreSQL & MySQL',
+    'Redis & In-Memory Caches',
+    'REST & gRPC APIs',
+    'Kafka & Message Queues',
+    'Microservices Architecture',
+    'Docker & Kubernetes',
+    'Database Indexing & Sharding',
+  ],
+  'AI/ML Engineering': [
     'Python',
-    'Machine Learning',
-    'Deep Learning',
     'PyTorch & TensorFlow',
-    'NLP & Transformers',
-    'Computer Vision',
+    'Machine Learning Algorithms',
+    'Deep Learning & Neural Networks',
     'LLMs & Agentic AI',
     'LangChain & LlamaIndex',
-    'Vector DBs (Pinecone/Milvus)',
+    'Vector Databases (Pinecone/Milvus)',
+    'NLP & Transformers',
     'Model Evaluation & Fine-Tuning',
     'MLOps & Docker',
     'FastAPI Model Serving',
+    'Computer Vision',
   ],
-  'AI Product Manager': [
-    'Product Strategy',
-    'Product Discovery',
-    'User Research & Interviews',
-    'PRD Writing & Specs',
-    'AI/ML Fundamentals',
-    'LLMs & Prompt Engineering',
-    'Agentic AI Architectures',
-    'Product Analytics & Mixpanel',
-    'A/B Experimentation',
-    'GTM Strategy & Positioning',
-    'SQL & Data Exploration',
-    'Agile Sprints & Roadmaps',
+  'Data Science': [
+    'Python',
+    'R Programming',
+    'SQL & Data Warehousing',
+    'Pandas & NumPy',
+    'Statistical Modeling',
+    'Machine Learning',
+    'Deep Learning',
+    'Data Visualization (Matplotlib/Seaborn)',
+    'Tableau / PowerBI',
+    'Hypothesis Testing & A/B Tests',
+    'Predictive Modeling',
   ],
-  'Data Analyst / Data Science': [
-    'SQL (Advanced Queries & CTEs)',
-    'Excel & Advanced Modeling',
-    'Python & Pandas / NumPy',
-    'Statistics & Probability',
-    'Data Visualization',
+  'Data Analytics': [
+    'Advanced SQL (CTEs, Window Functions)',
     'Power BI',
     'Tableau',
-    'Data Cleaning & Wrangling',
-    'A/B Testing & Hypothesis Testing',
-    'Business Analytics & KPI Modeling',
+    'Excel & Financial Modeling',
+    'Python & Pandas',
+    'Data Cleaning & ETL',
+    'Business Intelligence & Dashboards',
+    'A/B Testing & KPI Metrics',
+    'Data Storytelling',
+    'Google Analytics / Mixpanel',
   ],
-  'UX/UI Designer': [
-    'UX Research & Interviews',
-    'User Flows & Information Architecture',
+  'AI Product Management': [
+    'Product Strategy',
+    'AI/ML Fundamentals',
+    'LLMs & Prompt Engineering',
+    'User Research & Interviews',
+    'PRD Writing & Technical Specs',
+    'Product Analytics (Mixpanel/Amplitude)',
+    'A/B Experimentation',
+    'GTM Positioning & Pricing',
+    'Agentic AI Workflow Architecture',
+    'Roadmap Planning & Agile',
+    'SQL & Data Exploration',
+  ],
+  'Product Management': [
+    'Product Strategy & Vision',
+    'User Discovery & Interviews',
+    'PRD Writing & Backlog Grooming',
+    'Agile & Scrum Sprints',
+    'A/B Testing & Conversion Optimization',
+    'Product Analytics & KPIs',
+    'Stakeholder Management',
+    'Go-To-Market (GTM) Strategy',
+    'Wireframing & Low-Fi Prototyping',
+    'Customer Journey Mapping',
+  ],
+  'UX/UI Design': [
+    'Figma & Design Systems',
+    'User Research & Usability Testing',
     'Wireframing & Low-Fi Mocks',
     'Interactive Prototyping',
-    'Figma Component Systems',
-    'Interaction Design & Micro-Animations',
-    'Design Systems & Tokens',
-    'Usability Testing',
-    'Visual Design & Typography',
+    'Information Architecture',
+    'Typography & Spatial Grids',
+    'Micro-Animations & Motion Design',
+    'Design Tokens & Variables',
     'Design-to-Code Handoff',
+    'WCAG Accessibility (a11y)',
   ],
-  'Backend & Distributed Systems': [
-    'Go / Golang',
-    'Python & FastAPI',
-    'Java / Kotlin & Spring Boot',
-    'PostgreSQL & Database Sharding',
-    'Redis & Distributed Caching',
-    'Kafka & Event Streaming',
-    'gRPC & Protocol Buffers',
-    'Docker & Kubernetes',
-    'Concurrency & Goroutines',
-    'Microservice Orchestration',
+  'Cybersecurity': [
+    'OWASP Top 10 & AppSec',
+    'Threat Modeling & Risk Assessment',
+    'Network Security & Firewalls',
+    'OAuth 2.0 / SAML & IAM Security',
+    'Penetration Testing & Remediation',
+    'Cloud Security (AWS/GCP Security Hub)',
+    'Cryptography & TLS/SSL',
+    'SIEM & Log Analysis',
+    'SOC2 & ISO 27001 Compliance',
+    'Vulnerability Scanning (SAST/DAST)',
   ],
-  'Cloud & DevOps / SRE': [
-    'Kubernetes (K8s) Clusters',
-    'Docker & Containers',
-    'Terraform & IaC',
+  'Cloud/DevOps': [
+    'Kubernetes (K8s) Cluster Management',
+    'Docker & Containerization',
+    'Terraform & Infrastructure as Code',
     'AWS Cloud Architecture',
     'GCP / Google Cloud',
-    'CI/CD Pipelines (GitHub Actions)',
+    'CI/CD Pipelines (GitHub Actions/GitLab)',
     'Prometheus & Grafana Observability',
-    'Linux Systems & Bash',
+    'Linux Systems & Bash Scripting',
     'ArgoCD & GitOps',
     'SRE Reliability & Incident Response',
   ],
-  'Mobile Engineer (iOS / Android)': [
-    'React Native & Expo',
-    'Swift & SwiftUI (iOS)',
-    'Kotlin & Jetpack Compose (Android)',
-    'Flutter & Dart',
-    'Mobile State Architecture',
-    'App Store & Play Store Deployment',
-    'Offline-First Data Sync',
-    'Push Notifications & Deep Linking',
-    'Mobile Performance Profiling',
-    'REST & GraphQL APIs',
+  'Business Analysis': [
+    'Requirements Gathering & BRD Writing',
+    'SQL & Database Queries',
+    'BPMN & Process Mapping',
+    'Stakeholder Communication',
+    'Tableau / Power BI',
+    'Agile User Stories & Acceptance Criteria',
+    'Financial Modeling & Cost Benefit Analysis',
+    'Gap Analysis',
   ],
-  'Data Engineer': [
-    'Advanced SQL & Query Optimization',
-    'Python & PySpark',
-    'Snowflake & BigQuery',
-    'dbt (Data Build Tool)',
-    'Apache Airflow / Dagster',
-    'Apache Spark & Distributed Compute',
-    'Data Lakehouse (Iceberg/Delta)',
-    'Kafka Real-Time Streaming',
-    'Dimensional Data Modeling',
-    'Data Governance & Quality',
+  'Digital Marketing': [
+    'SEO & Content Strategy',
+    'Google Ads & SEM',
+    'Meta / LinkedIn Ads',
+    'Growth Hacking & Funnels',
+    'Email Marketing & Automation',
+    'Google Analytics (GA4)',
+    'Copywriting & Landing Page Conversion',
+    'A/B Testing',
   ],
-  'CyberSecurity / AppSec': [
-    'OWASP Top 10 & Web App Defense',
-    'Threat Modeling & Architecture Review',
-    'OAuth 2.0 / SAML & IAM Security',
-    'Penetration Testing & Remediation',
-    'Cloud Security Posture (AWS/GCP)',
-    'Vulnerability Scanning (SAST/DAST)',
-    'Cryptography & TLS/SSL',
-    'SIEM & Incident Response',
-    'SOC2 & GDPR Compliance',
-    'Zero Trust Architecture',
+  'Sales': [
+    'B2B SaaS Sales',
+    'Enterprise Lead Generation',
+    'Cold Outreach & Email Sequences',
+    'CRM Management (Salesforce/HubSpot)',
+    'Contract Negotiation & Closing',
+    'Sales Pipeline Velocity',
+    'Discovery Calls & Demos',
   ],
-  'QA & Test Automation': [
-    'Playwright E2E Automation',
-    'Cypress Testing',
-    'Jest & Vitest Unit Suites',
-    'API Testing (Postman / Newman)',
-    'CI/CD Automated Test Gateways',
-    'Performance & Load Testing (k6)',
-    'Mobile Automation (Appium)',
-    'Visual Regression Testing',
-    'Test Strategy & QA Planning',
-    'TypeScript Test Scripts',
+  'Finance': [
+    'Financial Modeling & Valuation',
+    'Corporate Finance',
+    'Accounting & Balance Sheets',
+    'DCF & Comparable Analysis',
+    'Advanced Excel & VBA',
+    'Risk Management',
+    'Investment Analysis',
   ],
-  'Blockchain & Web3': [
-    'Solidity Smart Contracts',
-    'Ethers.js / Viem / Wagmi Hooks',
-    'Hardhat & Foundry Testing',
-    'DeFi Protocols & Tokenomics',
-    'Smart Contract Security & Audits',
-    'Rust & Solana Ecosystem',
-    'Zero-Knowledge Proofs (zk-SNARKs)',
-    'IPFS & Decentralized Storage',
-    'Web3 Wallet Authentication',
-    'Layer 2 Scaling (Arbitrum / Optimism)',
+  'Consulting': [
+    'Structured Problem Solving & MECE',
+    'Executive Presentation (Pyramid Principle)',
+    'Market Sizing & Case Frameworks',
+    'Financial Analysis',
+    'Change Management',
+    'Client Stakeholder Alignment',
+  ],
+  'Other': [
+    'Problem Solving',
+    'Communication & Leadership',
+    'Project Management',
+    'Data Analysis',
+    'Technical Execution',
+    'Strategy & Planning',
   ],
 };
 
-export default function OnboardingPage() {
+function OnboardingContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEditMode = searchParams?.get('edit') === 'true';
+
   const { profile, setProfile } = useCareer();
-  const supabase = createClient();
-
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  // 1. Personal Profile States
-  const [candidateName, setCandidateName] = useState(profile.name || 'Rahul Sharma');
-  const [currentRoleStatus, setCurrentRoleStatus] = useState('Final Year Student / Looking for Roles');
-  const [degree, setDegree] = useState('B.Tech / B.E. Computer Science');
-  const [university, setUniversity] = useState('Tier 1 / Leading Engineering Institute');
-  const [gradYear, setGradYear] = useState('2025');
-  const [expLevel, setExpLevel] = useState('0–1 years (Fresher / Early Career)');
-
-  // 2. Career Preferences States
-  const [selectedRole, setSelectedRole] = useState('Software Engineer / Full-Stack');
-  const [preferredJobRole, setPreferredJobRole] = useState('Full-Stack Software Engineer');
-  const [goalIntent, setGoalIntent] = useState('First tech job');
-  const [preferredIndustry, setPreferredIndustry] = useState('AI / B2B SaaS & High-Growth Tech');
-  const [preferredLocation, setPreferredLocation] = useState('Bengaluru / Remote');
-  const [workPreference, setWorkPreference] = useState('Hybrid / Remote-First');
-  const [preferredCompanySize, setPreferredCompanySize] = useState('High-Growth Tech Startups & Product Unicorns');
-  const [expectedSalary, setExpectedSalary] = useState('₹18L - ₹28L LPA');
-  const [noticePeriod, setNoticePeriod] = useState('Immediate / Available in 30 Days');
-
-  // 3. Dynamic Skills & Custom Skills States
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([
-    'React & Next.js',
-    'JavaScript / TypeScript',
-    'Node.js & Express',
-    'PostgreSQL & SQL',
-    'Data Structures & Algorithms',
-  ]);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [customSkillInput, setCustomSkillInput] = useState('');
+  const [isSavedLocally, setIsSavedLocally] = useState(false);
+  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
 
-  const [targetTiers, setTargetTiers] = useState<string[]>([
-    'High-Growth Tech Startups (Linear, Vercel, Supabase, Razorpay)',
-    'Big Tech / FAANG (Google, Meta, Apple, Microsoft)',
-  ]);
-  const [timeline, setTimeline] = useState('Actively Interviewing (Immediate / Next 30 Days)');
+  // Form State with structured dropdown fields
+  const [formData, setFormData] = useState({
+    // Step 1: Personal & Academic Profile
+    fullName: profile.name || '',
+    education: 'B.Tech / B.E.',
+    customEducation: '',
+    degreeMajor: 'Computer Science & Engineering',
+    university: 'National Institute of Technology / Tier 1-2 University',
+    gradYear: '2025',
+    experienceLevel: '0–1 Years',
+    customExperienceLevel: '',
+    targetCareerTrack: 'Full-Stack Development',
+    customCareerTrack: '',
+    workPreference: 'Hybrid',
+    customWorkPreference: '',
+    jobType: 'Full-time',
+    customJobType: '',
+    preferredIndustry: 'Technology',
+    customPreferredIndustry: '',
+    preferredLocation: 'Bangalore',
+    customPreferredLocation: '',
+    expectedPackage: '₹18L - ₹28L LPA',
 
-  // Restore saved state from localStorage or Supabase on mount
+    // Step 2: Goals & Dynamic Skills
+    selectedGoal: 'first_job',
+    selectedSkills: [] as string[],
+  });
+
+  // Check if user already completed onboarding
   useEffect(() => {
-    try {
-      const savedState = localStorage.getItem('careerpilot_dna_draft');
-      if (savedState) {
-        const parsed = JSON.parse(savedState);
-        if (parsed.candidateName) setCandidateName(parsed.candidateName);
-        if (parsed.selectedRole) setSelectedRole(parsed.selectedRole);
-        if (parsed.preferredJobRole) setPreferredJobRole(parsed.preferredJobRole);
-        if (parsed.degree) setDegree(parsed.degree);
-        if (parsed.university) setUniversity(parsed.university);
-        if (parsed.gradYear) setGradYear(parsed.gradYear);
-        if (parsed.expLevel) setExpLevel(parsed.expLevel);
-        if (parsed.goalIntent) setGoalIntent(parsed.goalIntent);
-        if (parsed.preferredLocation) setPreferredLocation(parsed.preferredLocation);
-        if (parsed.workPreference) setWorkPreference(parsed.workPreference);
-        if (parsed.expectedSalary) setExpectedSalary(parsed.expectedSalary);
-        if (Array.isArray(parsed.selectedSkills) && parsed.selectedSkills.length > 0) {
-          setSelectedSkills(parsed.selectedSkills);
-        }
+    const checkCompletion = async () => {
+      const isCompletedLocal = typeof window !== 'undefined' && localStorage.getItem('onboarding_completed') === 'true';
+
+      // If user has already completed onboarding and not in edit mode, route them straight to Dashboard
+      if (isCompletedLocal && !isEditMode) {
+        router.replace('/dashboard');
+        return;
       }
-    } catch (e) {
-      console.warn('Draft load notice:', e);
+
+      // Check Supabase if user exists and has career_dna
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: careerDna } = await supabase
+            .from('career_dna')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (careerDna && !isEditMode) {
+            localStorage.setItem('onboarding_completed', 'true');
+            router.replace('/dashboard');
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Onboarding check note:', err);
+      } finally {
+        setIsCheckingExisting(false);
+      }
+    };
+
+    checkCompletion();
+  }, [isEditMode, router]);
+
+  // Load saved draft or initialize skills on track change
+  useEffect(() => {
+    const saved = localStorage.getItem('careerpilot_onboarding_draft');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setFormData((prev) => ({
+          ...prev,
+          ...parsed,
+          fullName: parsed.fullName || profile.name || prev.fullName,
+        }));
+      } catch (e) {
+        console.warn('Draft parse note:', e);
+      }
     }
   }, []);
 
-  // Dynamically update suggested skills when user switches role
-  const handleRoleChange = (newRole: string) => {
-    setSelectedRole(newRole);
-    setPreferredJobRole(newRole);
-    const suggested = TRACK_SKILLS_MAP[newRole] || TRACK_SKILLS_MAP['Software Engineer / Full-Stack'];
-    const newSkills = suggested.slice(0, 5);
-    setSelectedSkills(newSkills);
+  // Update dynamic skills when career track changes if no skills selected yet
+  useEffect(() => {
+    const track = formData.targetCareerTrack;
+    const availableSkills = TRACK_SKILLS_MAP[track] || TRACK_SKILLS_MAP['Full-Stack Development'];
+    
+    // Pre-populate with first 5 skills if selectedSkills is empty
+    setFormData((prev) => {
+      if (prev.selectedSkills.length === 0) {
+        return { ...prev, selectedSkills: availableSkills.slice(0, 5) };
+      }
+      return prev;
+    });
+  }, [formData.targetCareerTrack]);
+
+  // Save draft to localStorage
+  const saveDraft = (data = formData) => {
+    localStorage.setItem('careerpilot_onboarding_draft', JSON.stringify(data));
+    setIsSavedLocally(true);
+    setTimeout(() => setIsSavedLocally(false), 2000);
   };
 
-  const roleOptions = [
-    { title: 'Software Engineer / Full-Stack', desc: 'DSA, React, Node.js, Next.js, relational databases & modern APIs' },
-    { title: 'AI & Machine Learning Engineer', desc: 'LLM agents, PyTorch, model evaluation, RAG pipelines & vector DBs' },
-    { title: 'AI Product Manager', desc: 'PRDs, product discovery, AI scoping, metrics, roadmap & GTM strategy' },
-    { title: 'Data Analyst / Data Science', desc: 'SQL, Python, Power BI, Tableau, statistics & business analytics' },
-    { title: 'UX/UI Designer', desc: 'Figma design systems, interactive prototypes, user flows & usability research' },
-    { title: 'Backend & Distributed Systems', desc: 'Microservices, Go, Python, distributed caching, Kafka & DB scaling' },
-    { title: 'Cloud & DevOps / SRE', desc: 'Kubernetes, Docker, Terraform, CI/CD pipelines, AWS/GCP & reliability' },
-    { title: 'Mobile Engineer (iOS / Android)', desc: 'React Native, Swift, Kotlin, Flutter & cross-platform apps' },
-    { title: 'Data Engineer', desc: 'ETL pipelines, Snowflake, dbt, Spark, Airflow & data lakehouse modeling' },
-    { title: 'CyberSecurity / AppSec', desc: 'OWASP Top 10, threat modeling, IAM security & penetration testing' },
-    { title: 'QA & Test Automation', desc: 'Playwright, Cypress, CI/CD test gateways & performance profiling' },
-    { title: 'Blockchain & Web3', desc: 'Solidity smart contracts, EVM, DeFi protocols & Web3 dApps' },
-  ];
-
-  const goalOptions = [
-    'First tech job',
-    'Career switch (Non-tech to Tech)',
-    'Career growth / Promotion to Senior',
-    'Higher salary & compensation boost',
-    'Remote job / Global flexibility',
-    'Startup / High-growth product unicorn',
-    'MNC / Global Enterprise',
-    'Freelancing / Contract engineering',
-    'Entrepreneurship / Building my startup',
-    'Higher studies preparation',
-  ];
-
-  const experienceOptions = [
-    'Student',
-    'Fresh Graduate',
-    '0–1 years',
-    '1–3 years',
-    '3–5 years',
-    '5+ years',
-  ];
-
-  const workPreferenceOptions = ['Remote-First', 'Hybrid (2-3 Days Office)', 'On-site'];
-
-  const tierOptions = [
-    'High-Growth Tech Startups (Linear, Vercel, Supabase, Razorpay)',
-    'Big Tech / FAANG (Google, Meta, Apple, Microsoft)',
-    'Remote-First Global Tech (Automattic, GitLab, Stripe)',
-    'AI Research & Frontier Labs (OpenAI, Anthropic, Scale AI)',
-    'Enterprise Cloud / FinTech (CRED, Postman, Datadog)',
-  ];
+  const handleTrackChange = (track: string) => {
+    const newSkills = TRACK_SKILLS_MAP[track] || TRACK_SKILLS_MAP['Other'];
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        targetCareerTrack: track,
+        // Reset skills to suggested top skills for the newly selected track
+        selectedSkills: newSkills.slice(0, 5),
+      };
+      saveDraft(updated);
+      return updated;
+    });
+  };
 
   const toggleSkill = (skill: string) => {
-    if (selectedSkills.includes(skill)) {
-      setSelectedSkills(selectedSkills.filter((s) => s !== skill));
-    } else {
-      setSelectedSkills([...selectedSkills, skill]);
-    }
+    setFormData((prev) => {
+      const exists = prev.selectedSkills.includes(skill);
+      const updatedSkills = exists
+        ? prev.selectedSkills.filter((s) => s !== skill)
+        : [...prev.selectedSkills, skill];
+      const updated = { ...prev, selectedSkills: updatedSkills };
+      saveDraft(updated);
+      return updated;
+    });
   };
 
-  const handleAddCustomSkill = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const addCustomSkill = () => {
     const trimmed = customSkillInput.trim();
-    if (trimmed && !selectedSkills.includes(trimmed)) {
-      setSelectedSkills([...selectedSkills, trimmed]);
-      setCustomSkillInput('');
+    if (!trimmed) return;
+    if (!formData.selectedSkills.includes(trimmed)) {
+      setFormData((prev) => {
+        const updated = { ...prev, selectedSkills: [...prev.selectedSkills, trimmed] };
+        saveDraft(updated);
+        return updated;
+      });
+    }
+    setCustomSkillInput('');
+  };
+
+  // Step Validation
+  const validateStep = (step: number) => {
+    const errors: Record<string, string> = {};
+
+    if (step === 1) {
+      if (!formData.fullName.trim()) errors.fullName = 'Full Name is required';
+      if (formData.education === 'Other' && !formData.customEducation.trim()) {
+        errors.customEducation = 'Please specify your education';
+      }
+      if (formData.experienceLevel === 'Other' && !formData.customExperienceLevel.trim()) {
+        errors.customExperienceLevel = 'Please specify your experience level';
+      }
+      if (formData.targetCareerTrack === 'Other' && !formData.customCareerTrack.trim()) {
+        errors.customCareerTrack = 'Please specify your target career track';
+      }
+      if (formData.preferredLocation === 'Other' && !formData.customPreferredLocation.trim()) {
+        errors.customPreferredLocation = 'Please specify your location';
+      }
+    }
+
+    if (step === 2) {
+      if (formData.selectedSkills.length < 2) {
+        errors.selectedSkills = 'Please select at least 2 core skills or competencies';
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      saveDraft();
+      setCurrentStep((prev) => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const toggleTier = (tier: string) => {
-    if (targetTiers.includes(tier)) {
-      setTargetTiers(targetTiers.filter((t) => t !== tier));
-    } else {
-      setTargetTiers([...targetTiers, tier]);
-    }
-  };
-
-  const currentTrackSuggestions = TRACK_SKILLS_MAP[selectedRole] || TRACK_SKILLS_MAP['Software Engineer / Full-Stack'];
-
-  const onboardingData = {
-    candidateName,
-    currentRoleStatus,
-    goalIntent,
-    targetRole: preferredJobRole || selectedRole,
-    domain: selectedRole,
-    selectedSkills,
-    degree,
-    university,
-    gradYear,
-    expLevel,
-    preferredIndustry,
-    preferredLocation,
-    workPreference,
-    preferredCompanySize,
-    expectedSalary,
-    noticePeriod,
-    targetTiers,
-    timeline,
-  };
-
-  // Step 1 Validation & Progression
-  const handleProceedToStep2 = () => {
-    setValidationError(null);
-    if (!candidateName.trim()) {
-      setValidationError('Please enter your full name.');
-      return;
-    }
-    if (!degree.trim()) {
-      setValidationError('Please specify your degree or education background.');
-      return;
-    }
-
-    // Save draft
-    try {
-      localStorage.setItem('careerpilot_dna_draft', JSON.stringify(onboardingData));
-    } catch (e) {}
-
-    setStep(2);
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Step 2 Validation & Progression
-  const handleProceedToStep3 = () => {
-    setValidationError(null);
-    if (selectedSkills.length < 2) {
-      setValidationError('Please select or add at least 2 technical strengths.');
-      return;
-    }
+  // Get effective values (handling 'Other')
+  const effectiveEducation = formData.education === 'Other' ? formData.customEducation : formData.education;
+  const effectiveExperience = formData.experienceLevel === 'Other' ? formData.customExperienceLevel : formData.experienceLevel;
+  const effectiveTrack = formData.targetCareerTrack === 'Other' ? formData.customCareerTrack : formData.targetCareerTrack;
+  const effectiveLocation = formData.preferredLocation === 'Other' ? formData.customPreferredLocation : formData.preferredLocation;
+  const effectiveIndustry = formData.preferredIndustry === 'Other' ? formData.customPreferredIndustry : formData.preferredIndustry;
+  const effectiveWorkPreference = formData.workPreference === 'Other' ? formData.customWorkPreference : formData.workPreference;
+  const effectiveJobType = formData.jobType === 'Other' ? formData.customJobType : formData.jobType;
 
-    // Save profile to store & draft
-    setProfile((prev) => ({
-      ...prev,
-      name: candidateName,
-      targetRole: preferredJobRole || selectedRole,
-      experienceLevel: expLevel,
-      strengths: selectedSkills,
-    }));
-
-    try {
-      localStorage.setItem('careerpilot_dna_draft', JSON.stringify(onboardingData));
-    } catch (e) {}
-
-    setSaveSuccessMsg(true);
-    setTimeout(() => {
-      setSaveSuccessMsg(false);
-      setStep(3);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 600);
+  // Metadata payload for Career DNA Synthesis & n8n Agent Workflow
+  const onboardingPayload = {
+    fullName: formData.fullName,
+    education: effectiveEducation,
+    degree: formData.degreeMajor,
+    university: formData.university,
+    gradYear: formData.gradYear,
+    expLevel: effectiveExperience,
+    targetRole: effectiveTrack,
+    domain: effectiveTrack,
+    workPreference: effectiveWorkPreference,
+    jobType: effectiveJobType,
+    preferredIndustry: effectiveIndustry,
+    preferredLocation: effectiveLocation,
+    expectedPackage: formData.expectedPackage,
+    selectedGoal: formData.selectedGoal,
+    selectedSkills: formData.selectedSkills,
   };
 
+  if (isCheckingExisting) {
+    return (
+      <div className="min-h-screen bg-[#181715] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm font-mono text-[#cc785c]">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading Career DNA Profiler...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-[85vh] max-w-5xl mx-auto px-4 pt-28 pb-16 space-y-8">
+    <div className="max-w-[1000px] mx-auto px-4 sm:px-6 pt-28 pb-20 space-y-8">
       
-      {/* Header Stepper */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-6 gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="coral" size="sm">Career DNA Profiler</Badge>
-            <span className="text-[11px] font-mono text-[#5db872]">● Multi-Track Calibration</span>
-          </div>
-          <h1 className="font-display text-4xl text-[#faf9f5]">Build Your AI Career DNA</h1>
-          <p className="text-xs text-[#a09d96] mt-1">
-            Calibrate your personal background, career goals, dynamic competencies, and preferences.
-          </p>
+      {/* HEADER & STEPPER INDICATOR */}
+      <div className="space-y-4 text-center">
+        <div className="inline-flex items-center gap-2">
+          <Badge variant="coral" size="sm">
+            {isEditMode ? 'Edit Career Profile & Preferences' : 'Career DNA Profiler'}
+          </Badge>
+          {isSavedLocally && (
+            <Badge variant="success" size="sm" className="flex items-center gap-1 animate-pulse">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Draft Saved</span>
+            </Badge>
+          )}
         </div>
 
-        {/* Stepper Indicator (3 Steps) */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <h1 className="font-display text-4xl sm:text-5xl text-[#faf9f5]">
+          {isEditMode ? 'Update Your Career DNA' : 'Configure Your Career DNA'}
+        </h1>
+        <p className="text-sm text-[#a09d96] max-w-xl mx-auto">
+          {currentStep === 1 && 'Select your academic credentials, experience level, and target career direction.'}
+          {currentStep === 2 && 'Calibrate your primary career goals and technical competencies.'}
+          {currentStep === 3 && 'Upload your resume to trigger the n8n Agentic Career DNA pipeline.'}
+        </p>
+
+        {/* STEP PROGRESS BAR */}
+        <div className="flex items-center justify-center gap-3 pt-4 max-w-md mx-auto">
           {[
-            { num: 1, label: 'Profile' },
-            { num: 2, label: 'Skills & Intent' },
-            { num: 3, label: 'Resume & DNA' },
-          ].map((s) => (
-            <div key={s.num} className="flex items-center gap-1.5 sm:gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                  step === s.num
-                    ? 'bg-[#cc785c] text-white shadow-lg ring-2 ring-[#cc785c]/40'
-                    : step > s.num
-                    ? 'bg-[#5db872] text-white'
-                    : 'bg-[#252320] text-[#6c6a64]'
-                }`}
-              >
-                {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
+            { num: 1, label: 'Profile & Direction' },
+            { num: 2, label: 'Goals & Competencies' },
+            { num: 3, label: 'Resume & Agent' },
+          ].map((step) => {
+            const isCompleted = currentStep > step.num;
+            const isCurrent = currentStep === step.num;
+            return (
+              <div key={step.num} className="flex-1 flex flex-col items-center gap-1.5">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-bold transition-all ${
+                    isCompleted
+                      ? 'bg-[#5db872] text-[#181715]'
+                      : isCurrent
+                      ? 'bg-[#cc785c] text-white shadow-lg ring-4 ring-[#cc785c]/20'
+                      : 'bg-[#252320] text-[#6c6a64] border border-white/10'
+                  }`}
+                >
+                  {isCompleted ? '✓' : step.num}
+                </div>
+                <span className={`text-[11px] font-mono ${isCurrent ? 'text-[#faf9f5] font-semibold' : 'text-[#6c6a64]'}`}>
+                  {step.label}
+                </span>
               </div>
-              <span className={`text-[11px] font-mono uppercase tracking-wider hidden sm:inline ${step === s.num ? 'text-[#faf9f5] font-bold' : 'text-[#6c6a64]'}`}>
-                {s.label}
-              </span>
-              {s.num < 3 && <div className="w-6 sm:w-8 h-px bg-white/10" />}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {validationError && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{validationError}</span>
-        </div>
-      )}
-
-      <AnimatePresence mode="wait">
+      {/* FORM CARD CONTAINER */}
+      <Card variant="dark-elevated" className="p-6 sm:p-10 border-white/10 shadow-2xl bg-[#252320]">
         
-        {/* ══════════════════════════════════════════════════════
-            STEP 1: PERSONAL PROFILE & CAREER PREFERENCES
-           ══════════════════════════════════════════════════════ */}
-        {step === 1 && (
+        {/* ================================================================ */}
+        {/* STEP 1: PERSONAL, ACADEMIC & STRUCTURED PREFERENCES             */}
+        {/* ================================================================ */}
+        {currentStep === 1 && (
           <motion.div
-            key="step1"
-            initial={{ opacity: 0, x: -15 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 15 }}
-            transition={{ duration: 0.25 }}
+            exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            <Card variant="dark-elevated" className="p-8 sm:p-10 space-y-8 shadow-xl border-white/10">
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-[#cc785c]" />
+                <span>1. Personal &amp; Career Preferences</span>
+              </h2>
+              <p className="text-xs text-[#a09d96]">
+                Select from predefined options. If your choice isn&apos;t listed, choose &quot;Other&quot; to specify manually.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* SECTION 1: PERSONAL PROFILE */}
-              <div className="space-y-4">
-                <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2 border-b border-white/10 pb-3">
-                  <User className="w-4 h-4" />
-                  <span>1. Personal &amp; Academic Background</span>
+              {/* Full Name */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-[#cc785c]" />
+                  <span>Full Name *</span>
                 </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Full Name *</label>
-                    <input
-                      type="text"
-                      value={candidateName}
-                      onChange={(e) => setCandidateName(e.target.value)}
-                      placeholder="e.g. Rahul Sharma"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Current Role / Status</label>
-                    <input
-                      type="text"
-                      value={currentRoleStatus}
-                      onChange={(e) => setCurrentRoleStatus(e.target.value)}
-                      placeholder="e.g. Final Year CS Undergrad / Junior Developer"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Degree / Major *</label>
-                    <input
-                      type="text"
-                      value={degree}
-                      onChange={(e) => setDegree(e.target.value)}
-                      placeholder="e.g. B.Tech Computer Science / MCA / BCA / Self-Taught"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">College / University</label>
-                    <input
-                      type="text"
-                      value={university}
-                      onChange={(e) => setUniversity(e.target.value)}
-                      placeholder="e.g. IIT / NIT / BITS / Anna University / VIT / BootCamp"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Graduation Year</label>
-                    <input
-                      type="text"
-                      value={gradYear}
-                      onChange={(e) => setGradYear(e.target.value)}
-                      placeholder="2025 / 2026"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Experience Level</label>
-                    <select
-                      value={expLevel}
-                      onChange={(e) => setExpLevel(e.target.value)}
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    >
-                      {experienceOptions.map((opt) => (
-                        <option key={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 2: TARGET CAREER TRACK SELECTION (12 Tracks) */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    <span>2. Target Career Track (Select Primary Track)</span>
-                  </label>
-                  <span className="text-[11px] text-[#6c6a64] font-mono">12 Tracks Available</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {roleOptions.map((role) => {
-                    const isSelected = selectedRole === role.title;
-                    return (
-                      <div
-                        key={role.title}
-                        onClick={() => handleRoleChange(role.title)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-[#1f1e1b] border-[#cc785c] text-white shadow-lg translate-x-1 ring-1 ring-[#cc785c]'
-                            : 'bg-[#252320]/60 border-white/5 text-[#a09d96] hover:border-white/20 hover:bg-[#252320]'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className={`font-display text-sm font-semibold ${isSelected ? 'text-[#faf9f5]' : 'text-[#d4d1ca]'}`}>
-                            {role.title}
-                          </h4>
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-[#cc785c] shrink-0 mt-0.5" />}
-                        </div>
-                        <p className="text-[11px] text-[#6c6a64] mt-1 font-sans leading-relaxed">{role.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SECTION 3: JOB PREFERENCES & LOCATION */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
-                <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2 border-b border-white/10 pb-3">
-                  <Briefcase className="w-4 h-4" />
-                  <span>3. Work Preferences &amp; Target Compensation</span>
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Preferred Location</label>
-                    <input
-                      type="text"
-                      value={preferredLocation}
-                      onChange={(e) => setPreferredLocation(e.target.value)}
-                      placeholder="e.g. Bengaluru / Hyderabad / Remote"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Work Mode</label>
-                    <select
-                      value={workPreference}
-                      onChange={(e) => setWorkPreference(e.target.value)}
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    >
-                      {workPreferenceOptions.map((opt) => (
-                        <option key={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Expected Package (INR LPA)</label>
-                    <input
-                      type="text"
-                      value={expectedSalary}
-                      onChange={(e) => setExpectedSalary(e.target.value)}
-                      placeholder="e.g. ₹18L - ₹28L LPA"
-                      className="w-full p-3 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 1 Continue Button */}
-              <div className="flex justify-end pt-6 border-t border-white/10">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon={<ArrowRight className="w-4 h-4" />}
-                  iconPosition="right"
-                  onClick={handleProceedToStep2}
-                  className="font-mono text-xs uppercase tracking-wider px-8 h-12 bg-[#cc785c] hover:bg-[#a9583e]"
-                >
-                  Continue to Skills &amp; Intent (Step 2) ↗
-                </Button>
-              </div>
-
-            </Card>
-          </motion.div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════
-            STEP 2: DYNAMIC SKILLS & MANUAL SKILL ENTRY & GOALS
-           ══════════════════════════════════════════════════════ */}
-        {step === 2 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: -15 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 15 }}
-            transition={{ duration: 0.25 }}
-            className="space-y-8"
-          >
-            <Card variant="dark-elevated" className="p-8 sm:p-10 space-y-8 shadow-xl border-white/10">
-              
-              {/* Header with back navigation */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div>
-                  <h3 className="font-display text-2xl text-[#faf9f5]">Core Technical Strengths &amp; Career Goals</h3>
-                  <p className="text-xs text-[#a09d96]">
-                    Calibrated specifically for <strong className="text-[#cc785c]">{selectedRole}</strong>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="text-xs font-mono text-[#cc785c] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Profile</span>
-                </button>
-              </div>
-
-              {/* SECTION A: PRIMARY CAREER GOAL INTENT (10 Goals) */}
-              <div className="space-y-4">
-                <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2 border-b border-white/10 pb-3">
-                  <Layers className="w-4 h-4" />
-                  <span>A. Primary Career Goal &amp; Intent</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {goalOptions.map((intent) => {
-                    const isSelected = goalIntent === intent;
-                    return (
-                      <div
-                        key={intent}
-                        onClick={() => setGoalIntent(intent)}
-                        className={`p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-[#1f1e1b] border-[#cc785c] text-[#faf9f5] font-semibold shadow-md ring-1 ring-[#cc785c]'
-                            : 'bg-[#252320]/60 border-white/5 text-[#a09d96] hover:border-white/20'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-[#cc785c]' : 'bg-white/20'}`} />
-                          <span>{intent}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SECTION B: DYNAMIC SKILLS & MANUAL SKILL TYPING */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2">
-                    <Code2 className="w-4 h-4" />
-                    <span>B. Core Technical Strengths ({selectedSkills.length} Selected)</span>
-                  </label>
-                  <span className="text-[11px] text-[#6c6a64] font-mono">Click chips to toggle</span>
-                </div>
-
-                {/* Track-Specific Suggested Skill Chips */}
-                <div className="flex flex-wrap gap-2">
-                  {currentTrackSuggestions.map((skill) => {
-                    const isSelected = selectedSkills.includes(skill);
-                    return (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() => toggleSkill(skill)}
-                        className={`px-3.5 py-2 rounded-lg text-xs font-mono transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#cc785c] text-white font-bold shadow-md ring-1 ring-[#cc785c]'
-                            : 'bg-[#1f1e1b] border border-white/10 text-[#a09d96] hover:text-white hover:border-white/30'
-                        }`}
-                      >
-                        {isSelected ? '✓ ' : '+ '}
-                        {skill}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Added Skills Display */}
-                {selectedSkills.filter((s) => !currentTrackSuggestions.includes(s)).length > 0 && (
-                  <div className="pt-2 space-y-1.5">
-                    <span className="text-[10px] font-mono uppercase text-[#cc785c] block">Your Custom Added Skills:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedSkills.filter((s) => !currentTrackSuggestions.includes(s)).map((skill) => (
-                        <span
-                          key={skill}
-                          className="px-3 py-1.5 rounded-lg text-xs font-mono bg-[#252320] border border-[#cc785c]/40 text-[#faf9f5] flex items-center gap-1.5"
-                        >
-                          <span>{skill}</span>
-                          <button
-                            type="button"
-                            onClick={() => toggleSkill(skill)}
-                            className="text-[#cc785c] hover:text-white cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                <input
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  placeholder="e.g. Suraj K R"
+                  className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                />
+                {validationErrors.fullName && (
+                  <p className="text-xs text-red-400">{validationErrors.fullName}</p>
                 )}
+              </div>
 
-                {/* Manual Skill Entry Input */}
-                <form onSubmit={handleAddCustomSkill} className="pt-2 flex items-center gap-2">
+              {/* Education Level (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Education / Degree Level *
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.education}
+                    onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {EDUCATION_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+                {formData.education === 'Other' && (
                   <input
                     type="text"
-                    value={customSkillInput}
-                    onChange={(e) => setCustomSkillInput(e.target.value)}
-                    placeholder="+ Add Custom Skill (e.g. Next.js 15, FastAPI, LangGraph, Redis, WebAssembly)..."
-                    className="flex-1 p-2.5 bg-[#1f1e1b] border border-white/10 rounded-lg text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                    value={formData.customEducation}
+                    onChange={(e) => setFormData({ ...formData, customEducation: e.target.value })}
+                    placeholder="Please specify education degree..."
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                   />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    size="sm"
-                    icon={<Plus className="w-3.5 h-3.5 text-[#cc785c]" />}
-                    className="text-xs h-10 px-4"
-                  >
-                    Add
-                  </Button>
-                </form>
+                )}
               </div>
 
-              {/* SECTION C: TARGET COMPANY TIERS */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
-                <label className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2 border-b border-white/10 pb-3">
-                  <Building2 className="w-4 h-4" />
-                  <span>C. Target Company Categories</span>
+              {/* Degree / Branch / Major */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Major / Field of Study
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {tierOptions.map((tier) => (
-                    <div
-                      key={tier}
-                      onClick={() => toggleTier(tier)}
-                      className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
-                        targetTiers.includes(tier)
-                          ? 'bg-[#1f1e1b] border-[#cc785c] text-[#faf9f5] font-semibold'
-                          : 'bg-[#252320]/40 border-white/5 text-[#6c6a64]'
-                      }`}
-                    >
-                      {targetTiers.includes(tier) ? '✓ ' : '+ '} {tier}
-                    </div>
-                  ))}
+                <input
+                  type="text"
+                  value={formData.degreeMajor}
+                  onChange={(e) => setFormData({ ...formData, degreeMajor: e.target.value })}
+                  placeholder="e.g. Computer Science, Information Science, ECE"
+                  className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                />
+              </div>
+
+              {/* Experience Level (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Experience Level *
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.experienceLevel}
+                    onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+                {formData.experienceLevel === 'Other' && (
+                  <input
+                    type="text"
+                    value={formData.customExperienceLevel}
+                    onChange={(e) => setFormData({ ...formData, customExperienceLevel: e.target.value })}
+                    placeholder="Please specify experience level..."
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                  />
+                )}
+              </div>
+
+              {/* Target Career Track (Dynamic Driver Dropdown) */}
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-[#cc785c]" />
+                    <span>Target Career Track (Dynamically Updates Skills) *</span>
+                  </span>
+                  <span className="text-[11px] text-[#cc785c] font-mono">18 Specializations</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.targetCareerTrack}
+                    onChange={(e) => handleTrackChange(e.target.value)}
+                    className="w-full px-4 py-3.5 rounded-lg bg-[#1f1e1b] border-2 border-[#cc785c]/60 text-sm font-semibold text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer shadow-inner"
+                  >
+                    {CAREER_TRACK_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#cc785c] absolute right-4 top-4 pointer-events-none" />
+                </div>
+                {formData.targetCareerTrack === 'Other' && (
+                  <input
+                    type="text"
+                    value={formData.customCareerTrack}
+                    onChange={(e) => setFormData({ ...formData, customCareerTrack: e.target.value })}
+                    placeholder="Please specify your custom target career track..."
+                    className="w-full mt-2 px-4 py-3 rounded-lg bg-[#181715] border border-[#cc785c] text-xs text-[#faf9f5] focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* Work Preference (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Work Preference (Mode)
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.workPreference}
+                    onChange={(e) => setFormData({ ...formData, workPreference: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {WORK_PREFERENCE_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Step 2 CTA: Save & Proceed to Resume Upload */}
-              <div className="flex items-center justify-between pt-6 border-t border-white/10">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#5db872]">
-                  {saveSuccessMsg && (
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> Profile draft saved!
-                    </span>
-                  )}
+              {/* Job Type (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Job Type
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.jobType}
+                    onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {JOB_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
                 </div>
-
-                <Button
-                  variant="primary"
-                  size="lg"
-                  icon={<ArrowRight className="w-4 h-4" />}
-                  iconPosition="right"
-                  onClick={handleProceedToStep3}
-                  className="font-mono text-xs uppercase tracking-wider px-8 h-12 bg-[#cc785c] hover:bg-[#a9583e]"
-                >
-                  Save Profile &amp; Proceed to Resume (Step 3) ↗
-                </Button>
               </div>
 
-            </Card>
+              {/* Preferred Industry (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                  Preferred Industry
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.preferredIndustry}
+                    onChange={(e) => setFormData({ ...formData, preferredIndustry: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {PREFERRED_INDUSTRY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+                {formData.preferredIndustry === 'Other' && (
+                  <input
+                    type="text"
+                    value={formData.customPreferredIndustry}
+                    onChange={(e) => setFormData({ ...formData, customPreferredIndustry: e.target.value })}
+                    placeholder="Please specify preferred industry..."
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* Preferred Location (Dropdown) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#cc785c]" />
+                  <span>Preferred Location</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.preferredLocation}
+                    onChange={(e) => setFormData({ ...formData, preferredLocation: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                  >
+                    {PREFERRED_LOCATION_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#6c6a64] absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+                {formData.preferredLocation === 'Other' && (
+                  <input
+                    type="text"
+                    value={formData.customPreferredLocation}
+                    onChange={(e) => setFormData({ ...formData, customPreferredLocation: e.target.value })}
+                    placeholder="Please specify custom location..."
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none"
+                  />
+                )}
+              </div>
+
+            </div>
+
+            {/* CTA Button */}
+            <div className="pt-6 border-t border-white/10 flex justify-end">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleNextStep}
+                icon={<ArrowRight className="w-4 h-4" />}
+                iconPosition="right"
+                className="bg-[#cc785c] hover:bg-[#a9583e] font-mono text-xs uppercase tracking-wider px-8"
+              >
+                Proceed to Goals &amp; Competencies ➔
+              </Button>
+            </div>
           </motion.div>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            STEP 3: RESUME UPLOAD & SYNTHESIS
-           ══════════════════════════════════════════════════════ */}
-        {step === 3 && (
+        {/* ================================================================ */}
+        {/* STEP 2: DYNAMIC SKILLS & PRIMARY CAREER GOALS                    */}
+        {/* ================================================================ */}
+        {currentStep === 2 && (
           <motion.div
-            key="step3"
-            initial={{ opacity: 0, x: 15 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -15 }}
-            transition={{ duration: 0.25 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
           >
-            <Card variant="dark-elevated" className="p-8 sm:p-10 space-y-8 shadow-xl border-white/10">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div className="border-b border-white/10 pb-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-display text-3xl text-[#faf9f5]">3. Resume Upload &amp; Career DNA Synthesis</h2>
+                  <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+                    <Code2 className="w-5 h-5 text-[#cc785c]" />
+                    <span>2. Dynamic Competencies &amp; Goals</span>
+                  </h2>
                   <p className="text-xs text-[#a09d96]">
-                    Upload your PDF / DOCX resume to extract verified metrics and synthesize your Career DNA.
+                    Skills dynamically tailored for: <strong className="text-[#faf9f5] font-mono">{effectiveTrack}</strong>
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  className="text-xs font-mono text-[#cc785c] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Edit Skills &amp; Intent</span>
-                </button>
+                <Badge variant="teal" size="sm">{formData.selectedSkills.length} Selected</Badge>
+              </div>
+            </div>
+
+            {/* 10 Primary Career Goals Selection Grid */}
+            <div className="space-y-3">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                Primary Career Goal
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {CAREER_GOALS.map((goal) => (
+                  <div
+                    key={goal.id}
+                    onClick={() => {
+                      setFormData((prev) => {
+                        const updated = { ...prev, selectedGoal: goal.id };
+                        saveDraft(updated);
+                        return updated;
+                      });
+                    }}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                      formData.selectedGoal === goal.id
+                        ? 'bg-[#181715] border-[#cc785c] shadow-md ring-1 ring-[#cc785c]'
+                        : 'bg-[#1f1e1b] border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="text-xl">{goal.icon}</span>
+                    <div className="space-y-0.5">
+                      <h4 className="font-semibold text-xs text-[#faf9f5]">{goal.title}</h4>
+                      <p className="text-[11px] text-[#6c6a64] leading-relaxed">{goal.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DYNAMIC SKILLS CHIPS FOR SELECTED CAREER TRACK */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-[#cc785c]" />
+                  <span>Calibrated Skills for {effectiveTrack}</span>
+                </label>
+                <span className="text-[11px] text-[#6c6a64]">Click to toggle</span>
               </div>
 
-              <ResumeUploadStep onboardingData={onboardingData} />
-            </Card>
+              <div className="flex flex-wrap gap-2">
+                {(TRACK_SKILLS_MAP[formData.targetCareerTrack] || TRACK_SKILLS_MAP['Other']).map((skill) => {
+                  const isSelected = formData.selectedSkills.includes(skill);
+                  return (
+                    <button
+                      key={skill}
+                      type="button"
+                      onClick={() => toggleSkill(skill)}
+                      className={`px-3.5 py-2 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#cc785c] text-white font-bold shadow-md'
+                          : 'bg-[#1f1e1b] text-[#a09d96] border border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      <span>{isSelected ? '✓' : '+'}</span>
+                      <span>{skill}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {validationErrors.selectedSkills && (
+                <p className="text-xs text-red-400">{validationErrors.selectedSkills}</p>
+              )}
+            </div>
+
+            {/* MANUAL CUSTOM SKILL INPUT */}
+            <div className="space-y-2 pt-2">
+              <label className="text-xs font-semibold text-[#a09d96] flex items-center gap-1.5">
+                <Edit3 className="w-3.5 h-3.5 text-[#cc785c]" />
+                <span>+ Add Custom / Additional Skills</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customSkillInput}
+                  onChange={(e) => setCustomSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomSkill();
+                    }
+                  }}
+                  placeholder="Type a skill and press Enter (e.g. Next.js, LangSmith, Tracing, AWS Lambda)"
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomSkill}
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Navigation Buttons */}
+            <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={handlePrevStep}
+                icon={<ArrowLeft className="w-4 h-4" />}
+              >
+                Back to Profile
+              </Button>
+
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleNextStep}
+                icon={<ArrowRight className="w-4 h-4" />}
+                iconPosition="right"
+                className="bg-[#cc785c] hover:bg-[#a9583e] font-mono text-xs uppercase tracking-wider px-8"
+              >
+                Proceed to Resume Upload ➔
+              </Button>
+            </div>
           </motion.div>
         )}
 
-      </AnimatePresence>
+        {/* ================================================================ */}
+        {/* STEP 3: RESUME UPLOAD & CAREER DNA AGENT SYNTHESIS               */}
+        {/* ================================================================ */}
+        {currentStep === 3 && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="border-b border-white/10 pb-4">
+              <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#cc785c]" />
+                <span>3. Resume Intelligence &amp; Career DNA Agent</span>
+              </h2>
+              <p className="text-xs text-[#a09d96]">
+                Upload your resume (PDF/DOCX) to let the n8n Agent extract your experience and generate your Career DNA.
+              </p>
+            </div>
+
+            {/* Resume Upload Step Component */}
+            <ResumeUploadStep
+              onboardingData={onboardingPayload}
+              onSynthesisStart={() => {
+                // Set onboarding completed flag in localStorage
+                localStorage.setItem('onboarding_completed', 'true');
+              }}
+            />
+
+            <div className="pt-4 border-t border-white/10 flex items-center justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrevStep}
+                icon={<ArrowLeft className="w-3.5 h-3.5" />}
+              >
+                Back to Competencies
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+      </Card>
 
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen bg-[#181715] flex items-center justify-center">
+          <div className="flex items-center gap-3 text-sm font-mono text-[#cc785c]">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading Career DNA Profiler...</span>
+          </div>
+        </div>
+      }
+    >
+      <OnboardingContent />
+    </React.Suspense>
   );
 }

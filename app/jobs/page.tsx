@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -21,6 +21,7 @@ import {
   MapPin,
   IndianRupee,
   Layers,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -30,6 +31,20 @@ import { useCareer } from '@/lib/career-store';
 export default function JobIntelligencePage() {
   const { profile, applications, setActiveInterviewCompany, setActiveInterviewRole } = useCareer();
   const [selectedJobId, setSelectedJobId] = useState(applications[0]?.id || 'app-1');
+  const [cachedDna, setCachedDna] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('careerpilot_career_dna');
+      if (saved) {
+        try {
+          setCachedDna(JSON.parse(saved));
+        } catch (e) {
+          console.warn('DNA parse note:', e);
+        }
+      }
+    }
+  }, []);
 
   const selectedApp = applications.find((a) => a.id === selectedJobId) || applications[0] || {
     id: 'app-1',
@@ -43,104 +58,97 @@ export default function JobIntelligencePage() {
     jdText: 'Looking for a Frontend Engineer with expert knowledge in Next.js, TypeScript, and design systems.',
   };
 
-  // Extract user personalized attributes from Career DNA
-  const userTargetRole = profile.targetRole || 'Full-Stack Software Engineer';
+  // Personalized parameters from Career DNA
+  const userTargetRole = cachedDna?.targetRole || profile.targetRole || 'Full-Stack Development';
+  const userLocation = cachedDna?.preferredLocation || 'Bangalore';
   const userSkills = profile.strengths.slice(0, 3).join(' • ') || 'React • TypeScript • Node.js';
-  const userLocation = 'Bengaluru / Remote';
 
   // Construct Personalized Job Platform Search URLs
-  const getPersonalizedPlatformLinks = (role: string, company?: string) => {
-    const roleQuery = encodeURIComponent(role);
-    const companyRoleQuery = encodeURIComponent(`${role} ${company || ''}`);
-    const slugRole = encodeURIComponent(role.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  const roleQuery = encodeURIComponent(userTargetRole);
+  const locationQuery = encodeURIComponent(userLocation);
+  const companyRoleQuery = encodeURIComponent(`${selectedApp.role} ${selectedApp.company}`);
+  const slugRole = encodeURIComponent(userTargetRole.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
 
-    return [
-      {
-        platform: 'LinkedIn Jobs',
-        description: 'Find premium tech and engineering opportunities matched to your Career DNA.',
-        url: `https://www.linkedin.com/jobs/search/?keywords=${companyRoleQuery}&location=India`,
-        badge: 'Tier 1 Tech & Global',
-        accentColor: 'hover:border-[#0077b5] group-hover:text-[#0077b5]',
-        tag: 'LinkedIn',
-      },
-      {
-        platform: 'Naukri.com',
-        description: "India's largest tech hiring marketplace with direct recruiter contact.",
-        url: `https://www.naukri.com/${slugRole}-jobs?k=${roleQuery}`,
-        badge: 'Top in India',
-        accentColor: 'hover:border-[#4a90e2] group-hover:text-[#4a90e2]',
-        tag: 'Naukri',
-      },
-      {
-        platform: 'Indeed India',
-        description: 'Comprehensive job index across startups, MNCs, and enterprise teams.',
-        url: `https://in.indeed.com/jobs?q=${companyRoleQuery}&l=India`,
-        badge: 'High Volume',
-        accentColor: 'hover:border-[#2164f3] group-hover:text-[#2164f3]',
-        tag: 'Indeed',
-      },
-      {
-        platform: 'Instahyre',
-        description: 'AI-driven curated tech hiring for product companies and unicorns.',
-        url: `https://www.instahyre.com/search-jobs/?query=${roleQuery}`,
-        badge: 'Product Unicorns',
-        accentColor: 'hover:border-[#10b981] group-hover:text-[#10b981]',
-        tag: 'Instahyre',
-      },
-      {
-        platform: 'Wellfound (AngelList)',
-        description: 'High-growth early-stage startups and founding engineer positions.',
-        url: `https://wellfound.com/jobs?query=${roleQuery}`,
-        badge: 'Startups & Equity',
-        accentColor: 'hover:border-[#ff4a00] group-hover:text-[#ff4a00]',
-        tag: 'Wellfound',
-      },
-      {
-        platform: 'Glassdoor India',
-        description: 'Verified salary benchmarks, company reviews, and direct openings.',
-        url: `https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${companyRoleQuery}`,
-        badge: 'Salary Insights',
-        accentColor: 'hover:border-[#0caa41] group-hover:text-[#0caa41]',
-        tag: 'Glassdoor',
-      },
-      {
-        platform: 'Internshala Tech Jobs',
-        description: 'Fast-track fresher and early career opportunities for new graduates.',
-        url: `https://internshala.com/jobs/${slugRole}-jobs/`,
-        badge: 'Freshers & Switchers',
-        accentColor: 'hover:border-[#008bd3] group-hover:text-[#008bd3]',
-        tag: 'Internshala',
-      },
-      {
-        platform: 'Foundit (Monster)',
-        description: 'Direct recruiter search and rapid application delivery pipelines.',
-        url: `https://www.foundit.in/srp/results?query=${roleQuery}`,
-        badge: 'Direct Recruiter',
-        accentColor: 'hover:border-[#6c5ce7] group-hover:text-[#6c5ce7]',
-        tag: 'Foundit',
-      },
-    ];
-  };
-
-  const platforms = getPersonalizedPlatformLinks(selectedApp.role, selectedApp.company);
+  // Quick Navigation Bar for External Platforms (Requirement 22, 23, 24)
+  const quickJobPlatforms = [
+    {
+      name: 'LinkedIn',
+      badge: 'Official Jobs',
+      url: `https://www.linkedin.com/jobs/search/?keywords=${roleQuery}&location=${locationQuery}`,
+      icon: '💼',
+      color: 'hover:border-[#0077b5] hover:text-[#0077b5]',
+    },
+    {
+      name: 'Naukri',
+      badge: 'Top in India',
+      url: `https://www.naukri.com/${slugRole}-jobs-in-${locationQuery.toLowerCase()}?k=${roleQuery}`,
+      icon: '🇮🇳',
+      color: 'hover:border-[#4a90e2] hover:text-[#4a90e2]',
+    },
+    {
+      name: 'Indeed',
+      badge: 'India & Remote',
+      url: `https://in.indeed.com/jobs?q=${roleQuery}&l=${locationQuery}`,
+      icon: '🔍',
+      color: 'hover:border-[#2164f3] hover:text-[#2164f3]',
+    },
+    {
+      name: 'foundit',
+      badge: 'Direct Recruiter',
+      url: `https://www.foundit.in/srp/results?query=${roleQuery}&locations=${locationQuery}`,
+      icon: '⚡',
+      color: 'hover:border-[#6c5ce7] hover:text-[#6c5ce7]',
+    },
+    {
+      name: 'Wellfound',
+      badge: 'Startups & Equity',
+      url: `https://wellfound.com/jobs?query=${roleQuery}`,
+      icon: '🦄',
+      color: 'hover:border-[#ff4a00] hover:text-[#ff4a00]',
+    },
+    {
+      name: 'Instahyre',
+      badge: 'Unicorns',
+      url: `https://www.instahyre.com/search-jobs/?query=${roleQuery}`,
+      icon: '🚀',
+      color: 'hover:border-[#10b981] hover:text-[#10b981]',
+    },
+    {
+      name: 'Glassdoor',
+      badge: 'Salaries & Reviews',
+      url: `https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${roleQuery}`,
+      icon: '🏢',
+      color: 'hover:border-[#0caa41] hover:text-[#0caa41]',
+    },
+    {
+      name: 'Internshala',
+      badge: 'Freshers & Switchers',
+      url: `https://internshala.com/jobs/${slugRole}-jobs/`,
+      icon: '🎓',
+      color: 'hover:border-[#008bd3] hover:text-[#008bd3]',
+    },
+  ];
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-8">
       
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
-          <Badge variant="coral" size="sm" className="mb-2">Job Fit &amp; Opportunity Hub</Badge>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Badge variant="coral" size="sm">Job Fit Opportunity Hub</Badge>
+            <Badge variant="teal" size="sm">Calibrated with Career DNA</Badge>
+          </div>
           <h1 className="font-display text-3xl sm:text-4xl text-[#faf9f5]">Personalized Job Fit &amp; Direct Search</h1>
-          <p className="text-sm text-[#6c6a64]">
-            Discover high-probability opportunities calibrated with your Career DNA and apply directly across top hiring portals.
+          <p className="text-sm text-[#a09d96]">
+            Discover opportunities calibrated with your Career DNA and apply directly across verified hiring portals.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link href="/resume">
             <Button variant="outline" size="sm" icon={<FileText className="w-4 h-4" />}>
-              Resume ATS Studio
+              Resume Studio
             </Button>
           </Link>
           <Link href="/tracker">
@@ -151,23 +159,38 @@ export default function JobIntelligencePage() {
         </div>
       </div>
 
-      {/* PERSONALIZED CAREER DNA SUMMARY BANNER */}
-      <div className="p-6 rounded-xl bg-[#252320] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#cc785c] uppercase">
-            <Sparkles className="w-4 h-4" />
-            <span>Active Career DNA Search Vector:</span>
+      {/* QUICK JOB PLATFORMS COMPACT NAVIGATION BAR (Master Requirement 22-24) */}
+      <div className="p-5 rounded-xl bg-[#252320] border border-white/10 space-y-3 shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#faf9f5] uppercase tracking-wider">
+            <Compass className="w-4 h-4 text-[#cc785c]" />
+            <span>Job Platforms Navigation — One-Click Direct Search:</span>
           </div>
-          <h3 className="font-display text-2xl text-[#faf9f5]">{userTargetRole}</h3>
-          <p className="text-xs text-[#a09d96] font-mono">
-            Calibrated Skills: <span className="text-[#5db872]">{userSkills}</span> • Location: <span className="text-white">{userLocation}</span>
-          </p>
+          <span className="text-[11px] font-mono text-[#6c6a64]">
+            Pre-filtered for <strong className="text-[#faf9f5]">{userTargetRole}</strong> in <strong className="text-[#faf9f5]">{userLocation}</strong>
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs text-[#6c6a64]">
-          <span className="px-3 py-1.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-[#faf9f5]">
-            8 Direct Job Engines Connected
-          </span>
+        {/* Clean, Compact Platform Navigation Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 pt-1">
+          {quickJobPlatforms.map((plat) => (
+            <a
+              key={plat.name}
+              href={plat.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`p-3 rounded-lg bg-[#1f1e1b] border border-white/10 transition-all flex flex-col items-center justify-center text-center gap-1 group cursor-pointer shadow-sm hover:scale-[1.02] ${plat.color}`}
+            >
+              <span className="text-base">{plat.icon}</span>
+              <span className="font-semibold text-xs text-[#faf9f5] group-hover:text-inherit font-display flex items-center gap-1">
+                {plat.name}
+                <ExternalLink className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
+              </span>
+              <span className="text-[9px] font-mono text-[#6c6a64] truncate max-w-full">
+                {plat.badge}
+              </span>
+            </a>
+          ))}
         </div>
       </div>
 
@@ -234,41 +257,66 @@ export default function JobIntelligencePage() {
               </div>
             </div>
 
-            {/* DIRECT 1-CLICK JOB SEARCH PLATFORMS */}
+            {/* Direct Platform Links for Selected Role */}
             <div className="space-y-3 bg-[#181715] p-5 rounded-xl border border-white/10">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-mono font-bold text-[#cc785c] uppercase tracking-wider flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" />
-                  <span>Direct 1-Click Search &amp; Apply Portals for {selectedApp.company} ({selectedApp.role})</span>
+                  <span>Direct Search for {selectedApp.company} ({selectedApp.role})</span>
                 </h4>
-                <span className="text-[11px] text-[#6c6a64] font-mono">India &amp; Global</span>
+                <span className="text-[11px] text-[#6c6a64] font-mono">India &amp; Remote</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {platforms.map((plat) => (
+                {[
+                  {
+                    platform: 'LinkedIn Jobs',
+                    url: `https://www.linkedin.com/jobs/search/?keywords=${companyRoleQuery}&location=${locationQuery}`,
+                    badge: 'Direct Search',
+                    desc: `Search open ${selectedApp.company} positions on LinkedIn`,
+                  },
+                  {
+                    platform: 'Naukri.com',
+                    url: `https://www.naukri.com/${slugRole}-jobs?k=${companyRoleQuery}`,
+                    badge: 'India Portal',
+                    desc: `Explore recruiters hiring for ${selectedApp.company} on Naukri`,
+                  },
+                  {
+                    platform: 'Indeed India',
+                    url: `https://in.indeed.com/jobs?q=${companyRoleQuery}&l=${locationQuery}`,
+                    badge: 'Index Search',
+                    desc: `Aggregated job postings for ${selectedApp.company}`,
+                  },
+                  {
+                    platform: 'foundit',
+                    url: `https://www.foundit.in/srp/results?query=${companyRoleQuery}`,
+                    badge: 'Direct Recruiter',
+                    desc: `Rapid direct recruiter pipelines on foundit`,
+                  },
+                ].map((item) => (
                   <a
-                    key={plat.platform}
-                    href={plat.url}
+                    key={item.platform}
+                    href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`p-3.5 rounded-xl bg-[#1f1e1b] border border-white/10 transition-all flex flex-col justify-between group cursor-pointer shadow-sm hover:shadow-md ${plat.accentColor}`}
+                    className="p-3.5 rounded-xl bg-[#1f1e1b] border border-white/10 hover:border-[#cc785c] transition-all flex flex-col justify-between group cursor-pointer shadow-sm"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-[#faf9f5] group-hover:text-inherit transition-colors font-display">
-                          {plat.platform}
+                        <span className="font-semibold text-xs text-[#faf9f5] group-hover:text-[#cc785c] transition-colors font-display">
+                          {item.platform}
                         </span>
-                        <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                        <ExternalLink className="w-3.5 h-3.5 text-[#6c6a64] group-hover:text-[#cc785c] group-hover:translate-x-0.5 transition-all" />
                       </div>
                       <p className="text-[11px] text-[#6c6a64] leading-relaxed">
-                        {plat.description}
+                        {item.desc}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
-                      <span className="text-[10px] font-mono text-[#a09d96]">{plat.badge}</span>
-                      <span className="text-[10px] font-mono text-[#cc785c] font-bold group-hover:underline">
-                        Explore Openings ↗
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5 text-[10px] font-mono">
+                      <span className="text-[#a09d96]">{item.badge}</span>
+                      <span className="text-[#cc785c] font-bold group-hover:underline">
+                        Apply Now ↗
                       </span>
                     </div>
                   </a>

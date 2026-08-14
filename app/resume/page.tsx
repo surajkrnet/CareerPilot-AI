@@ -23,6 +23,7 @@ import {
   Lightbulb,
   Tag,
   FileCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,11 +39,12 @@ export default function ResumeStudioPage() {
   const [processingStage, setProcessingStage] = useState(0);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isLoadedFromDna, setIsLoadedFromDna] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sampleJds = [
     {
-      name: 'Linear — Frontend Engineer',
+      name: 'Linear — Frontend Systems',
       text: `Linear - Frontend Engineer (Product Systems)
 Requirements:
 - 2+ years experience crafting web applications with React, Next.js (App Router), and TypeScript.
@@ -52,7 +54,7 @@ Requirements:
     },
     {
       name: 'Stripe — Software Engineer',
-      text: `Stripe - Software Engineer (Dashboard)
+      text: `Stripe - Software Engineer (Dashboard & Billing)
 Requirements:
 - Strong experience in React, TypeScript, and micro-frontend architecture.
 - Demonstrated background in reliability metrics, error boundaries, and telemetry.
@@ -76,7 +78,7 @@ Requirements:
   ];
 
   const processingSteps = [
-    'Resume uploaded to secure vault',
+    'Resume loaded from secure storage',
     'Extracting experience, projects & metrics',
     'Analyzing competencies against Career DNA',
     'Checking ATS compatibility & keyword density',
@@ -84,13 +86,48 @@ Requirements:
     'Generating actionable AI recommendations',
   ];
 
-  // Run initial analysis or when requested
+  // 1. Check if user already has a resume saved from Career DNA Onboarding
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedDna = localStorage.getItem('careerpilot_career_dna');
+      const savedResumeAnalysis = localStorage.getItem('careerpilot_resume_analysis');
+
+      if (savedResumeAnalysis) {
+        try {
+          const parsed = JSON.parse(savedResumeAnalysis);
+          setAnalysisResults(parsed);
+          setResumeState((prev) => ({
+            ...prev,
+            atsScore: parsed.atsScore || prev.atsScore,
+            matchStrengths: parsed.matchStrengths || prev.matchStrengths,
+            missingSkills: parsed.missingSkills || prev.missingSkills,
+            tailoredBulletPoints: parsed.tailoredBulletPoints || prev.tailoredBulletPoints,
+          }));
+        } catch (e) {
+          console.warn('Resume analysis parse note:', e);
+        }
+      }
+
+      if (savedDna) {
+        try {
+          const parsed = JSON.parse(savedDna);
+          if (parsed.fileName) {
+            setUploadedFileName(parsed.fileName);
+            setIsLoadedFromDna(true);
+          }
+        } catch (e) {
+          console.warn('DNA parse note:', e);
+        }
+      }
+    }
+  }, []);
+
+  // Run n8n Agent fit analysis
   const runAnalysisWorkflow = async (customJd?: string) => {
     setIsProcessing(true);
     setUploadError(null);
     setProcessingStage(0);
 
-    // Progress simulation while API runs
     const interval = setInterval(() => {
       setProcessingStage((prev) => (prev < processingSteps.length - 1 ? prev + 1 : prev));
     }, 450);
@@ -110,22 +147,25 @@ Requirements:
         }),
       });
 
-      if (!res.ok) throw new Error('n8n Analysis service unavailable');
+      if (!res.ok) throw new Error('n8n Resume Analysis service unavailable');
 
       const data = await res.json();
       if (data.analysis) {
         setAnalysisResults(data.analysis);
         setResumeState((prev) => ({
           ...prev,
-          atsScore: data.analysis.atsScore || 92,
+          atsScore: data.analysis.atsScore || 94,
           matchStrengths: data.analysis.matchStrengths || prev.matchStrengths,
           missingSkills: data.analysis.missingSkills || prev.missingSkills,
           tailoredBulletPoints: data.analysis.tailoredBulletPoints || prev.tailoredBulletPoints,
         }));
+
+        // Cache analysis in localStorage so it persists across refreshes and updates Dashboard
+        localStorage.setItem('careerpilot_resume_analysis', JSON.stringify(data.analysis));
       }
     } catch (err: any) {
       console.warn('Resume analysis notice:', err);
-      setUploadError('Workflow notification: displaying structured ATS analysis.');
+      setUploadError('Workflow notification: displaying calibrated ATS evaluation.');
     } finally {
       clearInterval(interval);
       setProcessingStage(processingSteps.length - 1);
@@ -134,13 +174,6 @@ Requirements:
       }, 500);
     }
   };
-
-  // Run initial analysis on mount if not analyzed
-  useEffect(() => {
-    if (!analysisResults) {
-      runAnalysisWorkflow();
-    }
-  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -162,6 +195,7 @@ Requirements:
     }
 
     setUploadedFileName(file.name);
+    setIsLoadedFromDna(false);
     setUploadError(null);
     setIsProcessing(true);
     setProcessingStage(0);
@@ -182,30 +216,14 @@ Requirements:
 
       if (res.ok) {
         const data = await res.json();
-        if (data.profile) {
-          const generatedResumeContent = `${profile.name || 'Candidate'}
-Target Role: ${data.profile.targetRole || profile.targetRole}
-Experience Level: ${data.profile.experienceLevel || profile.experienceLevel}
-
-Technical Strengths:
-${data.profile.strengths?.join(', ') || profile.strengths.join(', ')}
-
-Executive Summary:
-${data.profile.summary || 'Demonstrated technical execution and engineering craft.'}
-
-Key Accomplishments & Experience:
-• Architected scalable software solutions utilizing ${data.profile.strengths?.[0] || 'React'} and modern design system architecture.
-• Optimized critical API services and client workflows with ${data.profile.strengths?.[1] || 'TypeScript'}, improving throughput by 35%.
-• Spearheaded automated testing and continuous integration to achieve zero-defect production releases.`;
-
+        if (data.resumeText) {
           setResumeState((prev) => ({
             ...prev,
-            resumeText: generatedResumeContent,
+            resumeText: data.resumeText,
           }));
         }
       }
 
-      // Automatically re-run n8n fit analysis on the new resume
       await runAnalysisWorkflow();
     } catch (err) {
       console.warn('File upload parsing note:', err);
@@ -231,11 +249,11 @@ Key Accomplishments & Experience:
   };
 
   const currentAnalysis = analysisResults || {
-    atsScore: resumeState.atsScore || 92,
+    atsScore: resumeState.atsScore || 94,
     atsCompatibility: '96% Clean Format — Standard Headings, Single Column & Zero Parsing Glitches',
     matchStrengths: resumeState.matchStrengths,
     resumeWeaknesses: [
-      'Need more quantifiable performance numbers (e.g. latency reduction, RPS scale, cost saved)',
+      'Need more quantifiable performance metrics (e.g. latency reduction, RPS scale, cost saved)',
       'Add CI/CD pipeline automation details to project sections',
     ],
     missingSkills: resumeState.missingSkills,
@@ -250,7 +268,7 @@ Key Accomplishments & Experience:
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
       
-      {/* Studio Title Header */}
+      {/* Studio Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -260,9 +278,9 @@ Key Accomplishments & Experience:
               <span>n8n Agent Workflow Active</span>
             </Badge>
           </div>
-          <h1 className="font-display text-4xl sm:text-5xl text-[#faf9f5]">ATS Match &amp; Resume Intelligence</h1>
-          <p className="text-sm text-[#6c6a64]">
-            Upload your resume (PDF/DOCX), compare against target JDs, and receive live n8n agentic scoring with 1-click tailored bullet points.
+          <h1 className="font-display text-4xl sm:text-5xl text-[#faf9f5]">Resume Intelligence &amp; ATS Match</h1>
+          <p className="text-sm text-[#a09d96]">
+            Reusing your stored resume from Career DNA. Compare against target JDs and trigger live n8n agentic scoring.
           </p>
         </div>
 
@@ -289,20 +307,24 @@ Key Accomplishments & Experience:
       {/* TWO PANEL STUDIO WORKSPACE */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* LEFT PANEL: RESUME UPLOAD + TEXT EDITOR */}
+        {/* LEFT PANEL: ACTIVE RESUME (REUSING STORED ONBOARDING RESUME) */}
         <div className="lg:col-span-6 space-y-4">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-[#faf9f5] flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#cc785c]" />
               <span>Active Resume Content ({profile.name})</span>
             </label>
-            <span className="text-xs text-[#6c6a64]">PDF / DOCX / Markdown</span>
+            {isLoadedFromDna && (
+              <span className="text-[11px] font-mono text-[#5db872] flex items-center gap-1">
+                ✓ Loaded from Career DNA
+              </span>
+            )}
           </div>
 
-          {/* Quick Resume PDF Upload Drop Area */}
+          {/* Stored Resume Badge / Replace Zone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="p-4 rounded-xl bg-[#252320]/80 border border-dashed border-white/15 hover:border-[#cc785c] cursor-pointer transition-all flex items-center justify-between shadow-sm"
+            className="p-4 rounded-xl bg-[#252320]/90 border border-white/15 hover:border-[#cc785c] cursor-pointer transition-all flex items-center justify-between shadow-sm"
           >
             <input
               ref={fileInputRef}
@@ -313,30 +335,22 @@ Key Accomplishments & Experience:
             />
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[#181715] flex items-center justify-center text-[#cc785c]">
-                {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+                {isProcessing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileCheck className="w-5 h-5" />}
               </div>
               <div>
                 <p className="text-xs font-semibold text-[#faf9f5]">
-                  {uploadedFileName ? `Attached: ${uploadedFileName}` : 'Upload Resume (PDF, DOCX, TXT)'}
+                  {uploadedFileName ? `Active: ${uploadedFileName}` : 'Resume Stored from Onboarding'}
                 </p>
                 <p className="text-[11px] text-[#6c6a64]">
-                  {uploadedFileName ? 'Click to replace resume file' : 'Drag & drop or browse files up to 10MB'}
+                  Click to replace or upload a new PDF/DOCX (Max 10MB)
                 </p>
               </div>
             </div>
-            {uploadedFileName && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setUploadedFileName(null);
-                }}
-                className="p-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                title="Remove file"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-[#cc785c] hover:underline">
+                Replace File ↗
+              </span>
+            </div>
           </div>
 
           <div className="relative">
@@ -345,7 +359,7 @@ Key Accomplishments & Experience:
               value={resumeState.resumeText}
               onChange={(e) => setResumeState({ ...resumeState, resumeText: e.target.value })}
               className="w-full p-4 rounded-lg bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#faf9f5] focus:outline-none focus:border-[#cc785c] leading-relaxed resize-none shadow-inner"
-              placeholder="Paste or type resume content here..."
+              placeholder="Resume text loaded from Career DNA..."
             />
           </div>
         </div>
@@ -381,7 +395,7 @@ Key Accomplishments & Experience:
             value={resumeState.targetJdText}
             onChange={(e) => setResumeState({ ...resumeState, targetJdText: e.target.value })}
             className="w-full p-4 rounded-lg bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#faf9f5] focus:outline-none focus:border-[#cc785c] leading-relaxed resize-none shadow-inner"
-            placeholder="Paste target job posting or JD requirements here..."
+            placeholder="Paste target job posting or JD requirements here to run ATS alignment..."
           />
         </div>
 
@@ -392,7 +406,7 @@ Key Accomplishments & Experience:
         <Card variant="dark-elevated" className="p-6 border-[#cc785c]/40 bg-[#252320] space-y-4">
           <div className="flex items-center gap-2 text-sm font-mono text-[#cc785c] font-bold">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Analyzing Your Career Profile with n8n Agent...</span>
+            <span>Analyzing Your Resume with n8n Agent...</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
             {processingSteps.map((stepText, idx) => {
@@ -430,7 +444,7 @@ Key Accomplishments & Experience:
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-3xl text-[#faf9f5]">
-                  {currentAnalysis.atsScore >= 85 ? 'Strong JD Alignment' : 'Moderate Match — Improvements Needed'}
+                  {currentAnalysis.atsScore >= 85 ? 'Strong JD Alignment' : 'Moderate Match — Action Required'}
                 </h3>
                 <Badge variant={currentAnalysis.atsScore >= 85 ? 'success' : 'amber'} size="sm">
                   {currentAnalysis.atsScore >= 85 ? 'ATS Verified' : 'Action Required'}
