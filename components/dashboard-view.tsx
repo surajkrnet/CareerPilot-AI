@@ -25,6 +25,8 @@ import {
   GraduationCap,
   Clock,
   TrendingUp,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -77,48 +79,99 @@ export default function DashboardView({
   applicationsData,
 }: DashboardViewProps) {
   const { profile, applications, resumeState } = useCareer();
+  const [mounted, setMounted] = useState(false);
   const [cachedDna, setCachedDna] = useState<any>(null);
 
-  // Read cached Career DNA from localStorage if available
+  // Avoid hydration mismatches by mounting safely on client
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('careerpilot_career_dna');
-      if (saved) {
-        try {
+      try {
+        const saved = localStorage.getItem('careerpilot_career_dna');
+        if (saved) {
           setCachedDna(JSON.parse(saved));
-        } catch (e) {
-          console.warn('Cache read note:', e);
         }
+      } catch (e) {
+        console.warn('Cache read notice:', e);
       }
     }
   }, []);
 
-  // Merge server Supabase data + local cache + store defaults
-  const displayName = userName || cachedDna?.fullName || profile.name || userEmail?.split('@')[0] || 'Suraj K R';
-  const targetRole = careerDnaData?.target_role || cachedDna?.targetRole || profile.targetRole || 'Full-Stack Development';
-  const experienceLevel = careerDnaData?.experience_level || cachedDna?.experienceLevel || profile.experienceLevel || '0–1 Years';
-  const healthScore = careerDnaData?.health_score || cachedDna?.resumeHealthScore || profile.resumeHealthScore || 92;
-  const readinessScore = careerDnaData?.readiness_score || cachedDna?.interviewReadinessScore || profile.interviewReadinessScore || 86;
-  const strengths = careerDnaData?.strengths || cachedDna?.strengths || profile.strengths;
-  const skillGaps = careerDnaData?.skill_gaps || cachedDna?.skillGaps || profile.skillGaps;
-  const summary = careerDnaData?.summary || cachedDna?.summary || profile.title || 'Technical professional with modern web and distributed architecture focus.';
+  // Compute values with safe fallbacks
+  const displayName =
+    userName || cachedDna?.fullName || profile?.name || (userEmail ? userEmail.split('@')[0] : 'Engineer');
+  const targetRole =
+    careerDnaData?.target_role || cachedDna?.targetRole || profile?.targetRole || 'Full-Stack Development';
+  const experienceLevel =
+    careerDnaData?.experience_level || cachedDna?.experienceLevel || profile?.experienceLevel || '0–1 Years';
+  const healthScore =
+    careerDnaData?.health_score || cachedDna?.resumeHealthScore || profile?.resumeHealthScore || 92;
+  const readinessScore =
+    careerDnaData?.readiness_score || cachedDna?.interviewReadinessScore || profile?.interviewReadinessScore || 86;
+  const strengths =
+    careerDnaData?.strengths ||
+    careerDnaData?.current_skills ||
+    cachedDna?.strengths ||
+    profile?.strengths || [
+      'React 19 & Next.js Architecture',
+      'TypeScript & Modular Systems',
+      'Node.js & Express / NestJS',
+      'PostgreSQL & Relational Data Modeling',
+      'RESTful & GraphQL API Design',
+    ];
+  const skillGaps =
+    careerDnaData?.areas_to_improve ||
+    careerDnaData?.skill_gaps ||
+    careerDnaData?.skills_to_acquire ||
+    cachedDna?.skillGaps ||
+    profile?.skillGaps || [
+      'Distributed Caching & Redis Pipelines',
+      'Docker & Kubernetes Cloud Deployment',
+      'Automated Integration Testing Suites',
+    ];
+  const summary =
+    careerDnaData?.summary ||
+    cachedDna?.summary ||
+    profile?.title ||
+    'Full-stack engineer with strong front-to-back mastery, modern TypeScript proficiency, and agile product execution focus.';
   const education = cachedDna?.education || 'B.Tech / B.E.';
   const location = cachedDna?.preferredLocation || 'Bangalore';
   const workPreference = cachedDna?.workPreference || 'Hybrid';
 
-  const currentApps = applicationsData && applicationsData.length > 0 ? applicationsData : applications;
-  const interviewingCount = currentApps.filter((a) => a.status === 'interviewing').length;
-  const appliedCount = currentApps.filter((a) => a.status === 'applied').length;
-  const offeredCount = currentApps.filter((a) => a.status === 'offered').length || 1;
+  const currentApps =
+    applicationsData && applicationsData.length > 0
+      ? applicationsData
+      : applications && applications.length > 0
+      ? applications
+      : [
+          { id: '1', company: 'Linear', role: 'Frontend Engineer', status: 'interviewing', match_score: 94, salary: '₹28L - ₹42L LPA' },
+          { id: '2', company: 'Stripe', role: 'Full-Stack Engineer', status: 'applied', match_score: 91, salary: '₹32L - ₹48L LPA' },
+          { id: '3', company: 'Vercel', role: 'DevRel Specialist', status: 'saved', match_score: 89, salary: '₹24L - ₹36L LPA' },
+        ];
 
-  // Read latest scan from database if available
+  // Latest resume scan from DB or store
   const latestDbScan = resumeScansData && resumeScansData.length > 0 ? resumeScansData[0] : null;
-  const latestAtsScore = latestDbScan?.ats_score || resumeState.atsScore || healthScore;
-  const latestMissingSkills = latestDbScan?.missing_skills || resumeState.missingSkills || skillGaps;
-  const latestBullet = latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] || resumeState.tailoredBulletPoints?.[0];
+  const latestAtsScore = latestDbScan?.ats_score || resumeState?.atsScore || healthScore;
+  const latestMissingSkills = latestDbScan?.missing_skills || resumeState?.missingSkills || skillGaps;
+  const latestBullet =
+    latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] || resumeState?.tailoredBulletPoints?.[0];
 
-  // Has resume analysis been run?
-  const hasResumeAnalysis = (latestDbScan !== null) || (resumeState.atsScore > 0 && resumeState.matchStrengths.length > 0);
+  const hasCareerDna = !!careerDnaData || !!cachedDna;
+  const hasResumeAnalysis = !!latestDbScan || (resumeState?.atsScore > 0 && resumeState?.matchStrengths?.length > 0);
+
+  // Loading skeleton while mounting on first paint
+  if (!mounted) {
+    return (
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-8 animate-pulse">
+        <div className="h-32 bg-[#252320] rounded-xl border border-white/10" />
+        <div className="h-24 bg-[#cc785c]/20 rounded-xl border border-white/10" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 h-96 bg-[#252320] rounded-xl border border-white/10" />
+          <div className="lg:col-span-5 h-96 bg-[#252320] rounded-xl border border-white/10" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
@@ -126,11 +179,9 @@ export default function DashboardView({
       {/* 1. HEADER ROW: CANDIDATE CAREER IDENTITY & QUICK STATS */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 sm:p-8 rounded-xl bg-[#252320] border border-white/10 shadow-lg">
         <div className="flex items-center gap-4">
-          <img
-            src={profile.avatar}
-            alt={displayName}
-            className="w-16 h-16 rounded-full object-cover border-2 border-[#cc785c] shadow-sm"
-          />
+          <div className="w-16 h-16 rounded-full bg-[#1f1e1b] border-2 border-[#cc785c] flex items-center justify-center font-display text-2xl font-bold text-[#faf9f5] shadow-sm">
+            {displayName.slice(0, 2).toUpperCase()}
+          </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h1 className="font-display text-3xl sm:text-4xl text-[#faf9f5]">Welcome back, {displayName}</h1>
@@ -172,7 +223,25 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* 2. AI NEXT-BEST ACTION PRIORITY BANNER */}
+      {/* 2. ONBOARDING PROMPT BANNER (IF CAREER DNA IS NOT YET FULLY CONFIGURED) */}
+      {!hasCareerDna && (
+        <div className="p-6 rounded-xl bg-[#1f1e1b] border border-[#cc785c]/50 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-[#cc785c] shrink-0" />
+            <div>
+              <h3 className="font-display text-xl text-[#faf9f5]">Your Career DNA is not yet fully calibrated</h3>
+              <p className="text-xs text-[#a09d96]">Run our 2-minute onboarding to extract strengths and calibrate interview questions.</p>
+            </div>
+          </div>
+          <Link href="/onboarding">
+            <Button variant="primary" size="sm" className="bg-[#cc785c] hover:bg-[#a9583e] uppercase font-mono text-xs">
+              Complete Onboarding ↗
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* 3. AI NEXT-BEST ACTION PRIORITY BANNER */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -224,7 +293,7 @@ export default function DashboardView({
         </div>
       </motion.div>
 
-      {/* 3. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
+      {/* 4. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* PILLAR 1 & 2 (LEFT 7 COLS): CAREER DNA + RESUME INTELLIGENCE */}
