@@ -1,11 +1,8 @@
 /**
- * Robust Zero-Crash Server-Side PDF Text Extractor
- * Strictly designed for Node.js App Router and Serverless runtimes.
- * Automatically polyfills DOMMatrix/Canvas stubs to prevent pdf-parse v2 errors,
- * strips binary null bytes, unprintable characters, and normalizes human-readable text.
+ * Robust Server-Side PDF Text Extractor for Next.js App Router & Node.js runtime.
  */
 
-// 1. Polyfill standard browser classes expected by pdf-parse v2 in Node.js
+// Polyfill DOMMatrix stubs for pdf-parse v2 in Node.js serverless environment
 if (typeof globalThis !== 'undefined') {
   if (typeof (globalThis as any).DOMMatrix === 'undefined') {
     (globalThis as any).DOMMatrix = class DOMMatrix {
@@ -64,25 +61,8 @@ if (typeof globalThis !== 'undefined') {
   }
 }
 
-/**
- * Strips binary garbage, control characters, null bytes, and normalizes whitespace
- */
-export function sanitizeExtractedText(raw: string): string {
-  if (!raw) return '';
-  return raw
-    // Remove binary null bytes and non-printable control characters (preserve \n, \r, \t)
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFFF0-\uFFFF]/g, ' ')
-    // Normalize line endings
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    // Remove excessive spacing per line
-    .split('\n')
-    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
-    // Collapse multi-blank lines into maximum 2 newlines
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require('pdf-parse');
 
 /**
  * Checks if the extracted text looks like genuine human-readable resume text
@@ -107,76 +87,67 @@ export function isHumanResumeText(text: string): boolean {
 }
 
 /**
- * Core bulletproof PDF extraction function
+ * Standard PDF text extraction function
+ */
+export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
+  try {
+    const parseFn = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
+    const data = await parseFn(fileBuffer);
+    
+    // Clean and sanitize text (remove control chars, excessive null bytes)
+    let cleanedText = (data?.text || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+
+    // Verify it's not raw stream gibberish
+    if (cleanedText.length < 50 || /^[\x00-\x7F]*([A-Za-z0-9+/=]{40,})/.test(cleanedText.slice(0, 100))) {
+      // Fallback basic text extraction if parser returns binary stream representation
+      cleanedText = cleanedText.replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ');
+    }
+
+    if (!cleanedText) {
+      // Fallback stream text extraction if pdf-parse returns empty string
+      const rawLatin = fileBuffer.toString('latin1');
+      const textPieces: string[] = [];
+      const tjPattern = /\(([^)]+)\)\s*Tj/g;
+      let match;
+      while ((match = tjPattern.exec(rawLatin)) !== null) {
+        textPieces.push(match[1]);
+      }
+      cleanedText = textPieces.join(' ').replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ').trim();
+    }
+
+    return cleanedText;
+  } catch (error: any) {
+    console.error('PDF Parse Error:', error);
+    
+    // Fallback stream decode instead of crashing
+    try {
+      const asciiFallback = fileBuffer
+        .toString('utf-8')
+        .replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (asciiFallback.length > 50) {
+        return asciiFallback;
+      }
+    } catch {}
+
+    throw new Error('Failed to parse PDF resume. Please ensure the file is an unencrypted PDF.');
+  }
+}
+
+/**
+ * Universal helper supporting both PDF and Text/Markdown files
  */
 export async function parsePdfBuffer(buffer: Buffer, fileName = 'resume.pdf'): Promise<string> {
-  // 1. Plain text / Markdown fast-path
   if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
-    return sanitizeExtractedText(buffer.toString('utf-8'));
+    return buffer.toString('utf-8').trim();
   }
-
-  let extracted = '';
-
-  // 2. Attempt pdf-parse with DOMMatrix stubs active
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse');
-    const result = typeof pdfParse === 'function' ? await pdfParse(buffer) : await pdfParse.default?.(buffer);
-    if (result && result.text) {
-      extracted = sanitizeExtractedText(result.text);
-    }
-  } catch (err: any) {
-    console.warn('pdf-parse notice, falling back to stream text decoding:', err?.message || err);
-  }
-
-  if (extracted && isHumanResumeText(extracted)) {
-    return extracted;
-  }
-
-  // 3. Fallback: Parse PDF stream objects, text operators, and font charmaps directly
-  try {
-    const rawLatin = buffer.toString('latin1');
-    const textPieces: string[] = [];
-
-    // Match (string) Tj operator
-    const tjPattern = /\(([^)]+)\)\s*Tj/g;
-    let match;
-    while ((match = tjPattern.exec(rawLatin)) !== null) {
-      const decoded = match[1].replace(/\\([0-7]{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
-      textPieces.push(decoded);
-    }
-
-    // Match [(str)(ing)] TJ operator
-    const arrayTjPattern = /\[([^\]]+)\]\s*TJ/g;
-    while ((match = arrayTjPattern.exec(rawLatin)) !== null) {
-      const inner = match[1];
-      const parts = inner.match(/\(([^)]+)\)/g);
-      if (parts) {
-        textPieces.push(
-          parts.map((p) => p.slice(1, -1).replace(/\\([0-7]{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))).join(' ')
-        );
-      }
-    }
-
-    // Match uncompressed stream blocks
-    const streamPattern = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-    while ((match = streamPattern.exec(rawLatin)) !== null) {
-      const streamContent = match[1];
-      const words = streamContent.match(/[a-zA-Z0-9.,@:\-\s]{4,}/g);
-      if (words && words.length > 5) {
-        textPieces.push(words.join(' '));
-      }
-    }
-
-    const streamResult = sanitizeExtractedText(textPieces.join('\n'));
-    if (streamResult && isHumanResumeText(streamResult)) {
-      return streamResult;
-    }
-  } catch (streamErr) {
-    console.warn('Stream parser notice:', streamErr);
-  }
-
-  // 4. Final Fallback: extract all readable ASCII words
-  const asciiOnly = buffer.toString('utf-8').replace(/[^\x20-\x7E\n]/g, ' ');
-  return sanitizeExtractedText(asciiOnly);
+  return extractTextFromPdf(buffer);
 }
+
+export { parsePdfBuffer as extractTextFromBuffer };
