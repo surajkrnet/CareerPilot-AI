@@ -96,6 +96,13 @@ export default function ResumeIntelligencePage() {
           setStoredResumeText(dna.raw_resume_text);
           setResumeText(dna.raw_resume_text);
         }
+
+        if (typeof window !== 'undefined') {
+          const preloadedJd = localStorage.getItem('careerpilot_target_jd');
+          if (preloadedJd && preloadedJd.trim().length > 0) {
+            setTargetJd(preloadedJd);
+          }
+        }
       } catch (err) {
         console.error('Error fetching user data:', err);
       } finally {

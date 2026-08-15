@@ -117,6 +117,17 @@ function InterviewStudioContent() {
           setTargetRoleTitle(extractCleanRole(latestScan.target_jd, dna?.target_roles?.[0] || 'Frontend Systems'));
         }
       }
+
+      if (typeof window !== 'undefined' && !scanId) {
+        const storedJd = localStorage.getItem('careerpilot_target_jd');
+        const storedRole = localStorage.getItem('careerpilot_target_role');
+        if (storedJd && storedJd.trim().length > 0) {
+          setTargetJd(storedJd);
+          if (storedRole) {
+            setTargetRoleTitle(storedRole);
+          }
+        }
+      }
     }
 
     fetchCandidateInfo();

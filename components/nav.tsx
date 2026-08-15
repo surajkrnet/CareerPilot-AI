@@ -80,7 +80,7 @@ export function Navigation() {
     { label: 'Dashboard', href: '/dashboard', icon: <BarChart3 className="w-3.5 h-3.5" /> },
     { label: 'Career DNA', href: '/onboarding', icon: <Compass className="w-3.5 h-3.5" /> },
     { label: 'Resume Intelligence', href: '/resume', icon: <FileText className="w-3.5 h-3.5" /> },
-    { label: 'Job Fit', href: '/jobs', icon: <Briefcase className="w-3.5 h-3.5" /> },
+    { label: 'Job Fit', href: '/job-fit', icon: <Briefcase className="w-3.5 h-3.5" /> },
     { label: 'Interview Prep', href: '/interview', icon: <MessageSquare className="w-3.5 h-3.5" /> },
     { label: 'Tracker', href: '/tracker', icon: <Sparkles className="w-3.5 h-3.5" /> },
   ];
@@ -114,7 +114,10 @@ export function Navigation() {
           {!isLandingPage && (
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
               {appNavItems.map((item) => {
-                const isActive = pathname === item.href || (item.href === '/resume' && pathname === '/resume-intelligence');
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === '/resume' && pathname === '/resume-intelligence') ||
+                  (item.href === '/job-fit' && (pathname === '/job-fit' || pathname === '/jobs'));
                 return (
                   <Link
                     key={item.href}
