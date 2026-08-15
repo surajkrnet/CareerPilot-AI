@@ -73,8 +73,20 @@ Directives:
       prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate started the interview session.'}`,
     });
 
+    const normalizeScore = (score: number) => {
+      if (typeof score !== 'number' || isNaN(score)) return 85;
+      if (score <= 1) return Math.round(score * 100);
+      return Math.min(100, Math.max(0, Math.round(score)));
+    };
+
+    const normalizedScores = {
+      confidenceScore: normalizeScore(result.object.scores.confidenceScore),
+      technicalAccuracy: normalizeScore(result.object.scores.technicalAccuracy),
+      structureScore: normalizeScore(result.object.scores.structureScore),
+    };
+
     const overallScore = Math.round(
-      (result.object.scores.confidenceScore + result.object.scores.technicalAccuracy + result.object.scores.structureScore) / 3
+      (normalizedScores.confidenceScore + normalizedScores.technicalAccuracy + normalizedScores.structureScore) / 3
     );
 
     if (isFinal) {
@@ -86,9 +98,9 @@ Directives:
           completed: true,
           evaluation_report: {
             overallScore,
-            technicalScore: result.object.scores.technicalAccuracy,
-            starScore: result.object.scores.structureScore,
-            confidenceScore: result.object.scores.confidenceScore,
+            technicalScore: normalizedScores.technicalAccuracy,
+            starScore: normalizedScores.structureScore,
+            confidenceScore: normalizedScores.confidenceScore,
             feedback: result.object.feedbackOnPreviousAnswer,
             strengths: ['Clear technical articulation', 'Strong understanding of core project architecture'],
             improvements: ['Quantify metrics earlier in the response', 'Deepen distributed failure modes'],
@@ -109,15 +121,15 @@ Directives:
         role: 'assistant',
         text: `${result.object.feedbackOnPreviousAnswer}\n\n${result.object.nextQuestion}`,
         feedback: {
-          confidence: result.object.scores.confidenceScore,
-          accuracy: result.object.scores.technicalAccuracy,
-          starScore: result.object.scores.structureScore,
-          structureTip: `STAR Evaluation: Confidence ${result.object.scores.confidenceScore}%, Technical Depth ${result.object.scores.technicalAccuracy}%, STAR Structure ${result.object.scores.structureScore}%`,
+          confidence: normalizedScores.confidenceScore,
+          accuracy: normalizedScores.technicalAccuracy,
+          starScore: normalizedScores.structureScore,
+          structureTip: `STAR Evaluation: Confidence ${normalizedScores.confidenceScore}%, Technical Depth ${normalizedScores.technicalAccuracy}%, STAR Structure ${normalizedScores.structureScore}%`,
         },
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
       scores: {
-        ...result.object.scores,
+        ...normalizedScores,
         overall: overallScore,
       },
     });

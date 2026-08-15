@@ -54,6 +54,18 @@ Analyze the candidate's actual resume against the target Job Description (JD).
       prompt: `Candidate Resume:\n${resumeText}\n\nTarget Job Description:\n${jobDescription}`,
     });
 
+    const normalizeScore = (score: number) => {
+      if (typeof score !== 'number' || isNaN(score)) return 85;
+      if (score <= 1) return Math.round(score * 100);
+      return Math.min(100, Math.max(0, Math.round(score)));
+    };
+
+    const cleanResult = {
+      ...result.object,
+      atsScore: normalizeScore(result.object.atsScore),
+      matchPercentage: normalizeScore(result.object.matchPercentage),
+    };
+
     let scanId = `scan-${Date.now()}`;
 
     // Save scan to Supabase public.resume_scans
@@ -63,14 +75,14 @@ Analyze the candidate's actual resume against the target Job Description (JD).
         .insert({
           user_id: user.id,
           resume_url: 'career_dna_resume',
-          ats_score: result.object.atsScore,
+          ats_score: cleanResult.atsScore,
           target_jd: jobDescription,
-          missing_skills: result.object.missingKeywords,
-          feedback_summary: result.object,
+          missing_skills: cleanResult.missingKeywords,
+          feedback_summary: cleanResult,
           created_at: new Date().toISOString(),
         })
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (!insertError && insertedScan?.id) {
         scanId = insertedScan.id;
@@ -81,8 +93,8 @@ Analyze the candidate's actual resume against the target Job Description (JD).
 
     return NextResponse.json({
       success: true,
-      data: result.object,
-      analysis: result.object,
+      data: cleanResult,
+      analysis: cleanResult,
       scanId,
     });
   } catch (error: any) {
