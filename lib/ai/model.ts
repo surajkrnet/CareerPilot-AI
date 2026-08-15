@@ -1,5 +1,5 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 export function getClaudeModel() {
   const apiKey =
@@ -10,10 +10,9 @@ export function getClaudeModel() {
     throw new Error('ANTHROPIC_API_KEY is missing in .env.local');
   }
 
-  // If the key starts with 'sk-or-', route via OpenRouter endpoint
+  // If the key starts with 'sk-or-', route via official OpenRouter SDK provider
   if (apiKey.startsWith('sk-or-')) {
-    const openrouter = createOpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
+    const openrouter = createOpenRouter({
       apiKey,
       headers: {
         'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
