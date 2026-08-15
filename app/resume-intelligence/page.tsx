@@ -175,7 +175,7 @@ export default function ResumeIntelligencePage() {
 
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json.error || 'Claude 4.5 Sonnet analysis request failed');
+        throw new Error(json.error || 'AI Intelligence Engine (Gemma) analysis request failed');
       }
 
       setAnalysis(json.data || json.analysis);
@@ -183,7 +183,7 @@ export default function ResumeIntelligencePage() {
         setLatestScanId(json.scanId);
       }
     } catch (err: any) {
-      setAnalysisError(err.message || 'Failed to analyze resume fit with Claude 4.5 Sonnet.');
+      setAnalysisError(err.message || 'Failed to analyze resume fit with AI Intelligence Engine (Gemma).');
     } finally {
       setLoading(false);
     }
@@ -211,7 +211,7 @@ export default function ResumeIntelligencePage() {
               Resume Intelligence &amp; ATS Match
             </h1>
             <p className="text-sm text-[#8e8b82] mt-1">
-              Evaluating candidate resume against target role requirements with live Claude 4.5 Sonnet.
+              Evaluating candidate resume against target role requirements with AI Intelligence Engine (Gemma).
             </p>
           </div>
 
@@ -221,7 +221,7 @@ export default function ResumeIntelligencePage() {
             className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-3 rounded-md font-medium text-sm transition-all flex items-center gap-2 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? 'Analyzing with Claude 4.5...' : 'Analyze Fit with AI Agent'}
+            {loading ? 'Analyzing with Gemma...' : 'Analyze Fit with AI Agent'}
           </button>
         </div>
 
@@ -238,7 +238,7 @@ export default function ResumeIntelligencePage() {
           <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs flex items-start gap-2.5 shadow-md">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong className="block font-semibold text-red-200">Claude 4.5 Sonnet Analysis Notice:</strong>
+              <strong className="block font-semibold text-red-200">AI Intelligence Engine (Gemma) Notice:</strong>
               <span>{analysisError}</span>
             </div>
           </div>

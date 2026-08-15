@@ -289,7 +289,7 @@ export function OnboardingWizard() {
                     icon={isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     className="bg-[#cc785c] hover:bg-[#a9583e]"
                   >
-                    {isUploading ? 'Synthesizing with Claude 4.5 Sonnet...' : 'Generate My Career DNA'}
+                    {isUploading ? 'Synthesizing with AI Engine (Gemma)...' : 'Generate My Career DNA'}
                   </Button>
                 </div>
               </motion.div>

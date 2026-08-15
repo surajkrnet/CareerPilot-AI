@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { parsePdfBuffer } from '@/lib/parsers/pdf-parser';
-import { claudeSonnetModel } from '@/lib/ai/openrouter';
+import { aiModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -132,9 +132,9 @@ ${extractedResumeText}
 
 Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles with seniority, and provide 3-5 prioritized next actions.`;
 
-    // 3. Invoke Claude 4.5 Sonnet via OpenRouter
+    // 3. Invoke OpenRouter Gemma AI Engine
     const aiResponse = await generateObject({
-      model: claudeSonnetModel,
+      model: aiModel,
       schema: CareerDnaSchema,
       maxOutputTokens: 1500,
       prompt,

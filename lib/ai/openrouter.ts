@@ -5,13 +5,14 @@ export const openrouter = createOpenAI({
   apiKey: process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY,
   headers: {
     'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://careerpilot-ai-coach.vercel.app',
-    'X-Title': 'CareerPilot AI Coach',
+    'X-Title': 'CareerPilot AI',
   },
 });
 
-// Primary: Claude Sonnet 4.5 (cost-effective, supports structured outputs)
-// Claude 3.5 Sonnet was retired from OpenRouter in Oct 2025; using Claude Sonnet 4.5
-export const claudeSonnetModel = openrouter.chat('anthropic/claude-sonnet-4.5');
+// Free Gemma model endpoint on OpenRouter
+export const aiModel = openrouter('google/gemma-4-31b-it:free');
 
-// Alias for backward compat with lib/ai/model.ts re-export
-export const getClaudeModel = () => claudeSonnetModel;
+// Aliases for seamless backward compatibility across route handlers
+export const claudeSonnetModel = aiModel;
+export const getClaudeModel = () => aiModel;
+export const getAIModel = () => aiModel;

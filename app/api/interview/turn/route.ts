@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { claudeSonnetModel } from '@/lib/ai/openrouter';
+import { aiModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -66,7 +66,7 @@ Directives:
 5. Ask exactly ONE clear follow-up or technical challenge question per turn.`;
 
     const result = await generateObject({
-      model: claudeSonnetModel,
+      model: aiModel,
       schema: TurnSchema,
       maxOutputTokens: 1000,
       system: systemPrompt,

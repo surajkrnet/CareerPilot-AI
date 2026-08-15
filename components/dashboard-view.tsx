@@ -102,7 +102,7 @@ export default function DashboardView({
         console.warn('Cache read notice:', e);
       }
 
-      // Fetch prioritized AI Next-Best Action from Claude 4.5 Sonnet API
+      // Fetch prioritized AI Next-Best Action from AI Intelligence Engine (Gemma) API
       fetch('/api/dashboard/next-action', { method: 'POST' })
         .then((res) => res.json())
         .then((data) => {
@@ -351,7 +351,7 @@ export default function DashboardView({
                 </div>
                 <div>
                   <h3 className="font-display text-xl text-[#faf9f5]">Career DNA Profile</h3>
-                  <p className="text-[11px] text-[#6c6a64]">Synthesized by Claude 4.5 Sonnet Engine</p>
+                  <p className="text-[11px] text-[#6c6a64]">Synthesized by AI Intelligence Engine (Gemma)</p>
                 </div>
               </div>
               <Badge variant="teal" size="sm">Active Vector</Badge>

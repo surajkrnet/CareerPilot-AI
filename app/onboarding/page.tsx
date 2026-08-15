@@ -619,7 +619,7 @@ function OnboardingContent() {
         <p className="text-sm text-[#a09d96] max-w-xl mx-auto">
           {currentStep === 1 && 'Select your academic credentials, experience level, and target career direction.'}
           {currentStep === 2 && 'Calibrate your primary career goals and technical competencies.'}
-          {currentStep === 3 && 'Upload your resume to trigger the Claude 4.5 Sonnet Career DNA synthesis pipeline.'}
+          {currentStep === 3 && 'Upload your resume to trigger the AI Intelligence Engine (Gemma) Career DNA synthesis pipeline.'}
         </p>
 
         {/* STEP PROGRESS BAR */}
@@ -1091,7 +1091,7 @@ function OnboardingContent() {
                 <span>3. Resume Intelligence &amp; Career DNA Agent</span>
               </h2>
               <p className="text-xs text-[#a09d96]">
-                Upload your resume (PDF/Text) to let Claude 4.5 Sonnet extract your verified experience and synthesize your Career DNA.
+                Upload your resume (PDF/Text) to let AI Intelligence Engine (Gemma) extract your verified experience and synthesize your Career DNA.
               </p>
             </div>
 

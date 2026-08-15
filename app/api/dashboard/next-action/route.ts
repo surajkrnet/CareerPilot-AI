@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getClaudeModel } from '@/lib/ai/model';
+import { aiModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     let nextAction: z.infer<typeof NextActionSchema>;
 
     try {
-      const model = getClaudeModel();
+      const model = aiModel;
       const prompt = `You are a Principal AI Career Orchestrator. Determine the single highest leverage next-best action for this candidate.
 
 Candidate State:

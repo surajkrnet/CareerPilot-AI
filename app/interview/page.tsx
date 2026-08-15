@@ -160,7 +160,7 @@ function InterviewStudioContent() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to start interview turn with Claude 4.5 Sonnet');
+        throw new Error(data.error || 'Failed to start interview turn with AI Intelligence Engine (Gemma)');
       }
 
       setMessages([
@@ -179,7 +179,7 @@ function InterviewStudioContent() {
         });
       }
     } catch (err: any) {
-      setInterviewError(err.message || 'Failed to connect with live Claude 4.5 Sonnet interviewer.');
+      setInterviewError(err.message || 'Failed to connect with AI Intelligence Engine (Gemma) interviewer.');
     } finally {
       setLoading(false);
     }
@@ -217,7 +217,7 @@ function InterviewStudioContent() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate interviewer turn with Claude 4.5 Sonnet');
+        throw new Error(data.error || 'Failed to generate interviewer turn with AI Intelligence Engine (Gemma)');
       }
 
       setMessages([
@@ -239,7 +239,7 @@ function InterviewStudioContent() {
         });
       }
     } catch (err: any) {
-      setInterviewError(err.message || 'Failed to receive interview evaluation from Claude 4.5 Sonnet.');
+      setInterviewError(err.message || 'Failed to receive interview evaluation from AI Intelligence Engine (Gemma).');
     } finally {
       setLoading(false);
     }
@@ -293,7 +293,7 @@ function InterviewStudioContent() {
                 <Briefcase className="w-3.5 h-3.5" /> Interview Intelligence Studio
               </span>
               <span className="text-[11px] font-mono bg-[#5db872]/15 text-[#5db872] px-2 py-0.5 rounded border border-[#5db872]/30 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Live Claude 4.5 Sonnet Grounded
+                <ShieldCheck className="w-3 h-3" /> Live AI Engine (Gemma) Grounded
               </span>
             </div>
 
@@ -345,12 +345,12 @@ function InterviewStudioContent() {
           </div>
         </header>
 
-        {/* Live Claude 4.5 Sonnet Error Banner */}
+        {/* Live AI Engine Error Banner */}
         {interviewError && (
           <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs flex items-start gap-2.5 shadow-md">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong className="block font-semibold text-red-200">Claude 4.5 Sonnet Notice:</strong>
+              <strong className="block font-semibold text-red-200">AI Intelligence Engine Notice:</strong>
               <span>{interviewError}</span>
             </div>
           </div>
@@ -383,7 +383,7 @@ function InterviewStudioContent() {
                   </div>
                   <h3 className="font-serif text-2xl text-white">Ready for your practice round?</h3>
                   <p className="text-xs text-[#8e8b82] max-w-md leading-relaxed">
-                    Claude 4.5 Sonnet will cross-examine your actual resume projects against the requirements for {targetRoleTitle} and score your answers in real time.
+                    AI Intelligence Engine (Gemma) will cross-examine your actual resume projects against the requirements for {targetRoleTitle} and score your answers in real time.
                   </p>
                   <button
                     onClick={handleStartInterview}
@@ -429,7 +429,7 @@ function InterviewStudioContent() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-[#8e8b82] bg-[#1f1e1b] border border-[#252320] px-4 py-2 rounded-md w-fit">
                   <span className="w-2 h-2 rounded-full bg-[#cc785c] animate-pulse" />
-                  Alex is evaluating your answer with Claude 4.5 Sonnet...
+                  Alex is evaluating your answer with AI Intelligence Engine (Gemma)...
                 </div>
               )}
               <div ref={chatEndRef} />

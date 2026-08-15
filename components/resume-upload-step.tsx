@@ -59,7 +59,7 @@ export default function ResumeUploadStep({
   const processingSteps = [
     'Validating candidate profile & session',
     'Ingesting & sanitizing resume plain text',
-    'Claude 4.5 Sonnet synthesizing skills & gap analysis',
+    'AI Intelligence Engine (Gemma) synthesizing skills & gap analysis',
     'Atomically upserting Career DNA to database',
     'Career DNA calibration complete',
   ];
@@ -97,7 +97,7 @@ export default function ResumeUploadStep({
     }
   };
 
-  // Handle live Claude 4.5 Sonnet synthesis
+  // Handle live AI Intelligence Engine (Gemma) synthesis
   const handleGenerateCareerDna = async (skipResume = false) => {
     setIsSynthesizing(true);
     setErrorMsg(null);
@@ -266,7 +266,7 @@ export default function ResumeUploadStep({
             </div>
             <p className="font-sans text-base font-semibold text-[#faf9f5]">{file.name}</p>
             <p className="text-xs text-[#a09d96]">
-              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for Claude 4.5 Sonnet Synthesis'}
+              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for AI Synthesis (Gemma)'}
             </p>
           </div>
         ) : (
@@ -325,7 +325,7 @@ export default function ResumeUploadStep({
         <div className="p-5 rounded-xl bg-[#181715] border border-[#cc785c]/40 space-y-3 shadow-lg animate-in fade-in">
           <div className="flex items-center gap-2 text-xs font-mono text-[#cc785c] font-bold">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Claude 4.5 Sonnet Synthesizing Career DNA...</span>
+            <span>AI Engine (Gemma) Synthesizing Career DNA...</span>
           </div>
 
           <div className="space-y-1.5 text-xs font-mono">
@@ -360,7 +360,7 @@ export default function ResumeUploadStep({
           {isSynthesizing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Claude 4.5 Sonnet Synthesizing Skills...</span>
+              <span>AI Engine (Gemma) Synthesizing Skills...</span>
             </>
           ) : (
             <>

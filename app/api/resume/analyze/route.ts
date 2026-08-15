@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { claudeSonnetModel } from '@/lib/ai/openrouter';
+import { aiModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -38,9 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Resume text and Job Description are required' }, { status: 400 });
     }
 
-    // Direct LLM Call using OpenRouter Claude 4.5 Sonnet
+    // Direct LLM Call using OpenRouter Gemma AI Engine
     const result = await generateObject({
-      model: claudeSonnetModel,
+      model: aiModel,
       schema: AnalysisSchema,
       maxOutputTokens: 1500,
       system: `You are a Principal Technical Recruiter and ATS Evaluation Engine.
