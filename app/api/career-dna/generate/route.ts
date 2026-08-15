@@ -118,25 +118,18 @@ Technical Skills: ${candidateSkills.join(', ') || 'React, TypeScript, Node.js, S
 Career Intent: ${metadata.careerIntent || metadata.selectedGoal || 'Accelerate tech career growth'}`;
     }
 
-    const prompt = `You are a Principal Career Systems Architect and Technical Recruiter.
-Analyze this candidate's verified resume and questionnaire responses to generate an authoritative Career DNA profile.
+    const prompt = `Analyze this candidate profile and resume to synthesize their Career DNA for target role: ${targetRole} (${experienceLevel}).
+Skills: ${candidateSkills.join(', ')}
+Resume Text:
+${extractedResumeText.slice(0, 3000)}
 
-Candidate Context:
-- Target Role Track: ${targetRole}
-- Experience Level: ${experienceLevel}
-- Questionnaire Skills: ${candidateSkills.join(', ')}
-- Education & Intent: ${metadata.education || 'Computer Science'} | ${metadata.careerIntent || metadata.selectedGoal || 'Accelerate Career Growth'}
+Synthesize verified strengths, skill gaps, current skills, skills to acquire, target roles, and 3 high-impact next actions.`;
 
-RESUME PLAIN TEXT:
-${extractedResumeText}
-
-Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles with seniority, and provide 3-5 prioritized next actions.`;
-
-    // 3. Invoke OpenRouter Gemma AI Engine
+    // 3. Fast Gemma AI Inference
     const aiResponse = await generateObject({
       model: aiModel,
       schema: CareerDnaSchema,
-      maxOutputTokens: 1500,
+      maxOutputTokens: 800,
       prompt,
     });
 

@@ -136,12 +136,18 @@ export default function ResumeUploadStep({
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to synthesize Career DNA. Please retry.');
+      let result: any = {};
+      try {
+        result = await response.json();
+      } catch {
+        const text = await response.text().catch(() => '');
+        result = { error: text || 'Career DNA synthesis response could not be parsed. Please retry.' };
       }
 
-      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to synthesize Career DNA. Please retry.');
+      }
+
       const synthesized = result.data || result.profile;
 
       // Update global context & local cache
@@ -181,9 +187,10 @@ export default function ResumeUploadStep({
       setProcessingStage(processingSteps.length - 1);
 
       // Smooth transition to /dashboard
+      router.refresh();
       setTimeout(() => {
         router.push('/dashboard');
-      }, 600);
+      }, 400);
     } catch (err: any) {
       console.error('Synthesis error:', err);
       clearInterval(progressInterval);

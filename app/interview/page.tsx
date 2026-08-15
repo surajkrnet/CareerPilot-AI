@@ -49,6 +49,7 @@ function InterviewStudioContent() {
     structure: 86,
     overall: 89,
   });
+  const [turnScores, setTurnScores] = useState<Array<{ confidence: number; technical: number; structure: number }>>([]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -144,6 +145,7 @@ function InterviewStudioContent() {
     setIsStarted(true);
     setLoading(true);
     setInterviewError(null);
+    setTurnScores([]);
 
     try {
       const res = await fetch('/api/interview/turn', {
@@ -158,7 +160,14 @@ function InterviewStudioContent() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        data = { error: text || 'Interview turn could not be generated. Please retry.' };
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to start interview turn with AI Intelligence Engine (Gemma)');
       }
@@ -171,12 +180,16 @@ function InterviewStudioContent() {
         },
       ]);
       if (data.scores) {
+        const conf = data.scores.confidenceScore || 88;
+        const tech = data.scores.technicalAccuracy || 90;
+        const struct = data.scores.structureScore || 86;
         setScores({
-          confidence: data.scores.confidenceScore || scores.confidence,
-          technical: data.scores.technicalAccuracy || scores.technical,
-          structure: data.scores.structureScore || scores.structure,
-          overall: data.scores.overall || scores.overall,
+          confidence: conf,
+          technical: tech,
+          structure: struct,
+          overall: Math.round(conf * 0.3 + tech * 0.4 + struct * 0.3),
         });
+        setTurnScores([{ confidence: conf, technical: tech, structure: struct }]);
       }
     } catch (err: any) {
       setInterviewError(err.message || 'Failed to connect with AI Intelligence Engine (Gemma) interviewer.');
@@ -215,7 +228,14 @@ function InterviewStudioContent() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        data = { error: text || 'Interview feedback could not be processed. Please retry.' };
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to generate interviewer turn with AI Intelligence Engine (Gemma)');
       }
@@ -231,11 +251,17 @@ function InterviewStudioContent() {
       ]);
 
       if (data.scores) {
+        const turnConf = data.scores.confidenceScore || 85;
+        const turnTech = data.scores.technicalAccuracy || 88;
+        const turnStruct = data.scores.structureScore || 84;
+
+        setTurnScores((prev) => [...prev, { confidence: turnConf, technical: turnTech, structure: turnStruct }]);
+
         setScores({
-          confidence: data.scores.confidenceScore || scores.confidence,
-          technical: data.scores.technicalAccuracy || scores.technical,
-          structure: data.scores.structureScore || scores.structure,
-          overall: data.scores.overall || scores.overall,
+          confidence: turnConf,
+          technical: turnTech,
+          structure: turnStruct,
+          overall: Math.round(turnConf * 0.3 + turnTech * 0.4 + turnStruct * 0.3),
         });
       }
     } catch (err: any) {
@@ -248,18 +274,48 @@ function InterviewStudioContent() {
   const handleEndInterview = async () => {
     setLoading(true);
     try {
-      await fetch('/api/interview/turn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetJobDescription: targetJd,
-          resumeText: candidateResume,
-          conversationHistory: messages,
-          userResponse: 'Candidate completed session',
-          isFinal: true,
-          role: targetRoleTitle,
-        }),
+      let finalConfidence = scores.confidence;
+      let finalTechnical = scores.technical;
+      let finalStructure = scores.structure;
+
+      if (turnScores.length > 0) {
+        const sumConf = turnScores.reduce((a, b) => a + b.confidence, 0);
+        const sumTech = turnScores.reduce((a, b) => a + b.technical, 0);
+        const sumStruct = turnScores.reduce((a, b) => a + b.structure, 0);
+        finalConfidence = Math.round(sumConf / turnScores.length);
+        finalTechnical = Math.round(sumTech / turnScores.length);
+        finalStructure = Math.round(sumStruct / turnScores.length);
+      }
+
+      const finalComposite = Math.round(finalConfidence * 0.3 + finalTechnical * 0.4 + finalStructure * 0.3);
+
+      setScores({
+        confidence: finalConfidence,
+        technical: finalTechnical,
+        structure: finalStructure,
+        overall: finalComposite,
       });
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        await supabase.from('interview_sessions').insert({
+          user_id: user.id,
+          target_role: targetRoleTitle,
+          transcript: messages,
+          completed: true,
+          evaluation_report: {
+            deliveryConfidence: finalConfidence,
+            technicalAccuracy: finalTechnical,
+            starStructure: finalStructure,
+            compositeScore: finalComposite,
+            turnCount: messages.filter((m) => m.role === 'candidate').length,
+          },
+          created_at: new Date().toISOString(),
+        });
+      }
     } catch (err) {
       console.warn('Session save note:', err);
     } finally {
@@ -274,6 +330,7 @@ function InterviewStudioContent() {
   const handleRestart = () => {
     setIsStarted(false);
     setMessages([]);
+    setTurnScores([]);
     setSecondsElapsed(0);
     setShowScorecard(false);
     setInterviewError(null);

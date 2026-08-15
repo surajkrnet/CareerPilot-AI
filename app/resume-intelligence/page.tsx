@@ -173,7 +173,14 @@ export default function ResumeIntelligencePage() {
         body: JSON.stringify({ resumeText, jobDescription: targetJd }),
       });
 
-      const json = await res.json();
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        json = { error: text || 'Resume analysis response could not be parsed. Please retry.' };
+      }
+
       if (!res.ok) {
         throw new Error(json.error || 'AI Intelligence Engine (Gemma) analysis request failed');
       }
