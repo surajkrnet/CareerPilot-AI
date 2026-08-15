@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   Sparkles,
@@ -17,7 +16,7 @@ import {
   FileText,
   Database,
   Briefcase,
-  Layers,
+  AlertCircle,
 } from 'lucide-react';
 
 const PRESET_JDS = [
@@ -56,7 +55,6 @@ Requirements:
 ];
 
 export default function ResumeIntelligencePage() {
-  const router = useRouter();
   const [userName, setUserName] = useState('');
   const [storedResumeText, setStoredResumeText] = useState('');
   const [resumeText, setResumeText] = useState('');
@@ -69,6 +67,7 @@ export default function ResumeIntelligencePage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [latestScanId, setLatestScanId] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
@@ -81,31 +80,24 @@ export default function ResumeIntelligencePage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch User Profile Name & Stored Resume from Career DNA
-        const [{ data: profile }, { data: dna }, { data: scan }] = await Promise.all([
+        // Fetch user profile and stored resume from Supabase
+        const [{ data: profile }, { data: dna }] = await Promise.all([
           supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
           supabase.from('career_dna').select('raw_resume_text').eq('user_id', user.id).maybeSingle(),
-          supabase.from('resume_scans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         ]);
 
-        if (profile?.full_name) setUserName(profile.full_name);
+        if (profile?.full_name) {
+          setUserName(profile.full_name);
+        } else if (user.email) {
+          setUserName(user.email.split('@')[0]);
+        }
+
         if (dna?.raw_resume_text) {
           setStoredResumeText(dna.raw_resume_text);
           setResumeText(dna.raw_resume_text);
         }
-        if (scan) {
-          setAnalysis(scan.feedback_summary || {
-            atsScore: scan.ats_score,
-            matchPercentage: 88,
-            resumeStrengths: scan.feedback_summary?.resumeStrengths || [],
-            areasOfImprovement: scan.feedback_summary?.areasOfImprovement || [],
-            missingKeywords: scan.missing_skills || [],
-            starOptimizations: scan.feedback_summary?.starOptimizations || [],
-          });
-          setLatestScanId(scan.id);
-        }
       } catch (err) {
-        console.error('Error fetching resume data:', err);
+        console.error('Error fetching user data:', err);
       } finally {
         setInitialLoading(false);
       }
@@ -167,24 +159,31 @@ export default function ResumeIntelligencePage() {
 
   const handleAnalyzeFit = async () => {
     if (!resumeText.trim() || !targetJd.trim()) {
-      alert('Please provide both resume text and a job description.');
+      setAnalysisError('Please provide both candidate resume text and a target job description.');
       return;
     }
+
     setLoading(true);
+    setAnalysisError(null);
+
     try {
       const res = await fetch('/api/resume/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeText, jobDescription: targetJd }),
       });
+
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) {
+        throw new Error(json.error || 'Claude 3.5 Sonnet analysis request failed');
+      }
+
       setAnalysis(json.data || json.analysis);
       if (json.scanId) {
         setLatestScanId(json.scanId);
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to analyze resume fit');
+      setAnalysisError(err.message || 'Failed to analyze resume fit with Claude 3.5 Sonnet.');
     } finally {
       setLoading(false);
     }
@@ -195,6 +194,8 @@ export default function ResumeIntelligencePage() {
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
   };
+
+  const candidateDisplayName = userName || 'Candidate';
 
   return (
     <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-28 pb-16 px-4 sm:px-8 md:px-10 font-sans">
@@ -210,7 +211,7 @@ export default function ResumeIntelligencePage() {
               Resume Intelligence &amp; ATS Match
             </h1>
             <p className="text-sm text-[#8e8b82] mt-1">
-              Evaluating candidate resume against target role requirements with Claude 3.5 Sonnet.
+              Evaluating candidate resume against target role requirements with live Claude 3.5 Sonnet.
             </p>
           </div>
 
@@ -224,10 +225,22 @@ export default function ResumeIntelligencePage() {
           </button>
         </div>
 
+        {/* Upload Parsing Error Banner */}
         {uploadError && (
-          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{uploadError}</span>
+          </div>
+        )}
+
+        {/* Real Live Analysis Error Banner (Red) */}
+        {analysisError && (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs flex items-start gap-2.5 shadow-md">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-semibold text-red-200">Claude 3.5 Sonnet Analysis Notice:</strong>
+              <span>{analysisError}</span>
+            </div>
           </div>
         )}
 
@@ -239,7 +252,7 @@ export default function ResumeIntelligencePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252320] pb-3">
               <div>
                 <h3 className="font-serif text-lg text-white">
-                  Candidate Resume {userName ? `(${userName})` : ''}
+                  Candidate Resume ({candidateDisplayName})
                 </h3>
                 <span className="text-xs text-[#8e8b82]">Select source or edit directly</span>
               </div>
@@ -249,7 +262,7 @@ export default function ResumeIntelligencePage() {
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('stored')}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
                     inputMode === 'stored'
                       ? 'bg-[#cc785c] text-white shadow-sm'
                       : 'text-[#8e8b82] hover:text-white'
@@ -260,7 +273,7 @@ export default function ResumeIntelligencePage() {
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('upload')}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
                     inputMode === 'upload'
                       ? 'bg-[#cc785c] text-white shadow-sm'
                       : 'text-[#8e8b82] hover:text-white'
@@ -321,7 +334,7 @@ export default function ResumeIntelligencePage() {
                     key={preset.name}
                     type="button"
                     onClick={() => setTargetJd(preset.text)}
-                    className="text-[11px] px-2 py-0.5 rounded bg-[#1f1e1b] border border-[#3d3d3a] hover:border-[#cc785c] text-[#dcd7cb] transition-colors"
+                    className="text-[11px] px-2 py-0.5 rounded bg-[#1f1e1b] border border-[#3d3d3a] hover:border-[#cc785c] text-[#dcd7cb] transition-colors cursor-pointer"
                   >
                     {preset.name.split('—')[0].trim()}
                   </button>
@@ -339,7 +352,7 @@ export default function ResumeIntelligencePage() {
 
         </div>
 
-        {/* Output Section */}
+        {/* Dynamic Output Section (Renders only when live analysis is present) */}
         {analysis && (
           <div className="space-y-6 pt-4 border-t border-[#252320]">
             
@@ -402,7 +415,7 @@ export default function ResumeIntelligencePage() {
                   <CheckCircle2 className="w-4 h-4" /> Resume Strengths
                 </div>
                 <ul className="space-y-2 text-xs text-[#dcd7cb]">
-                  {(analysis.resumeStrengths || analysis.matchingStrengths || []).map((s: string, idx: number) => (
+                  {(analysis.resumeStrengths || []).map((s: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
                       <span className="text-[#cc785c]">•</span> {s}
                     </li>
@@ -416,7 +429,7 @@ export default function ResumeIntelligencePage() {
                   <AlertTriangle className="w-4 h-4" /> Areas for Improvement
                 </div>
                 <ul className="space-y-2 text-xs text-[#dcd7cb]">
-                  {(analysis.areasOfImprovement || analysis.resumeWeaknesses || []).map((imp: string, idx: number) => (
+                  {(analysis.areasOfImprovement || []).map((imp: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2">
                       <span className="text-amber-400">•</span> {imp}
                     </li>
@@ -430,7 +443,7 @@ export default function ResumeIntelligencePage() {
                   <KeyRound className="w-4 h-4" /> Missing Keywords
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {(analysis.missingKeywords || analysis.missingSkills || []).map((kw: string, idx: number) => (
+                  {(analysis.missingKeywords || []).map((kw: string, idx: number) => (
                     <span key={idx} className="bg-[#252320] border border-[#3d3d3a] text-xs text-[#faf9f5] px-2.5 py-1 rounded-md">
                       +{kw}
                     </span>
@@ -448,29 +461,29 @@ export default function ResumeIntelligencePage() {
               </div>
 
               <div className="space-y-4">
-                {(analysis.starOptimizations || analysis.tailoredBulletPoints || []).map((opt: any, idx: number) => (
+                {(analysis.starOptimizations || []).map((opt: any, idx: number) => (
                   <div key={idx} className="bg-[#1f1e1b] border border-[#2e2d29] p-4 rounded-lg space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] uppercase font-mono text-[#8e8b82]">Original Bullet</span>
                       <span className="text-[10px] font-mono text-[#5db872]">{opt.metricImpact || '+24% ATS Match'}</span>
                     </div>
                     <p className="text-xs text-[#8e8b82] line-through">
-                      {opt.originalBullet || opt.originalText || opt.original}
+                      {opt.originalBullet}
                     </p>
 
                     <div>
                       <span className="text-[10px] uppercase font-mono text-emerald-400 block mb-0.5">AI STAR Optimized</span>
                       <p className="text-sm text-white font-medium">
-                        {opt.starOptimizedBullet || opt.suggestedText || opt.suggested}
+                        {opt.starOptimizedBullet}
                       </p>
                     </div>
 
                     <div className="text-xs text-[#8e8b82] bg-[#181715] p-2.5 rounded border border-[#252320] flex items-center justify-between">
                       <div>
-                        💡 <strong className="text-[#dcd7cb]">Impact Rationale:</strong> {opt.rationale || opt.reasoning || opt.reason}
+                        💡 <strong className="text-[#dcd7cb]">Impact Rationale:</strong> {opt.rationale}
                       </div>
                       <button
-                        onClick={() => handleCopy(opt.starOptimizedBullet || opt.suggestedText || opt.suggested, idx)}
+                        onClick={() => handleCopy(opt.starOptimizedBullet, idx)}
                         className="ml-3 px-2 py-1 bg-[#252320] hover:bg-[#3d3d3a] text-white text-[11px] font-mono rounded flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
                       >
                         {copiedIdx === idx ? <Check className="w-3 h-3 text-[#5db872]" /> : <Copy className="w-3 h-3" />}

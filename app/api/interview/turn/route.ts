@@ -21,10 +21,18 @@ const TurnSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'ANTHROPIC_API_KEY is missing in .env.local' },
+        { status: 500 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
     }
 
     const { targetJobDescription, resumeText: customResume, conversationHistory = [], userResponse, isFinal = false, company = 'Linear', role = 'Full-Stack Development' } = await req.json();
@@ -65,39 +73,14 @@ Interviewing Directives:
 3. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and Answer Structure (STAR) (0-100).
 4. Ask exactly ONE clear, focused follow-up or technical challenge question per turn.`;
 
-    let turnResult: z.infer<typeof TurnSchema>;
+    const result = await generateObject({
+      model: anthropic('claude-3-5-sonnet-20241022'),
+      schema: TurnSchema,
+      system: systemPrompt,
+      prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate has initiated the session.'}`,
+    });
 
-    try {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY is not configured');
-      }
-
-      const result = await generateObject({
-        model: anthropic('claude-3-5-sonnet-20241022'),
-        schema: TurnSchema,
-        system: systemPrompt,
-        prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate has initiated the session.'}`,
-      });
-
-      turnResult = result.object;
-    } catch (aiErr: any) {
-      console.warn('Anthropic API notice, using calibrated interview turn fallback:', aiErr?.message || aiErr);
-
-      const wordCount = (userResponse || '').trim().split(/\s+/).length;
-      turnResult = {
-        feedbackOnPreviousAnswer: wordCount > 25
-          ? 'Strong technical breakdown! You articulated the engineering trade-offs and project outcomes clearly.'
-          : 'Good start. Remember to state the architectural situation clearly and quantify the performance results with numbers.',
-        scores: {
-          confidenceScore: wordCount > 25 ? 92 : 84,
-          technicalAccuracy: wordCount > 25 ? 94 : 86,
-          structureScore: wordCount > 25 ? 90 : 82,
-        },
-        nextQuestion: 'Looking at your project architecture, how did you handle data consistency, caching invalidation, and error boundaries during peak traffic?',
-        isInterviewComplete: isFinal,
-      };
-    }
+    const turnResult = result.object;
 
     const overallScore = Math.round(
       (turnResult.scores.confidenceScore + turnResult.scores.technicalAccuracy + turnResult.scores.structureScore) / 3
@@ -149,7 +132,10 @@ Interviewing Directives:
       },
     });
   } catch (error: any) {
-    console.error('Interview Turn Error:', error);
-    return NextResponse.json({ error: error.message || 'Interview turn failed' }, { status: 500 });
+    console.error('Live Interview Turn Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Claude 3.5 Sonnet interview turn failed' },
+      { status: 500 }
+    );
   }
 }

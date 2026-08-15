@@ -15,8 +15,8 @@ import {
   Volume2,
   Bot,
   User,
-  ArrowRight,
   ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -35,6 +35,7 @@ function InterviewStudioContent() {
   >([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [interviewError, setInterviewError] = useState<string | null>(null);
   const [targetJd, setTargetJd] = useState('Linear - Frontend Systems (React, Next.js App Router, TypeScript)');
   const [candidateResume, setCandidateResume] = useState('');
   const [candidateName, setCandidateName] = useState('');
@@ -65,7 +66,12 @@ function InterviewStudioContent() {
         supabase.from('career_dna').select('raw_resume_text, target_roles').eq('user_id', user.id).maybeSingle(),
       ]);
 
-      if (profile?.full_name) setCandidateName(profile.full_name);
+      if (profile?.full_name) {
+        setCandidateName(profile.full_name);
+      } else if (user.email) {
+        setCandidateName(user.email.split('@')[0]);
+      }
+
       if (dna?.raw_resume_text) setCandidateResume(dna.raw_resume_text);
       if (dna?.target_roles?.[0]) setTargetRoleTitle(dna.target_roles[0]);
 
@@ -125,6 +131,8 @@ function InterviewStudioContent() {
   const handleStartInterview = async () => {
     setIsStarted(true);
     setLoading(true);
+    setInterviewError(null);
+
     try {
       const res = await fetch('/api/interview/turn', {
         method: 'POST',
@@ -137,24 +145,29 @@ function InterviewStudioContent() {
           role: targetRoleTitle,
         }),
       });
+
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to start interview turn with Claude 3.5 Sonnet');
+      }
+
       setMessages([
         {
           role: 'interviewer',
-          content:
-            data.nextQuestion ||
-            `Welcome ${candidateName || 'Candidate'}. I've reviewed your resume and matched it against the requirements for ${targetRoleTitle}. Let's begin: Walk me through a complex technical challenge you faced in one of your recent projects, the architectural trade-offs you made, and how you quantified the result.`,
+          content: data.nextQuestion,
           timestamp: '00:01',
         },
       ]);
-    } catch {
-      setMessages([
-        {
-          role: 'interviewer',
-          content: `Welcome ${candidateName || 'Candidate'}. I have cross-examined your resume with the ${targetRoleTitle} specifications. To start, walk me through the system design of your most complex project.`,
-          timestamp: '00:01',
-        },
-      ]);
+      if (data.scores) {
+        setScores({
+          confidence: data.scores.confidenceScore || scores.confidence,
+          technical: data.scores.technicalAccuracy || scores.technical,
+          structure: data.scores.structureScore || scores.structure,
+          overall: data.scores.overall || scores.overall,
+        });
+      }
+    } catch (err: any) {
+      setInterviewError(err.message || 'Failed to connect with live Claude 3.5 Sonnet interviewer.');
     } finally {
       setLoading(false);
     }
@@ -166,6 +179,8 @@ function InterviewStudioContent() {
 
     const userText = input.trim();
     setInput('');
+    setInterviewError(null);
+
     const userMsg = {
       role: 'candidate' as const,
       content: userText,
@@ -187,7 +202,11 @@ function InterviewStudioContent() {
           role: targetRoleTitle,
         }),
       });
+
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate interviewer turn with Claude 3.5 Sonnet');
+      }
 
       setMessages([
         ...updatedMessages,
@@ -207,17 +226,8 @@ function InterviewStudioContent() {
           overall: data.scores.overall || scores.overall,
         });
       }
-    } catch {
-      setMessages([
-        ...updatedMessages,
-        {
-          role: 'interviewer',
-          content:
-            'Good breakdown. Can you describe how you tested and verified performance under high load for that implementation?',
-          feedback: 'Clear technical framing. Remember to state measurable metric outcomes where possible.',
-          timestamp: formatTimer(secondsElapsed),
-        },
-      ]);
+    } catch (err: any) {
+      setInterviewError(err.message || 'Failed to receive interview evaluation from Claude 3.5 Sonnet.');
     } finally {
       setLoading(false);
     }
@@ -254,6 +264,7 @@ function InterviewStudioContent() {
     setMessages([]);
     setSecondsElapsed(0);
     setShowScorecard(false);
+    setInterviewError(null);
   };
 
   const displayName = candidateName || 'Candidate';
@@ -270,7 +281,7 @@ function InterviewStudioContent() {
                 <Briefcase className="w-3.5 h-3.5" /> Interview Intelligence Studio
               </span>
               <span className="text-[11px] font-mono bg-[#5db872]/15 text-[#5db872] px-2 py-0.5 rounded border border-[#5db872]/30 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Grounded on Resume &amp; Target JD
+                <ShieldCheck className="w-3 h-3" /> Live Claude 3.5 Sonnet Grounded
               </span>
             </div>
 
@@ -278,7 +289,7 @@ function InterviewStudioContent() {
               Mock Interview: {targetRoleTitle}
             </h1>
             <p className="text-xs text-[#8e8b82] mt-0.5">
-              Candidate: <strong className="text-white">{displayName}</strong> • Mode: Resume Project Cross-Examination &amp; Live STAR Scoring
+              Candidate: <strong className="text-white">{displayName}</strong> • Mode: Live Project Cross-Examination &amp; STAR Scoring
             </p>
           </div>
 
@@ -294,7 +305,7 @@ function InterviewStudioContent() {
                 disabled={loading}
                 className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-5 py-2 rounded-md font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
               >
-                <Sparkles className="w-3.5 h-3.5" /> Begin Interview
+                <Sparkles className="w-3.5 h-3.5" /> Begin Live Interview
               </button>
             ) : (
               <div className="flex items-center gap-2">
@@ -317,6 +328,17 @@ function InterviewStudioContent() {
             )}
           </div>
         </header>
+
+        {/* Live Claude 3.5 Sonnet Error Banner */}
+        {interviewError && (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs flex items-start gap-2.5 shadow-md">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-semibold text-red-200">Claude 3.5 Sonnet Notice:</strong>
+              <span>{interviewError}</span>
+            </div>
+          </div>
+        )}
 
         {/* Studio Split Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -345,13 +367,13 @@ function InterviewStudioContent() {
                   </div>
                   <h3 className="font-serif text-2xl text-white">Ready for your practice round?</h3>
                   <p className="text-xs text-[#8e8b82] max-w-md leading-relaxed">
-                    The AI hiring manager will ask targeted questions referencing your resume's actual projects and cross-examine your architecture against {targetRoleTitle}.
+                    Claude 3.5 Sonnet will cross-examine your actual resume projects against the requirements for {targetRoleTitle} and score your answers in real time.
                   </p>
                   <button
                     onClick={handleStartInterview}
                     className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-2.5 rounded-md font-medium text-xs transition-all cursor-pointer shadow-md"
                   >
-                    Start Interview
+                    Begin Live Interview
                   </button>
                 </div>
               )}
@@ -391,7 +413,7 @@ function InterviewStudioContent() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-[#8e8b82] bg-[#1f1e1b] border border-[#252320] px-4 py-2 rounded-md w-fit">
                   <span className="w-2 h-2 rounded-full bg-[#cc785c] animate-pulse" />
-                  Alex is evaluating your answer against the target JD...
+                  Alex is evaluating your answer with Claude 3.5 Sonnet...
                 </div>
               )}
               <div ref={chatEndRef} />
@@ -401,7 +423,7 @@ function InterviewStudioContent() {
             <form onSubmit={handleSendMessage} className="p-4 border-t border-[#252320] bg-[#181715] flex gap-3">
               <input
                 type="text"
-                placeholder={isStarted ? "Type your STAR response (Situation, Task, Action, Result)..." : "Click 'Begin Interview' to start"}
+                placeholder={isStarted ? "Type your STAR response (Situation, Task, Action, Result)..." : "Click 'Begin Live Interview' to start"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={!isStarted || loading}
@@ -482,7 +504,7 @@ function InterviewStudioContent() {
                   <span className="text-2xl font-serif text-white">{scores.overall}/100</span>
                 </div>
                 <span className="text-xs font-mono text-[#cc785c] bg-[#181715] px-2.5 py-1 rounded border border-[#3d3d3a]">
-                  Top Candidate
+                  Live Dynamic
                 </span>
               </div>
             </div>

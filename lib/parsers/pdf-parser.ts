@@ -1,6 +1,6 @@
 /**
  * Bulletproof Server-Side PDF Text Extractor for Next.js App Router & Node.js runtime.
- * Strips null bytes, non-printable control characters, and binary stream bytecode.
+ * Supports pdf-parse v2 (PDFParse class), legacy function exports, and stream extraction.
  */
 
 // Polyfill DOMMatrix stubs for pdf-parse v2 in Node.js serverless environment
@@ -79,7 +79,7 @@ export function sanitizeText(raw: string): string {
 }
 
 /**
- * Checks if text contains at least 20 recognizable resume / dictionary words
+ * Checks if text contains recognizable resume / dictionary words
  */
 export function countRecognizableWords(text: string): number {
   if (!text) return 0;
@@ -92,7 +92,7 @@ export function countRecognizableWords(text: string): number {
  */
 export function isHumanResumeText(text: string): boolean {
   if (!text || text.length < 50) return false;
-  return countRecognizableWords(text) >= 20;
+  return countRecognizableWords(text) >= 15;
 }
 
 /**
@@ -101,44 +101,71 @@ export function isHumanResumeText(text: string): boolean {
 export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
   let cleanedText = '';
 
+  // 1. Attempt PDFParse class (pdf-parse v2)
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParseModule = require('pdf-parse');
-    const parseFn =
-      typeof pdfParseModule === 'function'
-        ? pdfParseModule
-        : pdfParseModule.default || pdfParseModule.PDFParser;
+    const pdfModule = require('pdf-parse');
+    const PDFParseClass = pdfModule.PDFParse || (pdfModule.default && pdfModule.default.PDFParse);
 
-    if (typeof parseFn === 'function') {
-      const data = await parseFn(fileBuffer);
+    if (PDFParseClass && typeof PDFParseClass === 'function') {
+      const parser = new PDFParseClass({ data: fileBuffer });
+      const textResult = await parser.getText();
+      if (textResult?.text) {
+        cleanedText = sanitizeText(textResult.text);
+      }
+      try {
+        await parser.destroy();
+      } catch {}
+    } else if (typeof pdfModule === 'function') {
+      const data = await pdfModule(fileBuffer);
       cleanedText = sanitizeText(data?.text || '');
     }
   } catch (error: any) {
-    console.warn('pdf-parse module notice, trying binary stream text decoder:', error?.message || error);
+    console.warn('pdf-parse v2 parser note:', error?.message || error);
   }
 
-  // Fallback stream text extraction if pdf-parse failed or returned empty
-  if (!cleanedText || countRecognizableWords(cleanedText) < 20) {
+  // 2. Fallback stream text extraction if pdf-parse failed or returned empty
+  if (!cleanedText || countRecognizableWords(cleanedText) < 15) {
     try {
       const rawLatin = fileBuffer.toString('latin1');
       const textPieces: string[] = [];
+
+      // Match text operators (string) Tj and [(str)(ing)] TJ
       const tjPattern = /\(([^)]+)\)\s*Tj/g;
       let match;
       while ((match = tjPattern.exec(rawLatin)) !== null) {
         textPieces.push(match[1]);
       }
+
+      const arrayTjPattern = /\[([^\]]+)\]\s*TJ/g;
+      while ((match = arrayTjPattern.exec(rawLatin)) !== null) {
+        const parts = match[1].match(/\(([^)]+)\)/g);
+        if (parts) {
+          textPieces.push(parts.map((p) => p.slice(1, -1)).join(' '));
+        }
+      }
+
       const streamCleaned = sanitizeText(textPieces.join(' '));
-      if (countRecognizableWords(streamCleaned) >= 20) {
+      if (countRecognizableWords(streamCleaned) >= 15) {
         cleanedText = streamCleaned;
       }
     } catch {}
   }
 
-  // Sanity Check: If extracted text contains less than 20 recognizable words or is bytecode
+  // 3. Fallback ASCII decoder
+  if (!cleanedText || countRecognizableWords(cleanedText) < 15) {
+    const rawAscii = fileBuffer.toString('utf-8').replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ');
+    const sanitizedAscii = sanitizeText(rawAscii);
+    if (countRecognizableWords(sanitizedAscii) >= 15) {
+      cleanedText = sanitizedAscii;
+    }
+  }
+
+  // Sanity Check
   const wordCount = countRecognizableWords(cleanedText);
   const isBase64Bytecode = /^[\x00-\x7F]*([A-Za-z0-9+/=]{60,})/.test(cleanedText.slice(0, 150));
 
-  if (!cleanedText || wordCount < 20 || isBase64Bytecode) {
+  if (!cleanedText || wordCount < 10 || isBase64Bytecode) {
     throw new Error('Unable to extract text from PDF. Please paste resume text directly.');
   }
 
