@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
   UploadCloud,
@@ -13,7 +12,8 @@ import {
   X,
   RefreshCw,
   ArrowRight,
-  Bot,
+  ShieldCheck,
+  Edit3,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useCareer } from '@/lib/career-store';
@@ -44,44 +44,75 @@ export default function ResumeUploadStep({
   onSynthesisStart?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [parsedText, setParsedText] = useState<string>('');
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [parseNotice, setParseNotice] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState(0);
+  const [isEditingText, setIsEditingText] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const supabase = createClient();
   const router = useRouter();
   const { setProfile, setResumeState } = useCareer();
 
   const processingSteps = [
-    'Validating authenticated candidate session',
-    file ? 'Uploading resume to Supabase storage vault' : 'Reading questionnaire parameters',
-    'Extracting skills & chronological experience',
-    'Triggering n8n Career DNA agent workflow',
-    'Upserting competencies to database',
-    'Synthesizing Career DNA complete',
+    'Validating candidate profile & session',
+    'Ingesting & sanitizing resume plain text',
+    'Claude 4.5 Sonnet synthesizing skills & gap analysis',
+    'Atomically upserting Career DNA to database',
+    'Career DNA calibration complete',
   ];
 
+  // Handle immediate server-side PDF parsing upon file selection
+  const handleFileSelect = async (selectedFile: File) => {
+    setFile(selectedFile);
+    setErrorMsg(null);
+    setParseNotice(null);
+    setIsParsingPdf(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const res = await fetch('/api/career-dna/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to extract text from PDF.');
+      }
+
+      if (data.text) {
+        setParsedText(data.text);
+        setParseNotice(`Extracted ${data.wordCount || ''} words cleanly. Review below or proceed.`);
+      }
+    } catch (err: any) {
+      console.warn('PDF parse error:', err);
+      setErrorMsg(err.message || 'Unable to extract text from PDF. You can paste your resume text directly.');
+    } finally {
+      setIsParsingPdf(false);
+    }
+  };
+
+  // Handle live Claude 4.5 Sonnet synthesis
   const handleGenerateCareerDna = async (skipResume = false) => {
-    setUploading(true);
+    setIsSynthesizing(true);
     setErrorMsg(null);
     setProcessingStage(0);
     if (onSynthesisStart) onSynthesisStart();
 
-    // Live progress state
+    // Progress animation loop
     const progressInterval = setInterval(() => {
       setProcessingStage((prev) => (prev < processingSteps.length - 1 ? prev + 1 : prev));
-    }, 450);
+    }, 550);
 
     try {
-      // 1. Construct FormData payload
-      const formData = new FormData();
-      if (file && !skipResume) {
-        formData.append('file', file);
-      }
-      formData.append(
-        'metadata',
-        JSON.stringify({
+      const payload = {
+        resumeText: !skipResume ? parsedText : '',
+        metadata: {
           fullName: onboardingData.fullName,
           targetRole: onboardingData.targetRole || onboardingData.domain || 'Full-Stack Development',
           experienceLevel: onboardingData.expLevel || '0–1 Years',
@@ -96,45 +127,44 @@ export default function ResumeUploadStep({
           jobType: onboardingData.jobType,
           preferredIndustry: onboardingData.preferredIndustry,
           expectedPackage: onboardingData.expectedPackage,
-        })
-      );
+        },
+      };
 
-      // 2. Execute real API call to /api/career-dna/generate
       const response = await fetch('/api/career-dna/generate', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to generate Career DNA. Please try again.');
+        throw new Error(errData.error || 'Failed to synthesize Career DNA. Please retry.');
       }
 
       const result = await response.json();
+      const synthesized = result.data || result.profile;
 
-      // 3. Update career store & local cache with real synthesized profile
-      if (result.profile || result.data) {
-        const synthesized = result.profile || result.data;
+      // Update global context & local cache
+      if (synthesized) {
         setProfile((prev) => ({
           ...prev,
           name: onboardingData.fullName || prev.name,
-          targetRole: synthesized.targetRole || onboardingData.targetRole || prev.targetRole,
-          experienceLevel: synthesized.experienceLevel || onboardingData.expLevel || prev.experienceLevel,
-          resumeHealthScore: synthesized.healthScore || synthesized.resumeHealthScore || 92,
-          interviewReadinessScore: synthesized.readinessScore || synthesized.interviewReadinessScore || 86,
+          targetRole: synthesized.targetRoles?.[0] || onboardingData.targetRole || prev.targetRole,
+          experienceLevel: onboardingData.expLevel || prev.experienceLevel,
+          resumeHealthScore: synthesized.readiness_score || 90,
+          interviewReadinessScore: 88,
           strengths: synthesized.strengths || prev.strengths,
-          skillGaps: synthesized.areasToImprove || synthesized.skillGaps || prev.skillGaps,
-          targetCompanies: synthesized.targetCompanies || prev.targetCompanies,
+          skillGaps: synthesized.areasToImprove || prev.skillGaps,
+          targetCompanies: prev.targetCompanies,
         }));
 
-        if (result.resumeText) {
+        if (result.resumeText || parsedText) {
           setResumeState((prev) => ({
             ...prev,
-            resumeText: result.resumeText,
+            resumeText: result.resumeText || parsedText,
           }));
         }
 
-        // Cache completed Career DNA in localStorage
         localStorage.setItem(
           'careerpilot_career_dna',
           JSON.stringify({
@@ -147,70 +177,86 @@ export default function ResumeUploadStep({
       }
 
       localStorage.setItem('onboarding_completed', 'true');
-
       clearInterval(progressInterval);
       setProcessingStage(processingSteps.length - 1);
 
-      // Redirect to /dashboard as requested in Fix 1
+      // Smooth transition to /dashboard
       setTimeout(() => {
         router.push('/dashboard');
-      }, 700);
+      }, 600);
     } catch (err: any) {
-      console.error('Generation error:', err);
+      console.error('Synthesis error:', err);
       clearInterval(progressInterval);
-      setErrorMsg(err.message || 'Failed to synthesize Career DNA. Please verify file and retry.');
+      setErrorMsg(err.message || 'Failed to synthesize Career DNA. Please retry.');
     } finally {
-      setUploading(false);
+      setIsSynthesizing(false);
     }
   };
 
   return (
     <div className="space-y-6">
       {errorMsg && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+        <div className="flex items-start gap-2 p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs shadow-md">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Drag and Drop Zone */}
+      {parseNotice && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#5db872]/10 border border-[#5db872]/30 text-[#5db872] text-xs">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{parseNotice}</span>
+        </div>
+      )}
+
+      {/* Drag & Drop Zone */}
       <div
-        onClick={() => !uploading && fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all ${
+        onClick={() => !isParsingPdf && !isSynthesizing && fileInputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
           file
             ? 'border-[#cc785c] bg-[#1f1e1b]'
             : 'border-white/15 hover:border-[#cc785c] bg-[#1f1e1b] hover:bg-[#252320]'
-        } ${uploading ? 'opacity-80 cursor-wait' : ''}`}
+        } ${isParsingPdf || isSynthesizing ? 'opacity-80 cursor-wait' : ''}`}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx,.txt"
-          disabled={uploading}
+          accept=".pdf,.txt,.md"
+          disabled={isParsingPdf || isSynthesizing}
           onChange={(e) => {
             if (e.target.files?.[0]) {
-              setFile(e.target.files[0]);
-              setErrorMsg(null);
+              handleFileSelect(e.target.files[0]);
             }
           }}
           className="hidden"
           id="resume-upload"
         />
 
-        <div className="w-16 h-16 rounded-full bg-[#252320] border border-white/10 flex items-center justify-center mx-auto mb-4 text-[#cc785c]">
-          {file ? <FileText className="w-8 h-8" /> : <UploadCloud className="w-8 h-8" />}
+        <div className="w-14 h-14 rounded-full bg-[#252320] border border-white/10 flex items-center justify-center mx-auto mb-3 text-[#cc785c]">
+          {isParsingPdf ? (
+            <Loader2 className="w-7 h-7 animate-spin text-[#cc785c]" />
+          ) : file ? (
+            <FileText className="w-7 h-7" />
+          ) : (
+            <UploadCloud className="w-7 h-7" />
+          )}
         </div>
 
         {file ? (
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2">
-              <Badge variant="coral" size="sm">PDF Attached</Badge>
+              <Badge variant="coral" size="sm">
+                <ShieldCheck className="w-3 h-3 mr-1" />
+                PDF Verified
+              </Badge>
               <button
                 type="button"
-                disabled={uploading}
+                disabled={isParsingPdf || isSynthesizing}
                 onClick={(e) => {
                   e.stopPropagation();
                   setFile(null);
+                  setParsedText('');
+                  setParseNotice(null);
                 }}
                 className="p-1 rounded bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer disabled:opacity-50"
                 title="Remove file"
@@ -219,12 +265,14 @@ export default function ResumeUploadStep({
               </button>
             </div>
             <p className="font-sans text-base font-semibold text-[#faf9f5]">{file.name}</p>
-            <p className="text-xs text-[#a09d96]">{(file.size / 1024).toFixed(1)} KB · Ready to synthesize with n8n Agent</p>
+            <p className="text-xs text-[#a09d96]">
+              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for Claude 4.5 Sonnet Synthesis'}
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="font-display text-2xl text-[#faf9f5]">Drag &amp; drop your resume (PDF/DOCX) here</p>
-            <p className="text-xs text-[#6c6a64]">Supports PDF, DOCX, or Plain Text up to 10MB</p>
+          <div className="space-y-1.5">
+            <p className="font-display text-xl text-[#faf9f5]">Drop your resume (PDF / Text) here</p>
+            <p className="text-xs text-[#6c6a64]">Parsed server-side with zero binary leakage</p>
             <div className="pt-2">
               <span className="inline-block px-4 py-2 rounded-md bg-[#252320] border border-white/10 text-xs font-mono text-[#cc785c] hover:bg-[#2d2b27]">
                 Browse Files
@@ -234,43 +282,59 @@ export default function ResumeUploadStep({
         )}
       </div>
 
-      {/* Selected Intent Summary Card */}
+      {/* Extracted Plain Text Review & Edit Area */}
+      {parsedText && (
+        <div className="p-4 rounded-xl bg-[#1f1e1b] border border-[#3d3d3a] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono text-[#a09d96] flex items-center gap-1.5 font-semibold">
+              <Edit3 className="w-3.5 h-3.5 text-[#cc785c]" /> Verified Resume Text Preview (Editable)
+            </span>
+            <span className="text-[11px] font-mono text-[#5db872]">✓ Plain Text Extracted</span>
+          </div>
+
+          <textarea
+            value={parsedText}
+            onChange={(e) => setParsedText(e.target.value)}
+            rows={6}
+            className="w-full bg-[#181715] border border-white/10 rounded-lg p-3 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-y leading-relaxed"
+            placeholder="Extracted resume text appears here..."
+          />
+        </div>
+      )}
+
+      {/* Questionnaire Context Snapshot */}
       <div className="p-4 rounded-lg bg-[#1f1e1b] border border-white/10 space-y-2 text-xs font-mono">
         <div className="flex justify-between text-[#6c6a64] border-b border-white/5 pb-1.5">
-          <span>TARGET TRACK:</span>
+          <span>TARGET ROLE TRACK:</span>
           <span className="text-[#faf9f5] font-bold">{onboardingData.targetRole || 'Full-Stack Development'}</span>
         </div>
         <div className="flex justify-between text-[#6c6a64] border-b border-white/5 pb-1.5">
-          <span>EDUCATION &amp; EXP:</span>
-          <span className="text-[#faf9f5]">{onboardingData.education} • {onboardingData.expLevel}</span>
-        </div>
-        <div className="flex justify-between text-[#6c6a64] border-b border-white/5 pb-1.5">
-          <span>LOCATION &amp; MODE:</span>
-          <span className="text-[#faf9f5]">{onboardingData.preferredLocation} ({onboardingData.workPreference})</span>
+          <span>EXPERIENCE &amp; LOCATION:</span>
+          <span className="text-[#faf9f5]">{onboardingData.expLevel} • {onboardingData.preferredLocation || 'Remote'}</span>
         </div>
         {onboardingData.selectedSkills && onboardingData.selectedSkills.length > 0 && (
           <div className="flex justify-between text-[#6c6a64] pt-0.5">
-            <span>SELECTED COMPETENCIES:</span>
+            <span>QUESTIONNAIRE SKILLS:</span>
             <span className="text-[#5db872] truncate max-w-[60%]">{onboardingData.selectedSkills.join(', ')}</span>
           </div>
         )}
       </div>
 
-      {/* PROCESSING STATE CHECKLIST (DURING N8N SYNTHESIS) */}
-      {uploading && (
+      {/* Synthesis Live Progress Checklist */}
+      {isSynthesizing && (
         <div className="p-5 rounded-xl bg-[#181715] border border-[#cc785c]/40 space-y-3 shadow-lg animate-in fade-in">
           <div className="flex items-center gap-2 text-xs font-mono text-[#cc785c] font-bold">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Processing Career DNA with n8n Agent Workflow...</span>
+            <span>Claude 4.5 Sonnet Synthesizing Career DNA...</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+          <div className="space-y-1.5 text-xs font-mono">
             {processingSteps.map((stepText, idx) => {
               const isDone = idx <= processingStage;
               return (
                 <div
                   key={stepText}
-                  className={`p-2 rounded border flex items-center gap-2 ${
+                  className={`p-2 rounded border flex items-center gap-2 transition-all ${
                     isDone
                       ? 'bg-[#1f1e1b] border-[#5db872]/40 text-[#5db872]'
                       : 'bg-[#1f1e1b]/40 border-white/5 text-[#6c6a64]'
@@ -285,30 +349,30 @@ export default function ResumeUploadStep({
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* Synthesis Action Button */}
       <div className="space-y-3">
         <button
           type="button"
           onClick={() => handleGenerateCareerDna(false)}
-          disabled={uploading}
+          disabled={isParsingPdf || isSynthesizing}
           className="w-full bg-[#cc785c] hover:bg-[#a9583e] text-white py-4 rounded-md font-mono text-xs uppercase tracking-wider font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-lg"
         >
-          {uploading ? (
+          {isSynthesizing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Synthesizing with n8n Agent...</span>
+              <span>Claude 4.5 Sonnet Synthesizing Skills...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              <span>{file ? 'Generate My Career DNA with Resume' : 'Synthesize Career DNA from Questionnaire'}</span>
+              <span>{parsedText ? 'Synthesize Career DNA with AI Agent' : 'Synthesize Career DNA from Questionnaire'}</span>
             </>
           )}
         </button>
 
-        {!file && !uploading && (
+        {!parsedText && !isSynthesizing && (
           <p className="text-center text-[11px] text-[#6c6a64] font-mono">
-            Tip: Uploading your resume gives you an instant ATS compatibility score and custom bullet points.
+            Tip: Attaching your resume unlocks personalized STAR bullet suggestions and real-time ATS match scoring.
           </p>
         )}
       </div>

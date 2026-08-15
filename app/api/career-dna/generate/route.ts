@@ -9,18 +9,19 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// Strict Zod schema required for Career DNA
+// Authoritative Zod schema for Career DNA Synthesis
 const CareerDnaSchema = z.object({
-  strengths: z.array(z.string()).describe('List of key technical and professional strengths identified in the resume/profile'),
-  areasToImprove: z.array(z.string()).describe('Key skill gaps or areas that need development for target roles'),
-  currentSkills: z.array(z.string()).describe('Verified technical tools, languages, and frameworks the candidate currently uses'),
-  skillsToAcquire: z.array(z.string()).describe('Recommended high-demand skills to acquire for target job tracks'),
-  targetRoles: z.array(z.string()).describe('Primary and adjacent job roles suited for this candidate'),
+  strengths: z.array(z.string()).describe('Top 4-6 verified technical and architectural strengths'),
+  areasToImprove: z.array(z.string()).describe('Top 3-4 skill gaps or missing depth based on target role'),
+  currentSkills: z.array(z.string()).describe('List of all technical skills, frameworks, and tools found in resume'),
+  skillsToAcquire: z.array(z.string()).describe('Key industry skills required for target role but missing from profile'),
+  targetRoles: z.array(z.string()).describe('Top 2-3 matched job titles with seniority level'),
   recommendedActions: z.array(
     z.object({
       title: z.string().describe('Short actionable recommendation title'),
       rationale: z.string().describe('Why this action directly improves hiring probability'),
       urgency: z.enum(['high', 'medium', 'low']).describe('Priority level'),
+      moduleLink: z.string().default('/resume-intelligence'),
     })
   ).describe('3-5 prioritized next actions'),
 });
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // 1. Authenticate user via lib/supabase/server.ts
+    // 1. Authenticate user session using Supabase SSR server client
     const {
       data: { user },
       error: authError,
@@ -39,11 +40,65 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized. Please sign in to proceed.' }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const rawMetadata = formData.get('metadata') as string | null;
+    const contentType = request.headers.get('content-type') || '';
+    let extractedResumeText = '';
+    let metadata: Record<string, any> = {};
+    let storageResumeUrl = '';
 
-    const metadata = rawMetadata ? JSON.parse(rawMetadata) : {};
+    // 2. Parse incoming payload (supports both JSON body & multipart FormData)
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      extractedResumeText = body.resumeText || '';
+      metadata = body.metadata || body || {};
+    } else if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      const rawMetadata = formData.get('metadata') as string | null;
+      const directResumeText = formData.get('resumeText') as string | null;
+
+      if (rawMetadata) {
+        try {
+          metadata = JSON.parse(rawMetadata);
+        } catch {
+          metadata = {};
+        }
+      }
+
+      if (directResumeText && directResumeText.trim().length > 30) {
+        extractedResumeText = directResumeText.trim();
+      }
+
+      // Extract text from attached PDF if text not already provided
+      if (file && file.size > 0) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          
+          if (!extractedResumeText) {
+            extractedResumeText = await parsePdfBuffer(buffer, file.name);
+          }
+
+          // Persist raw PDF to private Supabase storage bucket 'resumes'
+          const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('resumes')
+            .upload(storagePath, buffer, {
+              contentType: file.type || 'application/pdf',
+              upsert: true,
+            });
+
+          if (!uploadError) {
+            const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(storagePath);
+            storageResumeUrl = publicUrlData?.publicUrl || storagePath;
+          }
+        } catch (fileErr: any) {
+          console.warn('Resume file extraction notice:', fileErr?.message || fileErr);
+        }
+      }
+    }
+
     const targetRole = metadata.targetRole || metadata.domain || 'Full-Stack Development';
     const experienceLevel = metadata.experienceLevel || metadata.expLevel || '0–1 Years';
     const candidateSkills = Array.isArray(metadata.skills)
@@ -52,38 +107,8 @@ export async function POST(request: Request) {
       ? metadata.selectedSkills
       : [];
 
-    let extractedResumeText = '';
-    let storageResumeUrl = '';
-
-    // 2. Extract clean text from uploaded PDF FormData
-    if (file && file.size > 0) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        extractedResumeText = await parsePdfBuffer(buffer, file.name);
-
-        // Upload raw PDF to private Supabase storage bucket 'resumes'
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('resumes')
-          .upload(storagePath, buffer, {
-            contentType: file.type || 'application/pdf',
-            upsert: true,
-          });
-
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(storagePath);
-          storageResumeUrl = publicUrlData?.publicUrl || storagePath;
-        }
-      } catch (fileErr: any) {
-        console.warn('PDF parsing warning:', fileErr?.message || fileErr);
-      }
-    }
-
-    // Fallback text if no PDF was attached
-    if (!extractedResumeText) {
+    // Fallback if no resume text available
+    if (!extractedResumeText || extractedResumeText.trim().length < 20) {
       extractedResumeText = `Candidate Name: ${metadata.fullName || user.email?.split('@')[0] || 'Candidate'}
 Target Role: ${targetRole}
 Experience Level: ${experienceLevel}
@@ -94,18 +119,20 @@ Career Intent: ${metadata.careerIntent || metadata.selectedGoal || 'Accelerate t
     }
 
     const prompt = `You are a Principal Career Systems Architect and Technical Recruiter.
-Analyze this candidate's resume and target career track to construct their authoritative Career DNA.
+Analyze this candidate's verified resume and questionnaire responses to generate an authoritative Career DNA profile.
 
-Target Role: ${targetRole}
-Experience Level: ${experienceLevel}
-Candidate Input Skills: ${candidateSkills.join(', ')}
+Candidate Context:
+- Target Role Track: ${targetRole}
+- Experience Level: ${experienceLevel}
+- Questionnaire Skills: ${candidateSkills.join(', ')}
+- Education & Intent: ${metadata.education || 'Computer Science'} | ${metadata.careerIntent || metadata.selectedGoal || 'Accelerate Career Growth'}
 
-RESUME CONTENT:
+RESUME PLAIN TEXT:
 ${extractedResumeText}
 
-Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles, and provide 3-5 prioritized next actions with rationale and urgency.`;
+Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles with seniority, and provide 3-5 prioritized next actions.`;
 
-    // 3. Invoke OpenRouter Claude 4.5 Sonnet via Vercel AI SDK generateObject
+    // 3. Invoke Claude 4.5 Sonnet via OpenRouter
     const aiResponse = await generateObject({
       model: claudeSonnetModel,
       schema: CareerDnaSchema,
@@ -115,31 +142,23 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
 
     const structuredResult = aiResponse.object;
 
-    // 4. Direct Supabase Upsert into public.career_dna
+    // 4. Atomic Supabase Upsert into public.career_dna
+    const upsertRecord = {
+      user_id: user.id,
+      target_roles: structuredResult.targetRoles,
+      current_skills: structuredResult.currentSkills,
+      skill_gaps: structuredResult.areasToImprove,
+      readiness_score: 88,
+      raw_resume_text: extractedResumeText,
+      resume_url: storageResumeUrl || null,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data: insertedDna, error: dbError } = await supabase
       .from('career_dna')
-      .upsert(
-        {
-          user_id: user.id,
-          target_roles: structuredResult.targetRoles,
-          current_skills: structuredResult.currentSkills,
-          skill_gaps: structuredResult.areasToImprove,
-          readiness_score: 85,
-          raw_resume_text: extractedResumeText,
-          resume_url: storageResumeUrl || null,
-          metadata: {
-            strengths: structuredResult.strengths,
-            skillsToAcquire: structuredResult.skillsToAcquire,
-            recommendedActions: structuredResult.recommendedActions,
-            experienceLevel,
-            extractedAt: new Date().toISOString(),
-          },
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
+      .upsert(upsertRecord, { onConflict: 'user_id' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (dbError) {
       console.warn('career_dna upsert note:', dbError.message);
@@ -152,31 +171,36 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
         onboarding_completed: true,
         target_role: targetRole,
         experience_level: experienceLevel,
+        full_name: metadata.fullName || undefined,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id);
 
     return NextResponse.json({
       success: true,
-      data: insertedDna || {
+      data: {
+        ...structuredResult,
         user_id: user.id,
-        target_roles: structuredResult.targetRoles,
-        current_skills: structuredResult.currentSkills,
-        skill_gaps: structuredResult.areasToImprove,
-        readiness_score: 85,
-        raw_resume_text: extractedResumeText,
-        metadata: {
-          strengths: structuredResult.strengths,
-          skillsToAcquire: structuredResult.skillsToAcquire,
-          recommendedActions: structuredResult.recommendedActions,
-        },
+        targetRoles: structuredResult.targetRoles,
+        currentSkills: structuredResult.currentSkills,
+        areasToImprove: structuredResult.areasToImprove,
+        strengths: structuredResult.strengths,
+        skillsToAcquire: structuredResult.skillsToAcquire,
+        recommendedActions: structuredResult.recommendedActions,
+        rawResumeText: extractedResumeText,
+        resumeUrl: storageResumeUrl,
       },
-      careerDna: structuredResult,
+      profile: {
+        ...structuredResult,
+        targetRole,
+        experienceLevel,
+      },
+      resumeText: extractedResumeText,
     });
   } catch (error: any) {
     console.error('Career DNA Generation Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate Career DNA' },
+      { error: error.message || 'Failed to synthesize Career DNA' },
       { status: 500 }
     );
   }

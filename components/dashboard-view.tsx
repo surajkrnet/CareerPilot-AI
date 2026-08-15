@@ -106,8 +106,8 @@ export default function DashboardView({
       fetch('/api/dashboard/next-action', { method: 'POST' })
         .then((res) => res.json())
         .then((data) => {
-          if (data.recommendation) {
-            setDynamicAction(data.recommendation);
+          if (data.nextAction || data.recommendation) {
+            setDynamicAction(data.nextAction || data.recommendation);
           }
         })
         .catch((err) => console.warn('Next-action fetch notice:', err));
@@ -326,7 +326,7 @@ export default function DashboardView({
                 </div>
                 <div>
                   <h3 className="font-display text-xl text-[#faf9f5]">Career DNA Profile</h3>
-                  <p className="text-[11px] text-[#6c6a64]">Synthesized by n8n Agent Workflow</p>
+                  <p className="text-[11px] text-[#6c6a64]">Synthesized by Claude 4.5 Sonnet Engine</p>
                 </div>
               </div>
               <Badge variant="teal" size="sm">Active Vector</Badge>
