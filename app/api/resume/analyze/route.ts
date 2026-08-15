@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { anthropic } from '@ai-sdk/anthropic';
+import { getClaudeModel } from '@/lib/ai/model';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -27,14 +27,6 @@ const AnalysisSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY is missing in .env.local' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -46,9 +38,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Resume text and Job Description are required' }, { status: 400 });
     }
 
-    // Direct Claude 3.5 Sonnet generation via Vercel AI SDK (no silent mock fallbacks)
+    // Direct Claude Sonnet generation via unified model
+    const model = getClaudeModel();
     const result = await generateObject({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model,
       schema: AnalysisSchema,
       system: `You are a Principal Technical Recruiter and ATS Evaluation Engine. 
 Analyze the candidate's actual resume against the target Job Description (JD).
@@ -94,9 +87,9 @@ Analyze the candidate's actual resume against the target Job Description (JD).
       scanId,
     });
   } catch (error: any) {
-    console.error('Live Claude 3.5 Sonnet Analysis Error:', error);
+    console.error('Live Claude Analysis Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Claude 3.5 Sonnet Analysis failed' },
+      { error: error.message || 'Claude Analysis failed' },
       { status: 500 }
     );
   }

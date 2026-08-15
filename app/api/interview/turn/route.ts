@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { anthropic } from '@ai-sdk/anthropic';
+import { getClaudeModel } from '@/lib/ai/model';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -21,14 +21,6 @@ const TurnSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY is missing in .env.local' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -73,8 +65,9 @@ Interviewing Directives:
 3. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and Answer Structure (STAR) (0-100).
 4. Ask exactly ONE clear, focused follow-up or technical challenge question per turn.`;
 
+    const model = getClaudeModel();
     const result = await generateObject({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model,
       schema: TurnSchema,
       system: systemPrompt,
       prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate has initiated the session.'}`,
@@ -134,7 +127,7 @@ Interviewing Directives:
   } catch (error: any) {
     console.error('Live Interview Turn Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Claude 3.5 Sonnet interview turn failed' },
+      { error: error.message || 'Claude interview turn failed' },
       { status: 500 }
     );
   }

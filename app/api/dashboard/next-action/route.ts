@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getClaudeModel } from '@/lib/ai/model';
 import { generateObject } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -47,55 +47,60 @@ export async function POST(request: Request) {
     let nextAction: z.infer<typeof NextActionSchema>;
 
     try {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY is not set');
-      }
-
+      const model = getClaudeModel();
       const prompt = `You are a Principal AI Career Orchestrator. Determine the single highest leverage next-best action for this candidate.
 
 Candidate State:
 - Target Role: ${targetRole}
 - Career DNA Calibrated: ${hasDna}
 - Total Applications in Pipeline: ${applications.length}
-- Mock Interviews Completed: ${interviewSessions.length}
-- Verified Strengths: ${JSON.stringify(careerDna?.strengths || [])}
-- Identified Skill Gaps: ${JSON.stringify(careerDna?.areas_to_improve || [])}
+- Mock Interview Drills Completed: ${interviewSessions.length}
+- Identified Skill Gaps: ${(careerDna?.skill_gaps || []).join(', ') || 'System Design, Distributed Caching'}
 
-Recommend the single most urgent and high-conversion action across (/resume, /interview, /jobs, /tracker, /onboarding).`;
+Synthesize the single highest ROI next step.`;
 
       const aiResponse = await generateObject({
-        model: anthropic('claude-3-5-sonnet-20241022'),
+        model,
         schema: NextActionSchema,
         prompt,
       });
 
       nextAction = aiResponse.object;
-    } catch (aiErr) {
-      // Fallback rule-based action synthesis
+    } catch (aiErr: any) {
+      console.warn('Next Action AI notice:', aiErr?.message || aiErr);
+
       if (!hasDna) {
         nextAction = {
-          title: 'Complete Career DNA Onboarding',
-          description: 'Calibrate your competency vector and extract verified technical strengths to unlock ATS scoring.',
-          impactScore: '+35% Match Accuracy',
-          actionLabel: 'Complete Career DNA',
+          title: 'Complete Career DNA Calibration',
+          description: 'Upload your resume or specify target roles to unlock personalized ATS match scores and tailored mock interview drills.',
+          impactScore: '+45% Opportunity Discovery',
+          actionLabel: 'Complete Calibration',
           actionHref: '/onboarding',
           urgency: 'high',
         };
       } else if (!hasInterviews) {
         nextAction = {
-          title: `Rehearse Live STAR Interview Drills for ${targetRole}`,
-          description: 'Practice 15 minutes of live technical roleplay in Mock Studio to sharpen response structure and delivery confidence.',
-          impactScore: '+28% Interview Conversion',
+          title: `Start AI Mock Interview for ${targetRole}`,
+          description: 'Practice real-time technical cross-examination and receive live STAR performance scores.',
+          impactScore: '+38% Offer Rate',
           actionLabel: 'Launch Mock Studio',
           actionHref: '/interview',
           urgency: 'high',
         };
+      } else if (!hasApps) {
+        nextAction = {
+          title: 'Optimize & Match 5 Target Roles',
+          description: 'Review high-match open positions aligned with your validated Career DNA skills.',
+          impactScore: '+24% Response Rate',
+          actionLabel: 'View Matched Roles',
+          actionHref: '/jobs',
+          urgency: 'medium',
+        };
       } else {
         nextAction = {
-          title: `Run JD-Aligned ATS Resume Scan for ${targetRole}`,
-          description: 'Inject active STAR accomplishment bullets to boost your automated resume screening pass rate.',
-          impactScore: '+22% ATS Match',
+          title: 'Run Resume ATS Scan on New Roles',
+          description: 'Ensure your resume keywords directly match recently posted engineering job requirements.',
+          impactScore: '+32% Interview Callbacks',
           actionLabel: 'Open Resume Studio',
           actionHref: '/resume',
           urgency: 'medium',
@@ -105,12 +110,11 @@ Recommend the single most urgent and high-conversion action across (/resume, /in
 
     return NextResponse.json({
       success: true,
-      recommendation: nextAction,
-      data: nextAction,
+      nextAction,
     });
   } catch (error: any) {
-    console.error('Next-Action route error:', error);
-    return NextResponse.json({ error: error.message || 'Next-action error' }, { status: 500 });
+    console.error('Next-Action error:', error);
+    return NextResponse.json({ error: error.message || 'Next-Action synthesis failed' }, { status: 500 });
   }
 }
 

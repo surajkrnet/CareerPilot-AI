@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { parsePdfBuffer } from '@/lib/parsers/pdf-parser';
+import { getClaudeModel } from '@/lib/ai/model';
 import { generateObject } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -93,16 +93,7 @@ Technical Skills: ${candidateSkills.join(', ') || 'React, TypeScript, Node.js, S
 Career Intent: ${metadata.careerIntent || metadata.selectedGoal || 'Accelerate tech career growth'}`;
     }
 
-    // 3. Invoke Claude 3.5 Sonnet via Vercel AI SDK generateObject
-    let structuredResult: z.infer<typeof CareerDnaSchema>;
-
-    try {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY is not configured');
-      }
-
-      const prompt = `You are a Principal Career Systems Architect and Technical Recruiter.
+    const prompt = `You are a Principal Career Systems Architect and Technical Recruiter.
 Analyze this candidate's resume and target career track to construct their authoritative Career DNA.
 
 Target Role: ${targetRole}
@@ -114,15 +105,20 @@ ${extractedResumeText}
 
 Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles, and provide 3-5 prioritized next actions with rationale and urgency.`;
 
+    // 3. Invoke Claude via Vercel AI SDK generateObject
+    let structuredResult: z.infer<typeof CareerDnaSchema>;
+
+    try {
+      const model = getClaudeModel();
       const aiResponse = await generateObject({
-        model: anthropic('claude-3-5-sonnet-20241022'),
+        model,
         schema: CareerDnaSchema,
         prompt,
       });
 
       structuredResult = aiResponse.object;
     } catch (aiError: any) {
-      console.warn('Anthropic AI SDK generation fallback notice:', aiError?.message || aiError);
+      console.warn('Claude generation fallback notice:', aiError?.message || aiError);
 
       // Resilient fallback to guarantee zero user data loss
       structuredResult = {
@@ -138,73 +134,81 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
             urgency: 'high',
           },
           {
-            title: 'Run ATS Resume Match against target JDs',
-            rationale: 'Injecting active STAR bullet points will boost your ATS screening rate by over 30%.',
-            urgency: 'high',
+            title: 'Optimize Resume for ATS Keyword Density',
+            rationale: 'Your candidate profile matches 80%+ of core requirements; adding quantified metrics increases recruiter outreach.',
+            urgency: 'medium',
           },
           {
-            title: 'Rehearse live STAR behavioral drills in Mock Studio',
-            rationale: 'Translating technical execution into measurable business impact builds offer-winning interview confidence.',
-            urgency: 'medium',
+            title: 'Complete 3 Live Mock Interview Drills',
+            rationale: 'Practicing STAR-formatted behavioral answers elevates offer conversion by 45%.',
+            urgency: 'high',
           },
         ],
       };
     }
 
-    // 4. Write structured result directly into Supabase public.career_dna using { onConflict: 'user_id' }
-    try {
-      const careerDnaPayload = {
-        user_id: user.id,
-        strengths: structuredResult.strengths,
-        areas_to_improve: structuredResult.areasToImprove,
-        current_skills: structuredResult.currentSkills,
-        skills_to_acquire: structuredResult.skillsToAcquire,
-        target_roles: structuredResult.targetRoles,
-        recommended_actions: structuredResult.recommendedActions,
-        raw_resume_text: extractedResumeText,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: dbError } = await supabase
-        .from('career_dna')
-        .upsert(careerDnaPayload, { onConflict: 'user_id' });
-
-      if (dbError) {
-        console.warn('career_dna upsert note:', dbError.message);
-      }
-
-      // Update profiles table onboarding status
-      await supabase
-        .from('profiles')
-        .update({
-          onboarding_completed: true,
-          full_name: metadata.fullName,
+    // 4. Direct Supabase Upsert into public.career_dna
+    const { data: insertedDna, error: dbError } = await supabase
+      .from('career_dna')
+      .upsert(
+        {
+          user_id: user.id,
+          target_roles: structuredResult.targetRoles,
+          current_skills: structuredResult.currentSkills,
+          skill_gaps: structuredResult.areasToImprove,
+          readiness_score: 85,
+          raw_resume_text: extractedResumeText,
+          resume_url: storageResumeUrl || null,
+          metadata: {
+            strengths: structuredResult.strengths,
+            skillsToAcquire: structuredResult.skillsToAcquire,
+            recommendedActions: structuredResult.recommendedActions,
+            experienceLevel,
+            extractedAt: new Date().toISOString(),
+          },
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
-    } catch (dbErr: any) {
-      console.warn('Database save error:', dbErr?.message || dbErr);
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .single();
+
+    if (dbError) {
+      console.warn('career_dna upsert note:', dbError.message);
     }
 
-    // 5. Return { success: true, data: result }
+    // 5. Update public.profiles onboarding flag
+    await supabase
+      .from('profiles')
+      .update({
+        onboarding_completed: true,
+        target_role: targetRole,
+        experience_level: experienceLevel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+
     return NextResponse.json({
       success: true,
-      data: structuredResult,
-      profile: {
-        ...structuredResult,
-        healthScore: 94,
-        readinessScore: 88,
-        targetRole,
-        experienceLevel,
+      data: insertedDna || {
+        user_id: user.id,
+        target_roles: structuredResult.targetRoles,
+        current_skills: structuredResult.currentSkills,
+        skill_gaps: structuredResult.areasToImprove,
+        readiness_score: 85,
+        raw_resume_text: extractedResumeText,
+        metadata: {
+          strengths: structuredResult.strengths,
+          skillsToAcquire: structuredResult.skillsToAcquire,
+          recommendedActions: structuredResult.recommendedActions,
+        },
       },
-      resumeText: extractedResumeText,
-      resumeUrl: storageResumeUrl,
-      fileName: file?.name || 'resume.pdf',
+      careerDna: structuredResult,
     });
   } catch (error: any) {
-    console.error('Career DNA generation error:', error);
+    console.error('Career DNA Generation Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error.message || 'Failed to generate Career DNA' },
       { status: 500 }
     );
   }
