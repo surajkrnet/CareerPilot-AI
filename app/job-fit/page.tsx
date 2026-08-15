@@ -103,11 +103,12 @@ export default function JobFitPage() {
         throw new Error(json.error || 'Failed to fetch job opportunities');
       }
 
-      if (json.data?.recommendations) {
-        setOpportunities(json.data.recommendations);
+      const recs = json.data?.recommendations || json.recommendations;
+      if (Array.isArray(recs) && recs.length > 0) {
+        setOpportunities(recs);
       }
-      if (json.data?.marketInsights) {
-        setMarketInsights(json.data.marketInsights);
+      if (json.data?.marketInsights || json.marketInsights) {
+        setMarketInsights(json.data?.marketInsights || json.marketInsights);
       }
       if (json.targetRole) {
         setTargetRole(json.targetRole);
@@ -125,6 +126,21 @@ export default function JobFitPage() {
   };
 
   useEffect(() => {
+    // Read cached Career DNA on mount for zero-latency initial state
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('careerpilot_career_dna');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.targetRoles?.[0] || parsed.targetRole) {
+            setTargetRole(parsed.targetRoles?.[0] || parsed.targetRole);
+          }
+          if (parsed.currentSkills) {
+            setVerifiedSkills(parsed.currentSkills);
+          }
+        }
+      } catch (e) {}
+    }
     fetchRecommendations();
   }, []);
 
