@@ -166,12 +166,37 @@ export default function DashboardView({
           { id: '3', company: 'Vercel', role: 'DevRel Specialist', status: 'saved', match_score: 89, salary: '₹24L - ₹36L LPA' },
         ];
 
+  // Helper to extract a display string from any bullet point structure
+  const getBulletString = (bullet: any): string => {
+    if (!bullet) return '';
+    if (typeof bullet === 'string') return bullet;
+    if (typeof bullet === 'object') {
+      return (
+        bullet.starOptimizedBullet ||
+        bullet.suggestedText ||
+        bullet.suggested ||
+        bullet.optimized ||
+        bullet.text ||
+        bullet.originalBullet ||
+        bullet.original ||
+        bullet.reason ||
+        ''
+      );
+    }
+    return '';
+  };
+
   // Latest resume scan from DB or store
   const latestDbScan = resumeScansData && resumeScansData.length > 0 ? resumeScansData[0] : null;
   const latestAtsScore = latestDbScan?.ats_score || resumeState?.atsScore || healthScore;
   const latestMissingSkills = latestDbScan?.missing_skills || resumeState?.missingSkills || skillGaps;
-  const latestBullet =
-    latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] || resumeState?.tailoredBulletPoints?.[0];
+  
+  const rawBullet =
+    latestDbScan?.feedback_summary?.starOptimizations?.[0] ||
+    latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] ||
+    latestDbScan?.feedback_summary?.bulletPoints?.[0] ||
+    resumeState?.tailoredBulletPoints?.[0];
+  const latestBulletText = getBulletString(rawBullet);
 
   const hasCareerDna = !!careerDnaData || !!cachedDna;
   const hasResumeAnalysis = !!latestDbScan || (resumeState?.atsScore > 0 && resumeState?.matchStrengths?.length > 0);
@@ -343,11 +368,15 @@ export default function DashboardView({
                 <span className="text-[#5db872] font-mono text-[11px]">✓ Verified Match</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {strengths.map((str: string) => (
-                  <Badge key={str} variant="dark" size="sm" className="bg-[#1f1e1b] border-white/10 text-xs">
-                    ✓ {str}
-                  </Badge>
-                ))}
+                {strengths.map((str: any, idx: number) => {
+                  const label = typeof str === 'string' ? str : (str?.title || str?.skill || str?.name || str?.strength || '');
+                  if (!label) return null;
+                  return (
+                    <Badge key={typeof str === 'string' ? str : `str-${idx}`} variant="dark" size="sm" className="bg-[#1f1e1b] border-white/10 text-xs">
+                      ✓ {label}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
 
@@ -358,11 +387,15 @@ export default function DashboardView({
                 <span className="text-[#e8a55a] font-mono text-[11px]">! Recommended to Learn</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {skillGaps.map((gap: string) => (
-                  <Badge key={gap} variant="amber" size="sm" className="text-xs">
-                    + {gap}
-                  </Badge>
-                ))}
+                {skillGaps.map((gap: any, idx: number) => {
+                  const label = typeof gap === 'string' ? gap : (gap?.title || gap?.skill || gap?.gap || gap?.name || '');
+                  if (!label) return null;
+                  return (
+                    <Badge key={typeof gap === 'string' ? gap : `gap-${idx}`} variant="amber" size="sm" className="text-xs">
+                      + {label}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
 
@@ -403,14 +436,14 @@ export default function DashboardView({
                 </div>
 
                 {/* Sample Tailored Bullet */}
-                {latestBullet && (
+                {latestBulletText && (
                   <div className="p-3 bg-[#181715] rounded-lg border border-[#cc785c]/30 space-y-1.5">
                     <span className="text-[10px] font-mono text-[#cc785c] uppercase font-bold flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       <span>Optimized Active Bullet Available:</span>
                     </span>
                     <p className="text-xs text-[#faf9f5] italic font-sans leading-relaxed">
-                      &quot;{latestBullet.suggestedText || latestBullet}&quot;
+                      &quot;{latestBulletText}&quot;
                     </p>
                   </div>
                 )}
