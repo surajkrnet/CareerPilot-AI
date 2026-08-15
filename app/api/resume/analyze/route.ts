@@ -9,20 +9,20 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const AnalysisSchema = z.object({
-  atsScore: z.number().min(0).max(100),
-  matchPercentage: z.number().min(0).max(100),
-  resumeStrengths: z.array(z.string()),
-  areasOfImprovement: z.array(z.string()),
-  missingKeywords: z.array(z.string()),
-  actionableRecommendations: z.array(z.string()),
+  atsScore: z.number().min(0).max(100).describe('Overall ATS compatibility score (0-100)'),
+  matchPercentage: z.number().min(0).max(100).describe('Domain and keyword match percentage (0-100)'),
+  resumeStrengths: z.array(z.string()).describe('3-5 verified strengths aligning with target JD'),
+  areasOfImprovement: z.array(z.string()).describe('3-4 critical gaps or improvements'),
+  missingKeywords: z.array(z.string()).describe('Key hard and soft skills missing from resume'),
+  actionableRecommendations: z.array(z.string()).describe('3-5 high-impact actionable steps'),
   starOptimizations: z.array(
     z.object({
-      originalBullet: z.string(),
-      starOptimizedBullet: z.string(),
-      metricImpact: z.string(),
-      rationale: z.string(),
+      originalBullet: z.string().describe('Original weak bullet point from candidate draft'),
+      starOptimizedBullet: z.string().describe('STAR method rewrite with Action Verb, Stack, and Measurable Metric'),
+      metricImpact: z.string().describe('e.g. +42% Performance / +24% ATS Match'),
+      rationale: z.string().describe('Explanation of why this improves hiring conversion'),
     })
-  ),
+  ).describe('2-3 STAR technical bullet rewrites'),
 });
 
 export async function POST(req: NextRequest) {
@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
         schema: AnalysisSchema,
         system: `You are a Principal Technical Recruiter and ATS Evaluation Engine. 
 Analyze the candidate's actual resume against the target Job Description (JD).
-1. Calculate an objective ATS Score (0-100) based on hard skills and formatting suitability.
-2. Calculate Match Percentage (0-100) based on domain alignment.
-3. List 3-5 verified Resume Strengths and 3-5 critical Areas of Improvement.
+1. Calculate an objective ATS Score (0-100) based on hard skills and single-column formatting suitability.
+2. Calculate Match Percentage (0-100) based on domain alignment and technical depth.
+3. List 3-5 verified Resume Strengths and 3-4 critical Areas of Improvement.
 4. Extract essential Missing Keywords from the JD.
 5. Provide high-impact Actionable Recommendations.
 6. Select 2-3 weak or standard project/experience bullet points from the resume and rewrite them using the STAR method (Situation/Task, Action, Result with quantifiable metrics).`,
@@ -68,9 +68,9 @@ Analyze the candidate's actual resume against the target Job Description (JD).
         atsScore: 92,
         matchPercentage: 88,
         resumeStrengths: [
-          'Strong full-stack architecture mastery with React, Next.js, and TypeScript',
-          'Clean modular component design and relational data modeling',
-          'Demonstrated experience building end-to-end web applications and REST APIs',
+          'Strong full-stack architecture mastery with React, Next.js App Router, and TypeScript',
+          'Clean modular component design and relational data modeling in PostgreSQL',
+          'Demonstrated experience building end-to-end web applications and resilient REST APIs',
         ],
         areasOfImprovement: [
           'Add quantifiable performance benchmarks (e.g., latency reduction, RPS scale, memory optimization)',
@@ -111,17 +111,27 @@ Analyze the candidate's actual resume against the target Job Description (JD).
       };
     }
 
+    let scanId = `scan-${Date.now()}`;
+
     // Save scan to Supabase database
     try {
-      await supabase.from('resume_scans').insert({
-        user_id: user.id,
-        resume_url: 'career_dna_resume',
-        ats_score: analysisResult.atsScore,
-        target_jd: jobDescription,
-        missing_skills: analysisResult.missingKeywords,
-        feedback_summary: analysisResult,
-        created_at: new Date().toISOString(),
-      });
+      const { data: insertedScan, error: insertError } = await supabase
+        .from('resume_scans')
+        .insert({
+          user_id: user.id,
+          resume_url: 'career_dna_resume',
+          ats_score: analysisResult.atsScore,
+          target_jd: jobDescription,
+          missing_skills: analysisResult.missingKeywords,
+          feedback_summary: analysisResult,
+          created_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (!insertError && insertedScan?.id) {
+        scanId = insertedScan.id;
+      }
     } catch (dbErr: any) {
       console.warn('resume_scans insert note:', dbErr?.message || dbErr);
     }
@@ -130,6 +140,7 @@ Analyze the candidate's actual resume against the target Job Description (JD).
       success: true,
       data: analysisResult,
       analysis: analysisResult,
+      scanId,
     });
   } catch (error: any) {
     console.error('Resume Analysis Error:', error);

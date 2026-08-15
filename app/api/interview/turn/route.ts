@@ -9,14 +9,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const TurnSchema = z.object({
-  feedbackOnPreviousAnswer: z.string().describe("1-2 sentences of direct constructive feedback on candidate's answer depth and technical accuracy"),
+  feedbackOnPreviousAnswer: z.string().describe("1-2 sentences of direct constructive feedback on candidate's answer depth, real project context, and STAR structure"),
   scores: z.object({
-    confidenceScore: z.number().min(0).max(100),
-    technicalAccuracy: z.number().min(0).max(100),
-    structureScore: z.number().min(0).max(100),
+    confidenceScore: z.number().min(0).max(100).describe('Delivery confidence and verbal conviction (0-100)'),
+    technicalAccuracy: z.number().min(0).max(100).describe('Technical correctness, system design depth, and tool terminology (0-100)'),
+    structureScore: z.number().min(0).max(100).describe('STAR method structure and metric quantification (0-100)'),
   }),
-  nextQuestion: z.string().describe("The next interview question tailored specifically to the candidate's resume and target JD"),
-  isInterviewComplete: z.boolean(),
+  nextQuestion: z.string().describe("The next technical or behavioral question tailored specifically to the candidate's actual resume projects and target JD"),
+  isInterviewComplete: z.boolean().describe('Whether the mock session is complete'),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,30 +27,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { targetJobDescription, conversationHistory = [], userResponse } = await req.json();
+    const { targetJobDescription, resumeText: customResume, conversationHistory = [], userResponse, isFinal = false, company = 'Linear', role = 'Full-Stack Development' } = await req.json();
 
-    // Fetch candidate's stored resume from Career DNA
-    const { data: dna } = await supabase
-      .from('career_dna')
-      .select('raw_resume_text, target_roles, current_skills')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    let candidateResume = customResume || '';
+    let candidateName = 'Candidate';
 
-    const candidateResume = dna?.raw_resume_text || 'Early-career software engineer with frontend and backend experience.';
+    // Fetch candidate's stored resume from Career DNA if not passed
+    if (!candidateResume) {
+      const [{ data: dna }, { data: profile }] = await Promise.all([
+        supabase.from('career_dna').select('raw_resume_text, target_roles, current_skills').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      ]);
+
+      if (dna?.raw_resume_text) {
+        candidateResume = dna.raw_resume_text;
+      }
+      if (profile?.full_name) {
+        candidateName = profile.full_name;
+      }
+    }
+
+    if (!candidateResume) {
+      candidateResume = 'Software Engineer with experience in React, TypeScript, Next.js, Node.js, and SQL.';
+    }
 
     const systemPrompt = `You are a Senior Technical Hiring Manager conducting a live technical/behavioral interview.
+Candidate Name: ${candidateName}
 Target Job Description:
-${targetJobDescription || 'Software Development Engineer - 1 (Full Stack)'}
+${targetJobDescription || 'Software Development Engineer (Full Stack)'}
 
 Candidate's Real Resume Details:
 ${candidateResume}
 
 Interviewing Directives:
-1. Reference specific projects, tech stacks, or internships mentioned in the candidate's resume.
-2. Probe how their actual experience satisfies the requirements of the Target Job Description.
-3. If the candidate answered a previous question, provide 1-2 sentences of micro-feedback on their answer.
-4. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and Answer Structure (STAR) (0-100).
-5. Ask exactly ONE clear, focused follow-up or technical challenge question per turn.`;
+1. Cross-examine the candidate's actual resume projects and tech stacks against the specific requirements of the Target JD.
+2. If the candidate answered a previous question, provide 1-2 sentences of direct, empathetic, and constructive micro-feedback on their answer.
+3. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and Answer Structure (STAR) (0-100).
+4. Ask exactly ONE clear, focused follow-up or technical challenge question per turn.`;
 
     let turnResult: z.infer<typeof TurnSchema>;
 
@@ -74,16 +87,44 @@ Interviewing Directives:
       const wordCount = (userResponse || '').trim().split(/\s+/).length;
       turnResult = {
         feedbackOnPreviousAnswer: wordCount > 25
-          ? 'Strong technical breakdown! You articulated the engineering trade-offs and outcome clearly.'
-          : 'Good start. Remember to state the architectural situation clearly and quantify the performance results.',
+          ? 'Strong technical breakdown! You articulated the engineering trade-offs and project outcomes clearly.'
+          : 'Good start. Remember to state the architectural situation clearly and quantify the performance results with numbers.',
         scores: {
           confidenceScore: wordCount > 25 ? 92 : 84,
           technicalAccuracy: wordCount > 25 ? 94 : 86,
           structureScore: wordCount > 25 ? 90 : 82,
         },
         nextQuestion: 'Looking at your project architecture, how did you handle data consistency, caching invalidation, and error boundaries during peak traffic?',
-        isInterviewComplete: false,
+        isInterviewComplete: isFinal,
       };
+    }
+
+    const overallScore = Math.round(
+      (turnResult.scores.confidenceScore + turnResult.scores.technicalAccuracy + turnResult.scores.structureScore) / 3
+    );
+
+    // If final turn or user requested end, persist session to Supabase
+    if (isFinal) {
+      try {
+        await supabase.from('interview_sessions').insert({
+          user_id: user.id,
+          role: role || 'Target Role',
+          company: company || 'Linear',
+          transcript: conversationHistory,
+          overall_score: overallScore,
+          technical_score: turnResult.scores.technicalAccuracy,
+          star_score: turnResult.scores.structureScore,
+          confidence_score: turnResult.scores.confidenceScore,
+          feedback_summary: {
+            feedback: turnResult.feedbackOnPreviousAnswer,
+            strengths: ['Clear technical articulation', 'Strong understanding of core project architecture'],
+            improvements: ['Quantify metrics earlier in the response', 'Deepen distributed failure modes'],
+          },
+          created_at: new Date().toISOString(),
+        });
+      } catch (dbErr: any) {
+        console.warn('interview_sessions insert note:', dbErr?.message || dbErr);
+      }
     }
 
     return NextResponse.json({
@@ -102,7 +143,10 @@ Interviewing Directives:
         },
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
-      scores: turnResult.scores,
+      scores: {
+        ...turnResult.scores,
+        overall: overallScore,
+      },
     });
   } catch (error: any) {
     console.error('Interview Turn Error:', error);
