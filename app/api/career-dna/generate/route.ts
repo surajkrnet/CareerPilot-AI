@@ -105,10 +105,11 @@ ${extractedResumeText}
 
 Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles, and provide 3-5 prioritized next actions with rationale and urgency.`;
 
-    // 3. Invoke OpenRouter Claude 3.5 Sonnet via Vercel AI SDK generateObject
+    // 3. Invoke OpenRouter Claude 4.5 Sonnet via Vercel AI SDK generateObject
     const aiResponse = await generateObject({
       model: claudeSonnetModel,
       schema: CareerDnaSchema,
+      maxOutputTokens: 4096,
       prompt,
     });
 

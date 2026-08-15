@@ -38,10 +38,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Resume text and Job Description are required' }, { status: 400 });
     }
 
-    // Direct LLM Call using OpenRouter Claude 3.5 Sonnet
+    // Direct LLM Call using OpenRouter Claude 4.5 Sonnet
     const result = await generateObject({
       model: claudeSonnetModel,
       schema: AnalysisSchema,
+      maxOutputTokens: 4096,
       system: `You are a Principal Technical Recruiter and ATS Evaluation Engine.
 Analyze the candidate's actual resume against the target Job Description (JD).
 1. Calculate an objective ATS Score (0-100) based on hard skills and single-column formatting suitability.

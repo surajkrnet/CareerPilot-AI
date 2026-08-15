@@ -102,7 +102,7 @@ export default function DashboardView({
         console.warn('Cache read notice:', e);
       }
 
-      // Fetch prioritized AI Next-Best Action from Claude 3.5 Sonnet API
+      // Fetch prioritized AI Next-Best Action from Claude 4.5 Sonnet API
       fetch('/api/dashboard/next-action', { method: 'POST' })
         .then((res) => res.json())
         .then((data) => {
