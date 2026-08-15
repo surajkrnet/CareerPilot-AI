@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { parsePdfBuffer } from '@/lib/parsers/pdf-parser';
-import { getClaudeModel } from '@/lib/ai/model';
+import { claudeSonnetModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -105,47 +105,14 @@ ${extractedResumeText}
 
 Extract verified strengths, identify real market skill gaps for ${targetRole}, list current skills, recommend high-leverage skills to acquire, propose exact target roles, and provide 3-5 prioritized next actions with rationale and urgency.`;
 
-    // 3. Invoke Claude via Vercel AI SDK generateObject
-    let structuredResult: z.infer<typeof CareerDnaSchema>;
+    // 3. Invoke OpenRouter Claude 3.5 Sonnet via Vercel AI SDK generateObject
+    const aiResponse = await generateObject({
+      model: claudeSonnetModel,
+      schema: CareerDnaSchema,
+      prompt,
+    });
 
-    try {
-      const model = getClaudeModel();
-      const aiResponse = await generateObject({
-        model,
-        schema: CareerDnaSchema,
-        prompt,
-      });
-
-      structuredResult = aiResponse.object;
-    } catch (aiError: any) {
-      console.warn('Claude generation fallback notice:', aiError?.message || aiError);
-
-      // Resilient fallback to guarantee zero user data loss
-      structuredResult = {
-        strengths: candidateSkills.length > 0 ? candidateSkills : ['React 19 & Next.js', 'TypeScript', 'Node.js', 'PostgreSQL', 'REST APIs'],
-        areasToImprove: ['Distributed Caching & Redis Pipelines', 'Docker & Kubernetes Cloud Deployment', 'System Design at Scale'],
-        currentSkills: candidateSkills.length > 0 ? candidateSkills : ['React', 'JavaScript', 'TypeScript', 'SQL', 'Git'],
-        skillsToAcquire: ['Distributed Systems', 'Redis Pipelines', 'CI/CD Automation', 'Microservices'],
-        targetRoles: [targetRole, 'Software Engineer', 'Full-Stack Developer'],
-        recommendedActions: [
-          {
-            title: 'Close top skill gap in System Design & Caching',
-            rationale: 'High-paying tech companies test distributed system trade-offs extensively in technical interview rounds.',
-            urgency: 'high',
-          },
-          {
-            title: 'Optimize Resume for ATS Keyword Density',
-            rationale: 'Your candidate profile matches 80%+ of core requirements; adding quantified metrics increases recruiter outreach.',
-            urgency: 'medium',
-          },
-          {
-            title: 'Complete 3 Live Mock Interview Drills',
-            rationale: 'Practicing STAR-formatted behavioral answers elevates offer conversion by 45%.',
-            urgency: 'high',
-          },
-        ],
-      };
-    }
+    const structuredResult = aiResponse.object;
 
     // 4. Direct Supabase Upsert into public.career_dna
     const { data: insertedDna, error: dbError } = await supabase

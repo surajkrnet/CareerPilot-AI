@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getClaudeModel } from '@/lib/ai/model';
+import { claudeSonnetModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -11,12 +11,12 @@ export const maxDuration = 60;
 const TurnSchema = z.object({
   feedbackOnPreviousAnswer: z.string().describe("1-2 sentences of direct constructive feedback on candidate's answer depth, real project context, and STAR structure"),
   scores: z.object({
-    confidenceScore: z.number().min(0).max(100).describe('Delivery confidence and verbal conviction (0-100)'),
-    technicalAccuracy: z.number().min(0).max(100).describe('Technical correctness, system design depth, and tool terminology (0-100)'),
-    structureScore: z.number().min(0).max(100).describe('STAR method structure and metric quantification (0-100)'),
+    confidenceScore: z.number().min(0).max(100),
+    technicalAccuracy: z.number().min(0).max(100),
+    structureScore: z.number().min(0).max(100),
   }),
   nextQuestion: z.string().describe("The next technical or behavioral question tailored specifically to the candidate's actual resume projects and target JD"),
-  isInterviewComplete: z.boolean().describe('Whether the mock session is complete'),
+  isInterviewComplete: z.boolean(),
 });
 
 export async function POST(req: NextRequest) {
@@ -32,10 +32,9 @@ export async function POST(req: NextRequest) {
     let candidateResume = customResume || '';
     let candidateName = 'Candidate';
 
-    // Fetch candidate's stored resume from Career DNA if not passed
     if (!candidateResume) {
       const [{ data: dna }, { data: profile }] = await Promise.all([
-        supabase.from('career_dna').select('raw_resume_text, target_roles, current_skills').eq('user_id', user.id).maybeSingle(),
+        supabase.from('career_dna').select('raw_resume_text').eq('user_id', user.id).maybeSingle(),
         supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       ]);
 
@@ -48,38 +47,35 @@ export async function POST(req: NextRequest) {
     }
 
     if (!candidateResume) {
-      candidateResume = 'Software Engineer with experience in React, TypeScript, Next.js, Node.js, and SQL.';
+      candidateResume = 'Candidate with frontend and backend software engineering background.';
     }
 
     const systemPrompt = `You are a Senior Technical Hiring Manager conducting a live technical/behavioral interview.
 Candidate Name: ${candidateName}
 Target Job Description:
-${targetJobDescription || 'Software Development Engineer (Full Stack)'}
+${targetJobDescription || 'Software Development Engineer'}
 
 Candidate's Real Resume Details:
 ${candidateResume}
 
-Interviewing Directives:
-1. Cross-examine the candidate's actual resume projects and tech stacks against the specific requirements of the Target JD.
-2. If the candidate answered a previous question, provide 1-2 sentences of direct, empathetic, and constructive micro-feedback on their answer.
-3. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and Answer Structure (STAR) (0-100).
-4. Ask exactly ONE clear, focused follow-up or technical challenge question per turn.`;
+Directives:
+1. Reference specific projects and skills from the candidate's actual resume.
+2. Probe how their actual experience matches the target JD.
+3. If the candidate answered a previous question, provide 1-2 sentences of feedback.
+4. Score their answer across Confidence (0-100), Technical Accuracy (0-100), and STAR Structure (0-100).
+5. Ask exactly ONE clear follow-up or technical challenge question per turn.`;
 
-    const model = getClaudeModel();
     const result = await generateObject({
-      model,
+      model: claudeSonnetModel,
       schema: TurnSchema,
       system: systemPrompt,
-      prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate has initiated the session.'}`,
+      prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate started the interview session.'}`,
     });
 
-    const turnResult = result.object;
-
     const overallScore = Math.round(
-      (turnResult.scores.confidenceScore + turnResult.scores.technicalAccuracy + turnResult.scores.structureScore) / 3
+      (result.object.scores.confidenceScore + result.object.scores.technicalAccuracy + result.object.scores.structureScore) / 3
     );
 
-    // If final turn or user requested end, persist session to Supabase
     if (isFinal) {
       try {
         await supabase.from('interview_sessions').insert({
@@ -88,11 +84,11 @@ Interviewing Directives:
           company: company || 'Linear',
           transcript: conversationHistory,
           overall_score: overallScore,
-          technical_score: turnResult.scores.technicalAccuracy,
-          star_score: turnResult.scores.structureScore,
-          confidence_score: turnResult.scores.confidenceScore,
+          technical_score: result.object.scores.technicalAccuracy,
+          star_score: result.object.scores.structureScore,
+          confidence_score: result.object.scores.confidenceScore,
           feedback_summary: {
-            feedback: turnResult.feedbackOnPreviousAnswer,
+            feedback: result.object.feedbackOnPreviousAnswer,
             strengths: ['Clear technical articulation', 'Strong understanding of core project architecture'],
             improvements: ['Quantify metrics earlier in the response', 'Deepen distributed failure modes'],
           },
@@ -105,30 +101,27 @@ Interviewing Directives:
 
     return NextResponse.json({
       success: true,
-      ...turnResult,
+      ...result.object,
       message: {
         id: `msg-${Date.now()}`,
         sender: 'ai',
         role: 'assistant',
-        text: `${turnResult.feedbackOnPreviousAnswer}\n\n${turnResult.nextQuestion}`,
+        text: `${result.object.feedbackOnPreviousAnswer}\n\n${result.object.nextQuestion}`,
         feedback: {
-          confidence: turnResult.scores.confidenceScore,
-          accuracy: turnResult.scores.technicalAccuracy,
-          starScore: turnResult.scores.structureScore,
-          structureTip: `STAR Evaluation: Confidence ${turnResult.scores.confidenceScore}%, Technical Depth ${turnResult.scores.technicalAccuracy}%, STAR Structure ${turnResult.scores.structureScore}%`,
+          confidence: result.object.scores.confidenceScore,
+          accuracy: result.object.scores.technicalAccuracy,
+          starScore: result.object.scores.structureScore,
+          structureTip: `STAR Evaluation: Confidence ${result.object.scores.confidenceScore}%, Technical Depth ${result.object.scores.technicalAccuracy}%, STAR Structure ${result.object.scores.structureScore}%`,
         },
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
       scores: {
-        ...turnResult.scores,
+        ...result.object.scores,
         overall: overallScore,
       },
     });
   } catch (error: any) {
-    console.error('Live Interview Turn Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Claude interview turn failed' },
-      { status: 500 }
-    );
+    console.error('OpenRouter Interview Turn Error:', error);
+    return NextResponse.json({ error: error.message || 'Interview turn failed' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getClaudeModel } from '@/lib/ai/model';
+import { claudeSonnetModel } from '@/lib/ai/openrouter';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -9,20 +9,20 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const AnalysisSchema = z.object({
-  atsScore: z.number().min(0).max(100).describe('Overall ATS compatibility score (0-100)'),
-  matchPercentage: z.number().min(0).max(100).describe('Domain and keyword match percentage (0-100)'),
-  resumeStrengths: z.array(z.string()).describe('3-5 verified strengths aligning with target JD'),
-  areasOfImprovement: z.array(z.string()).describe('3-4 critical gaps or improvements'),
-  missingKeywords: z.array(z.string()).describe('Key hard and soft skills missing from resume'),
-  actionableRecommendations: z.array(z.string()).describe('3-5 high-impact actionable steps'),
+  atsScore: z.number().min(0).max(100),
+  matchPercentage: z.number().min(0).max(100),
+  resumeStrengths: z.array(z.string()),
+  areasOfImprovement: z.array(z.string()),
+  missingKeywords: z.array(z.string()),
+  actionableRecommendations: z.array(z.string()),
   starOptimizations: z.array(
     z.object({
-      originalBullet: z.string().describe('Original weak bullet point from candidate draft'),
-      starOptimizedBullet: z.string().describe('STAR method rewrite with Action Verb, Stack, and Measurable Metric'),
-      metricImpact: z.string().describe('e.g. +42% Performance / +24% ATS Match'),
-      rationale: z.string().describe('Explanation of why this improves hiring conversion'),
+      originalBullet: z.string(),
+      starOptimizedBullet: z.string(),
+      metricImpact: z.string(),
+      rationale: z.string(),
     })
-  ).describe('2-3 STAR technical bullet rewrites'),
+  ),
 });
 
 export async function POST(req: NextRequest) {
@@ -38,12 +38,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Resume text and Job Description are required' }, { status: 400 });
     }
 
-    // Direct Claude Sonnet generation via unified model
-    const model = getClaudeModel();
+    // Direct LLM Call using OpenRouter Claude 3.5 Sonnet
     const result = await generateObject({
-      model,
+      model: claudeSonnetModel,
       schema: AnalysisSchema,
-      system: `You are a Principal Technical Recruiter and ATS Evaluation Engine. 
+      system: `You are a Principal Technical Recruiter and ATS Evaluation Engine.
 Analyze the candidate's actual resume against the target Job Description (JD).
 1. Calculate an objective ATS Score (0-100) based on hard skills and single-column formatting suitability.
 2. Calculate Match Percentage (0-100) based on domain alignment and technical depth.
@@ -54,20 +53,19 @@ Analyze the candidate's actual resume against the target Job Description (JD).
       prompt: `Candidate Resume:\n${resumeText}\n\nTarget Job Description:\n${jobDescription}`,
     });
 
-    const analysisData = result.object;
     let scanId = `scan-${Date.now()}`;
 
-    // Save scan to Supabase database
+    // Save scan to Supabase public.resume_scans
     try {
       const { data: insertedScan, error: insertError } = await supabase
         .from('resume_scans')
         .insert({
           user_id: user.id,
           resume_url: 'career_dna_resume',
-          ats_score: analysisData.atsScore,
+          ats_score: result.object.atsScore,
           target_jd: jobDescription,
-          missing_skills: analysisData.missingKeywords,
-          feedback_summary: analysisData,
+          missing_skills: result.object.missingKeywords,
+          feedback_summary: result.object,
           created_at: new Date().toISOString(),
         })
         .select('id')
@@ -82,15 +80,12 @@ Analyze the candidate's actual resume against the target Job Description (JD).
 
     return NextResponse.json({
       success: true,
-      data: analysisData,
-      analysis: analysisData,
+      data: result.object,
+      analysis: result.object,
       scanId,
     });
   } catch (error: any) {
-    console.error('Live Claude Analysis Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Claude Analysis failed' },
-      { status: 500 }
-    );
+    console.error('OpenRouter Resume Analysis Error:', error);
+    return NextResponse.json({ error: error.message || 'Analysis failed' }, { status: 500 });
   }
 }
