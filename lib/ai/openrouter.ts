@@ -4,7 +4,7 @@ export const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY,
   headers: {
-    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://careerpilot-ai-coach.vercel.app',
     'X-Title': 'CareerPilot AI Coach',
   },
 });

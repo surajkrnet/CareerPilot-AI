@@ -145,12 +145,13 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
     // 4. Atomic Supabase Upsert into public.career_dna
     const upsertRecord = {
       user_id: user.id,
-      target_roles: structuredResult.targetRoles,
+      strengths: structuredResult.strengths,
+      areas_to_improve: structuredResult.areasToImprove,
       current_skills: structuredResult.currentSkills,
-      skill_gaps: structuredResult.areasToImprove,
-      readiness_score: 88,
+      skills_to_acquire: structuredResult.skillsToAcquire,
+      target_roles: structuredResult.targetRoles,
+      recommended_actions: structuredResult.recommendedActions,
       raw_resume_text: extractedResumeText,
-      resume_url: storageResumeUrl || null,
       updated_at: new Date().toISOString(),
     };
 

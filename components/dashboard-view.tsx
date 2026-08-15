@@ -118,7 +118,7 @@ export default function DashboardView({
   const displayName =
     userName || cachedDna?.fullName || profile?.name || (userEmail ? userEmail.split('@')[0] : 'Engineer');
   const targetRole =
-    careerDnaData?.target_role || cachedDna?.targetRole || profile?.targetRole || 'Full-Stack Development';
+    careerDnaData?.target_roles?.[0] || careerDnaData?.target_role || cachedDna?.targetRole || profile?.targetRole || 'Full-Stack Development';
   const experienceLevel =
     careerDnaData?.experience_level || cachedDna?.experienceLevel || profile?.experienceLevel || '0–1 Years';
   const healthScore =

@@ -81,14 +81,14 @@ Directives:
       try {
         await supabase.from('interview_sessions').insert({
           user_id: user.id,
-          role: role || 'Target Role',
-          company: company || 'Linear',
+          target_role: role || 'Frontend Systems',
           transcript: conversationHistory,
-          overall_score: overallScore,
-          technical_score: result.object.scores.technicalAccuracy,
-          star_score: result.object.scores.structureScore,
-          confidence_score: result.object.scores.confidenceScore,
-          feedback_summary: {
+          completed: true,
+          evaluation_report: {
+            overallScore,
+            technicalScore: result.object.scores.technicalAccuracy,
+            starScore: result.object.scores.structureScore,
+            confidenceScore: result.object.scores.confidenceScore,
             feedback: result.object.feedbackOnPreviousAnswer,
             strengths: ['Clear technical articulation', 'Strong understanding of core project architecture'],
             improvements: ['Quantify metrics earlier in the response', 'Deepen distributed failure modes'],
