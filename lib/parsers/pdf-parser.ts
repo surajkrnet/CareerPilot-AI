@@ -62,9 +62,6 @@ if (typeof globalThis !== 'undefined') {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
-
 /**
  * Strips null bytes, unprintable ASCII control characters, and normalizes spacing
  */
@@ -105,11 +102,19 @@ export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
   let cleanedText = '';
 
   try {
-    const parseFn = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
-    const data = await parseFn(fileBuffer);
-    cleanedText = sanitizeText(data?.text || '');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParseModule = require('pdf-parse');
+    const parseFn =
+      typeof pdfParseModule === 'function'
+        ? pdfParseModule
+        : pdfParseModule.default || pdfParseModule.PDFParser;
+
+    if (typeof parseFn === 'function') {
+      const data = await parseFn(fileBuffer);
+      cleanedText = sanitizeText(data?.text || '');
+    }
   } catch (error: any) {
-    console.warn('pdf-parse primary notice, trying stream text decoder:', error?.message || error);
+    console.warn('pdf-parse module notice, trying binary stream text decoder:', error?.message || error);
   }
 
   // Fallback stream text extraction if pdf-parse failed or returned empty

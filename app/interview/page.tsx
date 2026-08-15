@@ -26,11 +26,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCareer } from '@/lib/career-store';
+import { createClient } from '@/lib/supabase/client';
 import confetti from 'canvas-confetti';
 
 export default function MockInterviewPage() {
   const { profile } = useCareer();
 
+  const [candidateName, setCandidateName] = useState<string>('');
   const [selectedTrack, setSelectedTrack] = useState<string>(profile.targetRole || 'Full-Stack Development');
   const [selectedCompany, setSelectedCompany] = useState<string>('Linear');
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
@@ -55,12 +57,12 @@ export default function MockInterviewPage() {
     {
       id: 'init-1',
       sender: 'ai',
-      text: `Hello! I'm Alex, your AI Engineering Interviewer. Today we're running a technical drill for ${profile.targetRole || 'Full-Stack Development'} at Linear. \n\nLet's start: Tell me about a challenging technical project you built recently, the architectural decisions you made, and how you measured its success.`,
+      text: `Hello! I'm Alex, your Lead AI Technical Interviewer. Today we're running an in-depth simulation for ${profile.targetRole || 'Full-Stack Development'} at Linear. \n\nI'll be evaluating your actual resume projects and system trade-offs. Let's start: Walk me through a complex technical challenge you tackled in one of your recent projects, the architectural decisions you made, and how you quantified the result.`,
       feedback: {
         confidence: 90,
         accuracy: 92,
         starScore: 88,
-        structureTip: 'Ready to evaluate your STAR response structure & technical depth.',
+        structureTip: 'Ready to evaluate your real project execution using the STAR framework.',
       },
       timestamp: '00:01',
     },
@@ -74,6 +76,53 @@ export default function MockInterviewPage() {
   });
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch real candidate name & target track on mount
+  useEffect(() => {
+    async function loadCandidate() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileData?.full_name) {
+          setCandidateName(profileData.full_name);
+        } else if (user.email) {
+          setCandidateName(user.email.split('@')[0]);
+        }
+
+        const { data: dnaData } = await supabase
+          .from('career_dna')
+          .select('target_roles')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (dnaData?.target_roles?.[0]) {
+          setSelectedTrack(dnaData.target_roles[0]);
+        }
+      } else {
+        if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem('careerpilot_career_dna');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed.fullName) setCandidateName(parsed.fullName);
+              if (parsed.targetRole) setSelectedTrack(parsed.targetRole);
+            } catch (e) {}
+          }
+        }
+      }
+    }
+
+    loadCandidate();
+  }, []);
 
   // Auto-scroll chat transcript to bottom
   useEffect(() => {
@@ -117,7 +166,7 @@ export default function MockInterviewPage() {
     if (!isSessionActive) setIsSessionActive(true);
 
     try {
-      const res = await fetch('/api/interview/chat', {
+      const res = await fetch('/api/interview/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +197,7 @@ export default function MockInterviewPage() {
     setIsTyping(true);
 
     try {
-      await fetch('/api/interview/chat', {
+      await fetch('/api/interview/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,6 +238,8 @@ export default function MockInterviewPage() {
     ]);
   };
 
+  const displayName = candidateName || profile.name || 'Candidate';
+
   return (
     <div className="bg-[#181715] min-h-screen text-[#faf9f5] pt-28 pb-16 px-4 sm:px-8">
       <div className="max-w-[1400px] mx-auto space-y-6">
@@ -210,7 +261,7 @@ export default function MockInterviewPage() {
                 </Badge>
               </div>
               <p className="text-xs text-[#a09d96]">
-                Candidate: <strong className="text-white">{profile.name || 'Candidate'}</strong> • Mode: Live STAR Technique &amp; Technical Accuracy
+                Candidate: <strong className="text-white">{displayName}</strong> • Mode: Resume Project Drill &amp; Live STAR Scoring
               </p>
             </div>
           </div>
@@ -222,12 +273,12 @@ export default function MockInterviewPage() {
               onChange={(e) => setSelectedTrack(e.target.value)}
               className="bg-[#181715] border border-white/10 rounded px-2.5 py-1.5 text-xs text-[#faf9f5] font-mono focus:outline-none focus:border-[#cc785c]"
             >
-              <option value="Software Engineering">Software Engineering</option>
+              <option value="Frontend Systems">Frontend Systems</option>
+              <option value="SDE-1">SDE-1</option>
               <option value="Full-Stack Development">Full-Stack Development</option>
-              <option value="Frontend Development">Frontend Development</option>
-              <option value="Backend Development">Backend Development</option>
+              <option value="Software Engineering">Software Engineering</option>
               <option value="AI/ML Engineering">AI/ML Engineering</option>
-              <option value="Product Management">Product Management</option>
+              <option value="Product Manager">Product Manager</option>
             </select>
 
             <div className="flex items-center gap-2 text-xs font-mono text-[#a09d96] bg-[#181715] px-3 py-1.5 rounded border border-white/10">
@@ -257,9 +308,9 @@ export default function MockInterviewPage() {
             <div className="bg-[#181715] px-6 py-3 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-[#a09d96]">
                 <Volume2 className="w-4 h-4 text-[#cc785c]" />
-                <span>Interviewer: Alex (Lead Technical Evaluator)</span>
+                <span>Interviewer: Alex (Principal Evaluator)</span>
               </div>
-              <span className="text-xs text-[#5db872] font-mono">Live Stream Active</span>
+              <span className="text-xs text-[#5db872] font-mono">Live Resume Evaluator Active</span>
             </div>
 
             {/* Chat Transcript Area */}
@@ -281,7 +332,7 @@ export default function MockInterviewPage() {
                     <div className="flex items-center justify-between gap-4 text-[10px] font-mono opacity-75 border-b border-white/10 pb-1">
                       <span className="font-bold uppercase tracking-wider flex items-center gap-1">
                         {msg.sender === 'user' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3 text-[#cc785c]" />}
-                        <span>{msg.sender === 'user' ? 'You (Candidate)' : 'Alex (Interviewer)'}</span>
+                        <span>{msg.sender === 'user' ? `You (${displayName})` : 'Alex (Interviewer)'}</span>
                       </span>
                       <span>{msg.timestamp}</span>
                     </div>
@@ -298,9 +349,9 @@ export default function MockInterviewPage() {
               ))}
 
               {isTyping && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-[#181715] border border-white/10 max-w-[200px] text-xs font-mono text-[#a09d96]">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-[#181715] border border-white/10 max-w-[220px] text-xs font-mono text-[#a09d96]">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#cc785c]" />
-                  <span>Alex is evaluating...</span>
+                  <span>Alex is evaluating resume projects...</span>
                 </div>
               )}
             </div>
@@ -310,14 +361,14 @@ export default function MockInterviewPage() {
               <span className="text-[10px] font-mono text-[#6c6a64] uppercase shrink-0">Sample Answers:</span>
               <button
                 type="button"
-                onClick={() => handleSendMessage("In my previous project, I built a high-throughput Next.js application with TypeScript and PostgreSQL. When faced with slow API response times, I implemented Redis caching and query indexing, reducing p99 latency by 42% across 50k active sessions.")}
+                onClick={() => handleSendMessage("In my production project, I built a high-throughput Next.js App Router service with TypeScript and PostgreSQL. When faced with slow API response times under load, I implemented Redis caching and query indexing, reducing p99 latency by 42% across 50k active sessions.")}
                 className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white shrink-0 transition-colors"
               >
-                Architecture &amp; Caching (STAR)
+                Next.js Caching &amp; Indexing (STAR)
               </button>
               <button
                 type="button"
-                onClick={() => handleSendMessage("I led a team of 4 engineers to migrate our monolithic backend to distributed Go microservices with Kafka queues, achieving zero downtime during peak traffic.")}
+                onClick={() => handleSendMessage("I led the architectural migration from a monolith to distributed microservices with Kafka event queues, achieving zero downtime during peak deployment windows.")}
                 className="text-[11px] px-2.5 py-1 rounded bg-[#252320] border border-white/10 hover:border-[#cc785c] text-[#a09d96] hover:text-white shrink-0 transition-colors"
               >
                 Distributed Systems Migration
@@ -361,7 +412,7 @@ export default function MockInterviewPage() {
 
           </div>
 
-          {/* RIGHT COLUMN: REAL-TIME EVALUATION METERS & RADIAL METRICS */}
+          {/* RIGHT COLUMN: REAL-TIME DYNAMIC EVALUATION GAUGES */}
           <div className="lg:col-span-5 space-y-6">
             
             {/* REAL-TIME RADIAL SCORES */}
@@ -371,7 +422,7 @@ export default function MockInterviewPage() {
                   <BarChart2 className="w-5 h-5 text-[#cc785c]" />
                   <h3 className="font-display text-xl text-white">Live Performance Meters</h3>
                 </div>
-                <Badge variant="teal" size="sm">Dynamic AI Eval</Badge>
+                <Badge variant="teal" size="sm">Claude 3.5 Dynamic Eval</Badge>
               </div>
 
               {/* 3 Metric Gauges */}
@@ -424,7 +475,7 @@ export default function MockInterviewPage() {
 
               </div>
 
-              {/* Overall Readiness Pill */}
+              {/* Overall Composite Score */}
               <div className="p-4 rounded-lg bg-[#181715] border border-white/10 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-mono uppercase text-[#6c6a64] block">Composite Drill Score</span>
@@ -438,21 +489,21 @@ export default function MockInterviewPage() {
             <Card variant="dark-elevated" className="p-6 border-white/10 space-y-4">
               <div className="flex items-center gap-2 border-b border-white/10 pb-3">
                 <Sparkles className="w-4 h-4 text-[#cc785c]" />
-                <h4 className="font-display text-lg text-white">How Alex Evaluates STAR</h4>
+                <h4 className="font-display text-lg text-white">How Alex Evaluates Your Answers</h4>
               </div>
 
               <ul className="space-y-2.5 text-xs font-sans text-[#a09d96]">
                 <li className="flex items-start gap-2">
                   <strong className="text-[#cc785c] font-mono">S · Situation:</strong>
-                  <span>Set the scene &amp; context (e.g. legacy monorepo, 80k users).</span>
+                  <span>State the system context from your actual project.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <strong className="text-[#cc785c] font-mono">T · Task:</strong>
-                  <span>State the exact bottleneck or objective you had to solve.</span>
+                  <span>State the exact bottleneck, bug, or feature goal you owned.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <strong className="text-[#cc785c] font-mono">A · Action:</strong>
-                  <span>Detail the technical implementation, frameworks, and architecture.</span>
+                  <span>Explain the code, libraries, architecture, and trade-offs.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <strong className="text-[#5db872] font-mono">R · Result:</strong>
@@ -482,7 +533,7 @@ export default function MockInterviewPage() {
                   <Trophy className="w-8 h-8" />
                 </div>
                 <h2 className="font-display text-3xl text-[#faf9f5]">Mock Drill Scorecard</h2>
-                <p className="text-xs font-mono text-[#a09d96]">{selectedTrack} • {selectedCompany} Simulation</p>
+                <p className="text-xs font-mono text-[#a09d96]">{selectedTrack} • {selectedCompany} Simulation ({displayName})</p>
               </div>
 
               <div className="grid grid-cols-3 gap-3 text-center">
@@ -503,7 +554,7 @@ export default function MockInterviewPage() {
               <div className="p-4 rounded-xl bg-[#181715] border border-white/10 space-y-2 text-xs">
                 <h4 className="font-bold text-[#faf9f5] flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-[#cc785c]" />
-                  <span>Actionable Drill Exercises</span>
+                  <span>Actionable Drill Feedback</span>
                 </h4>
                 <p className="text-[#a09d96] leading-relaxed">
                   1. Practice leading with measurable outcomes before detailing implementation.<br />
