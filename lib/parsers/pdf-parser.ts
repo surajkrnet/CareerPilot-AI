@@ -1,5 +1,6 @@
 /**
- * Robust Server-Side PDF Text Extractor for Next.js App Router & Node.js runtime.
+ * Bulletproof Server-Side PDF Text Extractor for Next.js App Router & Node.js runtime.
+ * Strips null bytes, non-printable control characters, and binary stream bytecode.
  */
 
 // Polyfill DOMMatrix stubs for pdf-parse v2 in Node.js serverless environment
@@ -65,50 +66,55 @@ if (typeof globalThis !== 'undefined') {
 const pdfParse = require('pdf-parse');
 
 /**
- * Checks if the extracted text looks like genuine human-readable resume text
+ * Strips null bytes, unprintable ASCII control characters, and normalizes spacing
  */
-export function isHumanResumeText(text: string): boolean {
-  if (!text || text.length < 50) return false;
-  const lower = text.toLowerCase();
-  const resumeIndicators = [
-    'experience', 'education', 'skills', 'projects', 'work',
-    'technologies', 'summary', 'profile', 'engineer', 'developer',
-    'bachelor', 'master', 'university', 'college', 'email', 'phone',
-    'github', 'linkedin', 'achievements', 'responsibilities', 'frameworks',
-    'languages', 'react', 'python', 'javascript', 'sql', 'management'
-  ];
-
-  let matches = 0;
-  for (const word of resumeIndicators) {
-    if (lower.includes(word)) matches++;
-    if (matches >= 2) return true;
-  }
-  return text.split(/\s+/).length > 25;
+export function sanitizeText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFFF0-\uFFFF]/g, '')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /**
- * Standard PDF text extraction function
+ * Checks if text contains at least 20 recognizable resume / dictionary words
+ */
+export function countRecognizableWords(text: string): number {
+  if (!text) return 0;
+  const words = text.match(/[a-zA-Z]{3,}/g) || [];
+  return words.length;
+}
+
+/**
+ * Checks if extracted text is valid human resume content
+ */
+export function isHumanResumeText(text: string): boolean {
+  if (!text || text.length < 50) return false;
+  return countRecognizableWords(text) >= 20;
+}
+
+/**
+ * Core PDF text extraction function
  */
 export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
+  let cleanedText = '';
+
   try {
     const parseFn = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
     const data = await parseFn(fileBuffer);
-    
-    // Clean and sanitize text (remove control chars, excessive null bytes)
-    let cleanedText = (data?.text || '')
-      .replace(/\r\n/g, '\n')
-      .replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '')
-      .replace(/\n\s*\n/g, '\n\n')
-      .trim();
+    cleanedText = sanitizeText(data?.text || '');
+  } catch (error: any) {
+    console.warn('pdf-parse primary notice, trying stream text decoder:', error?.message || error);
+  }
 
-    // Verify it's not raw stream gibberish
-    if (cleanedText.length < 50 || /^[\x00-\x7F]*([A-Za-z0-9+/=]{40,})/.test(cleanedText.slice(0, 100))) {
-      // Fallback basic text extraction if parser returns binary stream representation
-      cleanedText = cleanedText.replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ');
-    }
-
-    if (!cleanedText) {
-      // Fallback stream text extraction if pdf-parse returns empty string
+  // Fallback stream text extraction if pdf-parse failed or returned empty
+  if (!cleanedText || countRecognizableWords(cleanedText) < 20) {
+    try {
       const rawLatin = fileBuffer.toString('latin1');
       const textPieces: string[] = [];
       const tjPattern = /\(([^)]+)\)\s*Tj/g;
@@ -116,38 +122,37 @@ export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
       while ((match = tjPattern.exec(rawLatin)) !== null) {
         textPieces.push(match[1]);
       }
-      cleanedText = textPieces.join(' ').replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ').trim();
-    }
-
-    return cleanedText;
-  } catch (error: any) {
-    console.error('PDF Parse Error:', error);
-    
-    // Fallback stream decode instead of crashing
-    try {
-      const asciiFallback = fileBuffer
-        .toString('utf-8')
-        .replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (asciiFallback.length > 50) {
-        return asciiFallback;
+      const streamCleaned = sanitizeText(textPieces.join(' '));
+      if (countRecognizableWords(streamCleaned) >= 20) {
+        cleanedText = streamCleaned;
       }
     } catch {}
-
-    throw new Error('Failed to parse PDF resume. Please ensure the file is an unencrypted PDF.');
   }
+
+  // Sanity Check: If extracted text contains less than 20 recognizable words or is bytecode
+  const wordCount = countRecognizableWords(cleanedText);
+  const isBase64Bytecode = /^[\x00-\x7F]*([A-Za-z0-9+/=]{60,})/.test(cleanedText.slice(0, 150));
+
+  if (!cleanedText || wordCount < 20 || isBase64Bytecode) {
+    throw new Error('Unable to extract text from PDF. Please paste resume text directly.');
+  }
+
+  return cleanedText;
 }
 
 /**
- * Universal helper supporting both PDF and Text/Markdown files
+ * Universal helper supporting PDF and Text/Markdown files
  */
 export async function parsePdfBuffer(buffer: Buffer, fileName = 'resume.pdf'): Promise<string> {
   if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
-    return buffer.toString('utf-8').trim();
+    const txt = sanitizeText(buffer.toString('utf-8'));
+    if (countRecognizableWords(txt) < 10) {
+      throw new Error('Unable to extract text from file. Please paste resume text directly.');
+    }
+    return txt;
   }
   return extractTextFromPdf(buffer);
 }
 
 export { parsePdfBuffer as extractTextFromBuffer };
+export { extractTextFromPdf as parsePdf };

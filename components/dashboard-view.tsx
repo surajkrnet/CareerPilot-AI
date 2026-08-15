@@ -81,6 +81,13 @@ export default function DashboardView({
   const { profile, applications, resumeState } = useCareer();
   const [mounted, setMounted] = useState(false);
   const [cachedDna, setCachedDna] = useState<any>(null);
+  const [dynamicAction, setDynamicAction] = useState<{
+    title: string;
+    description: string;
+    impactScore: string;
+    actionLabel: string;
+    actionHref: string;
+  } | null>(null);
 
   // Avoid hydration mismatches by mounting safely on client
   useEffect(() => {
@@ -94,6 +101,16 @@ export default function DashboardView({
       } catch (e) {
         console.warn('Cache read notice:', e);
       }
+
+      // Fetch prioritized AI Next-Best Action from Claude 3.5 Sonnet API
+      fetch('/api/dashboard/next-action', { method: 'POST' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.recommendation) {
+            setDynamicAction(data.recommendation);
+          }
+        })
+        .catch((err) => console.warn('Next-action fetch notice:', err));
     }
   }, []);
 
@@ -256,19 +273,20 @@ export default function DashboardView({
               <span className="text-xs font-bold uppercase tracking-wider bg-[#1f1e1b]/30 px-2 py-0.5 rounded text-white font-mono">
                 ⚡ Priority AI Next Action
               </span>
-              <span className="text-xs text-white/90">• High Impact (+22% Interview Conversion)</span>
+              <span className="text-xs text-white/90">• {dynamicAction?.impactScore || 'High Impact (+22% Interview Conversion)'}</span>
             </div>
             <h2 className="font-display text-2xl sm:text-3xl text-white">
-              Scan &amp; Optimize Your Resume for target {targetRole} roles.
+              {dynamicAction?.title || `Scan & Optimize Your Resume for target ${targetRole} roles.`}
             </h2>
             <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-              Your Career DNA has been synthesized. Run a live JD-aligned scan in Resume Intelligence to inject active STAR bullet points and increase your ATS pass rate.
+              {dynamicAction?.description ||
+                'Your Career DNA has been synthesized. Run a live JD-aligned scan in Resume Intelligence to inject active STAR bullet points and increase your ATS pass rate.'}
             </p>
           </div>
         </div>
 
         <div className="shrink-0 w-full md:w-auto flex flex-col sm:flex-row gap-3">
-          <Link href="/resume">
+          <Link href={(dynamicAction?.actionHref as any) || '/resume'}>
             <Button
               variant="secondary"
               size="md"
@@ -276,7 +294,7 @@ export default function DashboardView({
               icon={<ArrowRight className="w-4 h-4 text-[#cc785c]" />}
               iconPosition="right"
             >
-              Resume Studio
+              {dynamicAction?.actionLabel || 'Resume Studio'}
             </Button>
           </Link>
           <Link href="/jobs">
