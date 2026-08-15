@@ -200,8 +200,14 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
     });
   } catch (error: any) {
     console.error('Career DNA Generation Error:', error);
+    const msg = error?.message || 'Failed to synthesize Career DNA';
+    const cleanMsg = msg.includes('rate-limited')
+      ? 'The AI synthesis engine is currently processing high volume. Please retry in a moment.'
+      : msg.includes('credits')
+      ? 'AI Engine quota notice: please check credit allocations.'
+      : msg;
     return NextResponse.json(
-      { error: error.message || 'Failed to synthesize Career DNA' },
+      { error: cleanMsg },
       { status: 500 }
     );
   }

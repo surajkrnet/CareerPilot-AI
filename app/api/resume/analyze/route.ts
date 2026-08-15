@@ -87,6 +87,12 @@ Analyze the candidate's actual resume against the target Job Description (JD).
     });
   } catch (error: any) {
     console.error('OpenRouter Resume Analysis Error:', error);
-    return NextResponse.json({ error: error.message || 'Analysis failed' }, { status: 500 });
+    const msg = error?.message || 'Analysis failed';
+    const cleanMsg = msg.includes('rate-limited')
+      ? 'The AI analysis engine is temporarily busy. Please retry in a few moments.'
+      : msg.includes('credits')
+      ? 'AI Engine quota notice: please check credit allocations.'
+      : msg;
+    return NextResponse.json({ error: cleanMsg }, { status: 500 });
   }
 }

@@ -57,7 +57,7 @@ export default function AuthForm() {
         .from('career_dna')
         .select('id')
         .eq('user_id', data.user.id)
-        .single();
+        .maybeSingle();
 
       if (dna) {
         router.push('/dashboard');

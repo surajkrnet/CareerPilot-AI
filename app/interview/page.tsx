@@ -345,14 +345,19 @@ function InterviewStudioContent() {
           </div>
         </header>
 
-        {/* Live AI Engine Error Banner */}
+        {/* Live AI Engine Status Notification */}
         {interviewError && (
-          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs flex items-start gap-2.5 shadow-md">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <strong className="block font-semibold text-red-200">AI Intelligence Engine Notice:</strong>
-              <span>{interviewError}</span>
+          <div className="p-3.5 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-lg text-[#faf9f5] text-xs flex items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-[#cc785c]" />
+              <span className="text-[#e6dfd8]">{interviewError}</span>
             </div>
+            <button
+              onClick={() => setInterviewError(null)}
+              className="text-[#a09d96] hover:text-white text-xs font-mono cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 

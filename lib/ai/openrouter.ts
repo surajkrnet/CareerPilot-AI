@@ -1,9 +1,12 @@
 import { createOpenAI } from '@ai-sdk/openai';
 
+const apiKey = process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+
 export const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY,
+  apiKey: apiKey,
   headers: {
+    'Authorization': `Bearer ${apiKey}`,
     'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://careerpilot-ai-coach.vercel.app',
     'X-Title': 'CareerPilot AI',
   },

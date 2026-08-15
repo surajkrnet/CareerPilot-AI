@@ -123,6 +123,12 @@ Directives:
     });
   } catch (error: any) {
     console.error('OpenRouter Interview Turn Error:', error);
-    return NextResponse.json({ error: error.message || 'Interview turn failed' }, { status: 500 });
+    const msg = error?.message || 'Interview turn failed';
+    const cleanMsg = msg.includes('rate-limited')
+      ? 'The AI interviewer is momentarily busy. Please try sending your answer again.'
+      : msg.includes('credits')
+      ? 'AI Engine quota notice: please check credit allocations.'
+      : msg;
+    return NextResponse.json({ error: cleanMsg }, { status: 500 });
   }
 }
