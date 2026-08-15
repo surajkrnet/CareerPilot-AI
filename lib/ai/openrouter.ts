@@ -9,6 +9,9 @@ export const openrouter = createOpenAI({
   },
 });
 
-// Standard model identifier for Claude 3.5 Sonnet on OpenRouter
-export const claudeSonnetModel = openrouter.chat('anthropic/claude-3.5-sonnet');
+// Primary: Claude Sonnet 4.5 (cost-effective, supports structured outputs)
+// Claude 3.5 Sonnet was retired from OpenRouter in Oct 2025
+export const claudeSonnetModel = openrouter.chat('anthropic/claude-sonnet-4.5');
+
+// Alias for backward compat with lib/ai/model.ts re-export
 export const getClaudeModel = () => claudeSonnetModel;
