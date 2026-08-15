@@ -205,7 +205,7 @@ export default function JobFitPage() {
   const platformsList = ['All', 'LinkedIn', 'Wellfound', 'Naukri', 'Y Combinator', 'Indeed', 'Glassdoor'];
 
   return (
-    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-28 pb-16 px-4 sm:px-8 md:px-10 font-sans">
+    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-32 sm:pt-36 pb-16 px-4 sm:px-8 md:px-10 font-sans">
       <div className="max-w-[1400px] mx-auto space-y-8">
         
         {/* Floating Toast Notification */}

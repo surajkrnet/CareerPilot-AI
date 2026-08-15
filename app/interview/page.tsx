@@ -43,13 +43,22 @@ function InterviewStudioContent() {
   const [isStarted, setIsStarted] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [showScorecard, setShowScorecard] = useState(false);
-  const [scores, setScores] = useState({
-    confidence: 88,
-    technical: 92,
-    structure: 86,
-    overall: 89,
-  });
-  const [turnScores, setTurnScores] = useState<Array<{ confidence: number; technical: number; structure: number }>>([]);
+
+  // Strict Evaluation State (Starts Null)
+  const [currentScores, setCurrentScores] = useState<{
+    confidence: number;
+    technical: number;
+    structure: number;
+    overall: number;
+  } | null>(null);
+  const [turnHistory, setTurnHistory] = useState<Array<{ confidence: number; technical: number; structure: number }>>([]);
+  const [finalScorecardData, setFinalScorecardData] = useState<{
+    confidence: number;
+    technical: number;
+    structure: number;
+    overall: number;
+    takeaways: string[];
+  } | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -156,7 +165,9 @@ function InterviewStudioContent() {
     setIsStarted(true);
     setLoading(true);
     setInterviewError(null);
-    setTurnScores([]);
+    setCurrentScores(null);
+    setTurnHistory([]);
+    setFinalScorecardData(null);
 
     try {
       const res = await fetch('/api/interview/turn', {
@@ -190,18 +201,7 @@ function InterviewStudioContent() {
           timestamp: '00:01',
         },
       ]);
-      if (data.scores) {
-        const conf = data.scores.confidenceScore || 88;
-        const tech = data.scores.technicalAccuracy || 90;
-        const struct = data.scores.structureScore || 86;
-        setScores({
-          confidence: conf,
-          technical: tech,
-          structure: struct,
-          overall: Math.round(conf * 0.3 + tech * 0.4 + struct * 0.3),
-        });
-        setTurnScores([{ confidence: conf, technical: tech, structure: struct }]);
-      }
+      // Do not record scores for the opening question
     } catch (err: any) {
       setInterviewError(err.message || 'Failed to connect with AI Intelligence Engine (Gemma) interviewer.');
     } finally {
@@ -262,17 +262,18 @@ function InterviewStudioContent() {
       ]);
 
       if (data.scores) {
-        const turnConf = data.scores.confidenceScore || 85;
-        const turnTech = data.scores.technicalAccuracy || 88;
-        const turnStruct = data.scores.structureScore || 84;
+        const turnConf = Number(data.scores.confidenceScore) || 0;
+        const turnTech = Number(data.scores.technicalAccuracy) || 0;
+        const turnStruct = Number(data.scores.structureScore) || 0;
+        const turnOverall = Math.round(turnConf * 0.3 + turnTech * 0.4 + turnStruct * 0.3);
 
-        setTurnScores((prev) => [...prev, { confidence: turnConf, technical: turnTech, structure: turnStruct }]);
+        setTurnHistory((prev) => [...prev, { confidence: turnConf, technical: turnTech, structure: turnStruct }]);
 
-        setScores({
+        setCurrentScores({
           confidence: turnConf,
           technical: turnTech,
           structure: turnStruct,
-          overall: Math.round(turnConf * 0.3 + turnTech * 0.4 + turnStruct * 0.3),
+          overall: turnOverall,
         });
       }
     } catch (err: any) {
@@ -285,22 +286,58 @@ function InterviewStudioContent() {
   const handleEndInterview = async () => {
     setLoading(true);
     try {
-      let finalConfidence = scores.confidence;
-      let finalTechnical = scores.technical;
-      let finalStructure = scores.structure;
+      let finalConfidence = 0;
+      let finalTechnical = 0;
+      let finalStructure = 0;
+      let finalComposite = 0;
+      let takeaways: string[] = [];
 
-      if (turnScores.length > 0) {
-        const sumConf = turnScores.reduce((a, b) => a + b.confidence, 0);
-        const sumTech = turnScores.reduce((a, b) => a + b.technical, 0);
-        const sumStruct = turnScores.reduce((a, b) => a + b.structure, 0);
-        finalConfidence = Math.round(sumConf / turnScores.length);
-        finalTechnical = Math.round(sumTech / turnScores.length);
-        finalStructure = Math.round(sumStruct / turnScores.length);
+      if (turnHistory.length === 0) {
+        finalConfidence = 0;
+        finalTechnical = 0;
+        finalStructure = 0;
+        finalComposite = 0;
+        takeaways = [
+          'No candidate answers were submitted during this drill.',
+          'Start a new session and respond to technical questions using the STAR framework to receive a calibrated scorecard.',
+        ];
+      } else {
+        const sumConf = turnHistory.reduce((a, b) => a + b.confidence, 0);
+        const sumTech = turnHistory.reduce((a, b) => a + b.technical, 0);
+        const sumStruct = turnHistory.reduce((a, b) => a + b.structure, 0);
+
+        finalConfidence = Math.round(sumConf / turnHistory.length);
+        finalTechnical = Math.round(sumTech / turnHistory.length);
+        finalStructure = Math.round(sumStruct / turnHistory.length);
+        finalComposite = Math.round(finalConfidence * 0.3 + finalTechnical * 0.4 + finalStructure * 0.3);
+
+        if (finalComposite < 40) {
+          takeaways = [
+            'Avoid single-word or ultra-brief replies; elaborate on technical decisions using the STAR framework (Situation, Task, Action, Result).',
+            'Cite concrete technologies, system constraints, and measurable metrics from your resume projects.',
+          ];
+        } else if (finalComposite < 75) {
+          takeaways = [
+            'Solid technical baseline. Lead with measurable business impact and latency improvements earlier in your answers.',
+            'Explain the specific architectural trade-offs that guided your choice of tools over alternatives.',
+          ];
+        } else {
+          takeaways = [
+            'Strong architectural depth and structured STAR delivery demonstrated across all responses.',
+            'Continue emphasizing edge cases, distributed failure modes, and observability metrics in live hiring rounds.',
+          ];
+        }
       }
 
-      const finalComposite = Math.round(finalConfidence * 0.3 + finalTechnical * 0.4 + finalStructure * 0.3);
+      setFinalScorecardData({
+        confidence: finalConfidence,
+        technical: finalTechnical,
+        structure: finalStructure,
+        overall: finalComposite,
+        takeaways,
+      });
 
-      setScores({
+      setCurrentScores({
         confidence: finalConfidence,
         technical: finalTechnical,
         structure: finalStructure,
@@ -323,6 +360,7 @@ function InterviewStudioContent() {
             starStructure: finalStructure,
             compositeScore: finalComposite,
             turnCount: messages.filter((m) => m.role === 'candidate').length,
+            takeaways,
           },
           created_at: new Date().toISOString(),
         });
@@ -332,35 +370,40 @@ function InterviewStudioContent() {
     } finally {
       setLoading(false);
       setShowScorecard(true);
-      try {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-      } catch {}
+      if (turnHistory.length > 0) {
+        try {
+          confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+        } catch {}
+      }
     }
   };
 
   const handleRestart = () => {
     setIsStarted(false);
     setMessages([]);
-    setTurnScores([]);
+    setTurnHistory([]);
+    setCurrentScores(null);
+    setFinalScorecardData(null);
     setSecondsElapsed(0);
     setShowScorecard(false);
     setInterviewError(null);
   };
 
   const displayName = candidateName || 'Candidate';
+  const displayRole = targetRoleTitle.length > 45 ? targetRoleTitle.slice(0, 42) + '...' : targetRoleTitle;
 
   return (
-    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-28 pb-16 px-4 sm:px-8 md:px-10 font-sans">
+    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-32 sm:pt-36 pb-16 px-4 sm:px-8 md:px-10 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Studio Top Control Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#252320] pb-6 gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-xs uppercase tracking-widest text-[#cc785c] font-semibold flex items-center gap-1.5 font-mono">
                 <Briefcase className="w-3.5 h-3.5" /> Interview Intelligence Studio
               </span>
-              <span className="text-[11px] font-mono bg-[#5db872]/15 text-[#5db872] px-2 py-0.5 rounded border border-[#5db872]/30 flex items-center gap-1">
+              <span className="text-[11px] font-mono bg-[#5db872]/15 text-[#5db872] px-2.5 py-0.5 rounded border border-[#5db872]/30 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3" /> Live AI Engine (Gemma) Grounded
               </span>
             </div>
@@ -368,8 +411,8 @@ function InterviewStudioContent() {
             <h1 className="font-serif text-3xl md:text-4xl text-white">
               Mock Interview Studio
             </h1>
-            <p className="text-xs text-[#8e8b82] mt-1 flex flex-wrap items-center gap-2">
-              <span>Target Role: <strong className="text-[#cc785c] font-mono">{targetRoleTitle}</strong></span>
+            <p className="text-xs text-[#8e8b82] mt-1.5 flex flex-wrap items-center gap-2">
+              <span>Target Role: <strong className="text-[#cc785c] font-mono" title={targetRoleTitle}>{displayRole}</strong></span>
               <span>•</span>
               <span>Candidate: <strong className="text-white">{displayName}</strong></span>
               <span>•</span>
@@ -387,7 +430,7 @@ function InterviewStudioContent() {
               <button
                 onClick={handleStartInterview}
                 disabled={loading}
-                className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-5 py-2 rounded-md font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-5 py-2.5 rounded-md font-medium text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
               >
                 <Sparkles className="w-3.5 h-3.5" /> Begin Live Interview
               </button>
@@ -395,15 +438,15 @@ function InterviewStudioContent() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleEndInterview}
-                  disabled={loading || messages.length < 2}
-                  className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-4 py-2 rounded-md font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                  disabled={loading}
+                  className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-4 py-2.5 rounded-md font-medium text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
                 >
                   <Trophy className="w-3.5 h-3.5" /> End &amp; Scorecard ↗
                 </button>
 
                 <button
                   onClick={handleRestart}
-                  className="bg-transparent border border-[#3d3d3a] text-[#8e8b82] hover:text-white px-3 py-2 rounded-md text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="bg-transparent border border-[#3d3d3a] text-[#8e8b82] hover:text-white px-3 py-2.5 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
                   title="Reset Session"
                 >
                   <RotateCcw className="w-3.5 h-3.5" /> Reset
@@ -456,11 +499,11 @@ function InterviewStudioContent() {
                   </div>
                   <h3 className="font-serif text-2xl text-white">Ready for your practice round?</h3>
                   <p className="text-xs text-[#8e8b82] max-w-md leading-relaxed">
-                    AI Intelligence Engine (Gemma) will cross-examine your actual resume projects against the requirements for {targetRoleTitle} and score your answers in real time.
+                    AI Intelligence Engine (Gemma) will cross-examine your actual resume projects against the requirements for {displayRole} and score your answers in real time.
                   </p>
                   <button
                     onClick={handleStartInterview}
-                    className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-2.5 rounded-md font-medium text-xs transition-all cursor-pointer shadow-md"
+                    className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-2.5 rounded-md font-medium text-xs font-mono transition-all cursor-pointer shadow-md"
                   >
                     Begin Live Interview
                   </button>
@@ -538,19 +581,23 @@ function InterviewStudioContent() {
                   <BarChart2 className="w-4 h-4 text-[#cc785c]" />
                   <h3 className="font-serif text-lg text-white">Live Evaluation Meters</h3>
                 </div>
-                <span className="text-xs font-mono text-[#cc785c] bg-[#252320] px-2 py-0.5 rounded">Active</span>
+                <span className="text-xs font-mono text-[#cc785c] bg-[#252320] px-2 py-0.5 rounded">
+                  {currentScores ? 'Active Turn' : 'Awaiting Turn'}
+                </span>
               </div>
 
               {/* Confidence */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-mono">
                   <span className="text-[#8e8b82]">DELIVERY CONFIDENCE</span>
-                  <span className="text-emerald-400 font-bold">{scores.confidence}%</span>
+                  <span className={`font-bold ${currentScores ? 'text-emerald-400' : 'text-[#6c6a64]'}`}>
+                    {currentScores ? `${currentScores.confidence}%` : '0%'}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-[#252320] rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-emerald-500 rounded-full"
-                    animate={{ width: `${scores.confidence}%` }}
+                    animate={{ width: `${currentScores?.confidence || 0}%` }}
                     transition={{ duration: 0.4 }}
                   />
                 </div>
@@ -560,12 +607,14 @@ function InterviewStudioContent() {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-mono">
                   <span className="text-[#8e8b82]">TECHNICAL ACCURACY</span>
-                  <span className="text-[#cc785c] font-bold">{scores.technical}%</span>
+                  <span className={`font-bold ${currentScores ? 'text-[#cc785c]' : 'text-[#6c6a64]'}`}>
+                    {currentScores ? `${currentScores.technical}%` : '0%'}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-[#252320] rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-[#cc785c] rounded-full"
-                    animate={{ width: `${scores.technical}%` }}
+                    animate={{ width: `${currentScores?.technical || 0}%` }}
                     transition={{ duration: 0.4 }}
                   />
                 </div>
@@ -575,12 +624,14 @@ function InterviewStudioContent() {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-mono">
                   <span className="text-[#8e8b82]">STAR STRUCTURE</span>
-                  <span className="text-sky-400 font-bold">{scores.structure}%</span>
+                  <span className={`font-bold ${currentScores ? 'text-sky-400' : 'text-[#6c6a64]'}`}>
+                    {currentScores ? `${currentScores.structure}%` : '0%'}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-[#252320] rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-sky-500 rounded-full"
-                    animate={{ width: `${scores.structure}%` }}
+                    animate={{ width: `${currentScores?.structure || 0}%` }}
                     transition={{ duration: 0.4 }}
                   />
                 </div>
@@ -590,10 +641,12 @@ function InterviewStudioContent() {
               <div className="p-4 rounded-lg bg-[#1f1e1b] border border-[#2e2d29] flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-mono uppercase text-[#8e8b82] block">Composite Drill Score</span>
-                  <span className="text-2xl font-serif text-white">{scores.overall}/100</span>
+                  <span className="text-2xl font-serif text-white">
+                    {currentScores ? `${currentScores.overall}/100` : '--/100'}
+                  </span>
                 </div>
-                <span className="text-xs font-mono text-[#cc785c] bg-[#181715] px-2.5 py-1 rounded border border-[#3d3d3a]">
-                  Live Dynamic
+                <span className="text-[11px] font-mono text-[#a09d96]">
+                  {currentScores ? 'Dynamic Calibrated' : 'Awaiting Responses'}
                 </span>
               </div>
             </div>
@@ -625,7 +678,7 @@ function InterviewStudioContent() {
 
       {/* Final Scorecard Modal */}
       <AnimatePresence>
-        {showScorecard && (
+        {showScorecard && finalScorecardData && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -638,33 +691,37 @@ function InterviewStudioContent() {
                   <Trophy className="w-8 h-8" />
                 </div>
                 <h2 className="font-serif text-3xl text-white">Interview Drill Scorecard</h2>
-                <p className="text-xs font-mono text-[#8e8b82]">{targetRoleTitle} Simulation ({displayName})</p>
+                <p className="text-xs font-mono text-[#8e8b82]">{displayRole} Simulation ({displayName})</p>
               </div>
 
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="p-3 bg-[#1f1e1b] rounded-xl border border-[#2e2d29]">
-                  <span className="text-2xl font-serif text-emerald-400">{scores.confidence}%</span>
+                  <span className="text-2xl font-serif text-emerald-400">{finalScorecardData.confidence}%</span>
                   <span className="text-[10px] uppercase font-mono text-[#8e8b82] block mt-0.5">Confidence</span>
                 </div>
                 <div className="p-3 bg-[#1f1e1b] rounded-xl border border-[#2e2d29]">
-                  <span className="text-2xl font-serif text-[#cc785c]">{scores.technical}%</span>
+                  <span className="text-2xl font-serif text-[#cc785c]">{finalScorecardData.technical}%</span>
                   <span className="text-[10px] uppercase font-mono text-[#8e8b82] block mt-0.5">Technical</span>
                 </div>
                 <div className="p-3 bg-[#1f1e1b] rounded-xl border border-[#2e2d29]">
-                  <span className="text-2xl font-serif text-sky-400">{scores.structure}%</span>
+                  <span className="text-2xl font-serif text-sky-400">{finalScorecardData.structure}%</span>
                   <span className="text-[10px] uppercase font-mono text-[#8e8b82] block mt-0.5">STAR Format</span>
                 </div>
               </div>
 
               <div className="p-4 rounded-xl bg-[#1f1e1b] border border-[#2e2d29] space-y-2 text-xs">
-                <h4 className="font-semibold text-white flex items-center gap-1.5">
+                <h4 className="font-semibold text-white flex items-center gap-1.5 font-mono">
                   <Sparkles className="w-4 h-4 text-[#cc785c]" />
                   <span>Actionable Takeaways</span>
                 </h4>
-                <p className="text-[#8e8b82] leading-relaxed">
-                  1. Lead with measurable business impact before diving into technical details.<br />
-                  2. Emphasize distributed caching invalidation and observability in your next drill.
-                </p>
+                <div className="text-[#a09d96] leading-relaxed space-y-1.5">
+                  {finalScorecardData.takeaways.map((takeaway, idx) => (
+                    <p key={idx}>
+                      <strong className="text-white font-mono">{idx + 1}. </strong>
+                      {takeaway}
+                    </p>
+                  ))}
+                </div>
               </div>
 
               <div className="flex gap-3">
