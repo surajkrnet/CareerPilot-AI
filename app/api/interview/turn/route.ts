@@ -68,7 +68,7 @@ Directives:
     const result = await generateObject({
       model: claudeSonnetModel,
       schema: TurnSchema,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 1000,
       system: systemPrompt,
       prompt: `Conversation History:\n${JSON.stringify(conversationHistory)}\n\nLatest Candidate Answer:\n${userResponse || 'Candidate started the interview session.'}`,
     });

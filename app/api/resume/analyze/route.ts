@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const result = await generateObject({
       model: claudeSonnetModel,
       schema: AnalysisSchema,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 1500,
       system: `You are a Principal Technical Recruiter and ATS Evaluation Engine.
 Analyze the candidate's actual resume against the target Job Description (JD).
 1. Calculate an objective ATS Score (0-100) based on hard skills and single-column formatting suitability.

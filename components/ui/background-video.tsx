@@ -32,11 +32,45 @@ export function BackgroundVideo({
   }, [src]);
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Handle browser autoplay policy restrictions silently
+    const video = videoRef.current;
+    if (!video) return;
+
+    const attemptPlay = () => {
+      video.play().then(() => {
+        setIsLoaded(true);
+      }).catch(() => {
+        // Autoplay policy fallback: ensure muted is set and retry
+        video.muted = true;
+        video.play().then(() => setIsLoaded(true)).catch(() => {});
       });
+    };
+
+    if (video.readyState >= 2) {
+      setIsLoaded(true);
+      attemptPlay();
     }
+
+    const handleLoadedData = () => {
+      setIsLoaded(true);
+      attemptPlay();
+    };
+
+    const handleCanPlay = () => {
+      setIsLoaded(true);
+      attemptPlay();
+    };
+
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadedmetadata', handleCanPlay);
+
+    attemptPlay();
+
+    return () => {
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadedmetadata', handleCanPlay);
+    };
   }, [currentSrc]);
 
   const handleVideoError = () => {
@@ -47,18 +81,20 @@ export function BackgroundVideo({
 
   return (
     <div className={twMerge(clsx('relative overflow-hidden w-full', className))}>
-      {/* HTML5 Video Element with AutoPlay, Loop, Muted, PlaysInline */}
+      {/* HTML5 Video Element with autoPlay, loop, muted, playsInline, preload */}
       <video
         ref={videoRef}
         autoPlay
         loop
         muted
         playsInline
+        preload="auto"
         poster={poster}
         onLoadedData={() => setIsLoaded(true)}
+        onCanPlay={() => setIsLoaded(true)}
         onError={handleVideoError}
-        style={{ opacity: isLoaded ? opacity : 0 }}
-        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+        style={{ opacity: isLoaded ? opacity : 0.8 }}
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
         key={currentSrc}
       >
         <source src={currentSrc} type="video/mp4" />

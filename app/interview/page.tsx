@@ -75,6 +75,20 @@ function InterviewStudioContent() {
       if (dna?.raw_resume_text) setCandidateResume(dna.raw_resume_text);
       if (dna?.target_roles?.[0]) setTargetRoleTitle(dna.target_roles[0]);
 
+      const extractCleanRole = (jd: string, defaultRole = 'Frontend Systems') => {
+        if (!jd) return defaultRole;
+        const firstLine = jd.split('\n')[0].replace(/^(Requirements|Description|About the role|Job Summary):?/gi, '').trim();
+        if (firstLine.includes(' - ')) {
+          const parts = firstLine.split(' - ');
+          const title = parts[parts.length - 1].trim();
+          if (title.length > 3 && title.length <= 40) return title;
+        }
+        const match = jd.slice(0, 400).match(/\b(Frontend Engineer|Backend Engineer|Full-Stack (?:Engineer|Developer)|Software Engineer|DevOps Engineer|Cloud Infrastructure Engineer|Cloud Architect|Product Manager|Data Engineer|Machine Learning Engineer|System Architect|Security Engineer|Infrastructure Engineer|SRE)\b/i);
+        if (match) return match[0];
+        if (firstLine.length >= 3 && firstLine.length <= 35 && !firstLine.includes('.')) return firstLine;
+        return defaultRole;
+      };
+
       // If scanId was passed from Resume Intelligence, fetch the exact JD analyzed
       if (scanId) {
         const { data: scan } = await supabase
@@ -85,8 +99,7 @@ function InterviewStudioContent() {
 
         if (scan?.target_jd) {
           setTargetJd(scan.target_jd);
-          const firstLine = scan.target_jd.split('\n')[0].replace(/Requirements:|Description:/gi, '').trim();
-          if (firstLine) setTargetRoleTitle(firstLine.length > 60 ? firstLine.substring(0, 57) + '...' : firstLine);
+          setTargetRoleTitle(extractCleanRole(scan.target_jd, dna?.target_roles?.[0] || 'Frontend Systems'));
         }
       } else {
         // Fetch latest scan as default
@@ -100,8 +113,7 @@ function InterviewStudioContent() {
 
         if (latestScan?.target_jd) {
           setTargetJd(latestScan.target_jd);
-          const firstLine = latestScan.target_jd.split('\n')[0].replace(/Requirements:|Description:/gi, '').trim();
-          if (firstLine) setTargetRoleTitle(firstLine.length > 60 ? firstLine.substring(0, 57) + '...' : firstLine);
+          setTargetRoleTitle(extractCleanRole(latestScan.target_jd, dna?.target_roles?.[0] || 'Frontend Systems'));
         }
       }
     }
@@ -286,10 +298,14 @@ function InterviewStudioContent() {
             </div>
 
             <h1 className="font-serif text-3xl md:text-4xl text-white">
-              Mock Interview: {targetRoleTitle}
+              Mock Interview Studio
             </h1>
-            <p className="text-xs text-[#8e8b82] mt-0.5">
-              Candidate: <strong className="text-white">{displayName}</strong> • Mode: Live Project Cross-Examination &amp; STAR Scoring
+            <p className="text-xs text-[#8e8b82] mt-1 flex flex-wrap items-center gap-2">
+              <span>Target Role: <strong className="text-[#cc785c] font-mono">{targetRoleTitle}</strong></span>
+              <span>•</span>
+              <span>Candidate: <strong className="text-white">{displayName}</strong></span>
+              <span>•</span>
+              <span>Mode: Live STAR Project Cross-Examination</span>
             </p>
           </div>
 

@@ -1,66 +1,9 @@
 /**
- * Bulletproof Server-Side PDF Text Extractor for Next.js App Router & Node.js runtime.
- * Supports pdf-parse v2 (PDFParse class), legacy function exports, and stream extraction.
+ * Production-Grade Server-Side PDF Text Extractor for Next.js App Router & Node.js
+ * Powered by unpdf + pdf-parse with strict sanitization and zero binary leakage.
  */
 
-// Polyfill DOMMatrix stubs for pdf-parse v2 in Node.js serverless environment
-if (typeof globalThis !== 'undefined') {
-  if (typeof (globalThis as any).DOMMatrix === 'undefined') {
-    (globalThis as any).DOMMatrix = class DOMMatrix {
-      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-      m11 = 1; m12 = 0; m13 = 0; m14 = 0;
-      m21 = 0; m22 = 1; m23 = 0; m24 = 0;
-      m31 = 0; m32 = 0; m33 = 1; m34 = 0;
-      m41 = 0; m42 = 0; m43 = 0; m44 = 1;
-      is2D = true;
-      isIdentity = true;
-      constructor(init?: any) {
-        if (Array.isArray(init)) {
-          this.a = init[0] ?? 1;
-          this.b = init[1] ?? 0;
-          this.c = init[2] ?? 0;
-          this.d = init[3] ?? 1;
-          this.e = init[4] ?? 0;
-          this.f = init[5] ?? 0;
-        }
-      }
-      multiply() { return this; }
-      translate() { return this; }
-      scale() { return this; }
-      rotate() { return this; }
-      inverse() { return this; }
-      transformPoint(p?: any) { return p || { x: 0, y: 0, z: 0, w: 1 }; }
-    };
-  }
-
-  if (typeof (globalThis as any).Path2D === 'undefined') {
-    (globalThis as any).Path2D = class Path2D {
-      addPath() {}
-      closePath() {}
-      moveTo() {}
-      lineTo() {}
-      bezierCurveTo() {}
-      quadraticCurveTo() {}
-      arc() {}
-      arcTo() {}
-      ellipse() {}
-      rect() {}
-    };
-  }
-
-  if (typeof (globalThis as any).ImageData === 'undefined') {
-    (globalThis as any).ImageData = class ImageData {
-      data: Uint8ClampedArray;
-      width: number;
-      height: number;
-      constructor(width = 1, height = 1) {
-        this.width = width;
-        this.height = height;
-        this.data = new Uint8ClampedArray(width * height * 4);
-      }
-    };
-  }
-}
+import { extractText as extractTextUnpdf } from 'unpdf';
 
 /**
  * Strips null bytes, unprintable ASCII control characters, and normalizes spacing
@@ -79,62 +22,95 @@ export function sanitizeText(raw: string): string {
 }
 
 /**
- * Checks if text contains recognizable resume / dictionary words
+ * Counts recognizable natural language words (>= 2 letters)
  */
 export function countRecognizableWords(text: string): number {
   if (!text) return 0;
-  const words = text.match(/[a-zA-Z]{3,}/g) || [];
+  const words = text.match(/[a-zA-Z]{2,}/g) || [];
   return words.length;
 }
 
 /**
- * Checks if extracted text is valid human resume content
+ * Validates if extracted string is genuine readable resume text (not binary metadata or raw PDF bytecode)
  */
 export function isHumanResumeText(text: string): boolean {
-  if (!text || text.length < 50) return false;
-  return countRecognizableWords(text) >= 15;
+  if (!text || text.length < 30) return false;
+  // Discard raw PDF structural bytecode
+  if (text.startsWith('%PDF-') || text.includes('/Root') || text.includes('/Type /Catalog') || text.includes('endobj')) {
+    return false;
+  }
+  return countRecognizableWords(text) >= 10;
 }
 
 /**
- * Core PDF text extraction function
+ * Core multi-engine PDF text extractor
  */
 export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
   let cleanedText = '';
 
-  // 1. Attempt PDFParse class (pdf-parse v2)
+  // 1. Primary Engine: unpdf (Serverless & Node.js native, no canvas/worker dependencies)
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfModule = require('pdf-parse');
-    const PDFParseClass = pdfModule.PDFParse || (pdfModule.default && pdfModule.default.PDFParse);
-
-    if (PDFParseClass && typeof PDFParseClass === 'function') {
-      const parser = new PDFParseClass({ data: fileBuffer });
-      const textResult = await parser.getText();
-      if (textResult?.text) {
-        cleanedText = sanitizeText(textResult.text);
+    const uint8Data = new Uint8Array(fileBuffer);
+    const result = await extractTextUnpdf(uint8Data);
+    if (result && Array.isArray(result.text)) {
+      const combined = result.text.join('\n\n');
+      const sanitized = sanitizeText(combined);
+      if (isHumanResumeText(sanitized)) {
+        cleanedText = sanitized;
       }
-      try {
-        await parser.destroy();
-      } catch {}
-    } else if (typeof pdfModule === 'function') {
-      const data = await pdfModule(fileBuffer);
-      cleanedText = sanitizeText(data?.text || '');
+    } else if (result && typeof (result as any).text === 'string') {
+      const sanitized = sanitizeText((result as any).text);
+      if (isHumanResumeText(sanitized)) {
+        cleanedText = sanitized;
+      }
     }
-  } catch (error: any) {
-    console.warn('pdf-parse v2 parser note:', error?.message || error);
+  } catch (unpdfErr: any) {
+    console.warn('unpdf extraction notice:', unpdfErr?.message || unpdfErr);
   }
 
-  // 2. Fallback stream text extraction if pdf-parse failed or returned empty
-  if (!cleanedText || countRecognizableWords(cleanedText) < 15) {
+  // 2. Secondary Engine: pdf-parse v2 fallback
+  if (!cleanedText || !isHumanResumeText(cleanedText)) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfModule = require('pdf-parse');
+      const PDFParseClass = pdfModule.PDFParse || (pdfModule.default && pdfModule.default.PDFParse);
+
+      if (PDFParseClass && typeof PDFParseClass === 'function') {
+        const parser = new PDFParseClass({ data: fileBuffer });
+        const textResult = await parser.getText();
+        if (textResult?.text) {
+          const sanitized = sanitizeText(textResult.text);
+          if (isHumanResumeText(sanitized)) {
+            cleanedText = sanitized;
+          }
+        }
+        try {
+          await parser.destroy();
+        } catch {}
+      } else if (typeof pdfModule === 'function') {
+        const data = await pdfModule(fileBuffer);
+        const sanitized = sanitizeText(data?.text || '');
+        if (isHumanResumeText(sanitized)) {
+          cleanedText = sanitized;
+        }
+      }
+    } catch (pdfParseErr: any) {
+      console.warn('pdf-parse fallback notice:', pdfParseErr?.message || pdfParseErr);
+    }
+  }
+
+  // 3. Tertiary Engine: PDF Stream Text Operator Extraction (Tj / TJ operators)
+  if (!cleanedText || !isHumanResumeText(cleanedText)) {
     try {
       const rawLatin = fileBuffer.toString('latin1');
       const textPieces: string[] = [];
 
-      // Match text operators (string) Tj and [(str)(ing)] TJ
       const tjPattern = /\(([^)]+)\)\s*Tj/g;
       let match;
       while ((match = tjPattern.exec(rawLatin)) !== null) {
-        textPieces.push(match[1]);
+        if (match[1] && !match[1].startsWith('%PDF') && !match[1].includes('/Obj')) {
+          textPieces.push(match[1]);
+        }
       }
 
       const arrayTjPattern = /\[([^\]]+)\]\s*TJ/g;
@@ -145,28 +121,18 @@ export async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
         }
       }
 
-      const streamCleaned = sanitizeText(textPieces.join(' '));
-      if (countRecognizableWords(streamCleaned) >= 15) {
-        cleanedText = streamCleaned;
+      if (textPieces.length > 0) {
+        const streamCleaned = sanitizeText(textPieces.join(' '));
+        if (isHumanResumeText(streamCleaned)) {
+          cleanedText = streamCleaned;
+        }
       }
     } catch {}
   }
 
-  // 3. Fallback ASCII decoder
-  if (!cleanedText || countRecognizableWords(cleanedText) < 15) {
-    const rawAscii = fileBuffer.toString('utf-8').replace(/[^a-zA-Z0-9\s.,!?:;@#%&()_\-–—'"/]/g, ' ');
-    const sanitizedAscii = sanitizeText(rawAscii);
-    if (countRecognizableWords(sanitizedAscii) >= 15) {
-      cleanedText = sanitizedAscii;
-    }
-  }
-
-  // Sanity Check
-  const wordCount = countRecognizableWords(cleanedText);
-  const isBase64Bytecode = /^[\x00-\x7F]*([A-Za-z0-9+/=]{60,})/.test(cleanedText.slice(0, 150));
-
-  if (!cleanedText || wordCount < 10 || isBase64Bytecode) {
-    throw new Error('Unable to extract text from PDF. Please paste resume text directly.');
+  // Final Quality Gate: Never return raw PDF bytecode or unparsed binary streams
+  if (!cleanedText || !isHumanResumeText(cleanedText)) {
+    throw new Error('Unable to extract plain text from this PDF format. Please paste your resume text directly into the box below.');
   }
 
   return cleanedText;

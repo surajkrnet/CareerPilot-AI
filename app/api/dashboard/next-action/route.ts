@@ -62,6 +62,7 @@ Synthesize the single highest ROI next step.`;
       const aiResponse = await generateObject({
         model,
         schema: NextActionSchema,
+        maxOutputTokens: 600,
         prompt,
       });
 

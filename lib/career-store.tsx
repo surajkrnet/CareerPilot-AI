@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface UserProfile {
   name: string;
@@ -19,12 +19,14 @@ export interface ApplicationTrackerItem {
   id: string;
   company: string;
   role: string;
-  location: string;
-  salary: string;
+  status: 'applied' | 'interviewing' | 'offer' | 'rejected' | 'bookmarked' | 'saved' | 'offered';
   matchScore: number;
+  salary: string;
+  location: string;
   appliedDate: string;
-  status: 'saved' | 'applied' | 'interviewing' | 'offered' | 'rejected';
-  jdText: string;
+  atsConfidence?: number;
+  missingSkills?: string[];
+  jdText?: string;
 }
 
 export interface InterviewMessage {
@@ -35,7 +37,7 @@ export interface InterviewMessage {
   feedback?: {
     confidence: number;
     accuracy: number;
-    structureTip?: string;
+    structureTip: string;
   };
 }
 
@@ -48,7 +50,7 @@ export interface TailoredBulletPoint {
   impactScore: string;
 }
 
-export interface CareerContextType {
+interface CareerContextType {
   profile: UserProfile;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   isOnboardingOpen: boolean;
@@ -62,7 +64,7 @@ export interface CareerContextType {
   activeInterviewCompany: string;
   setActiveInterviewCompany: (company: string) => void;
   interviewMessages: InterviewMessage[];
-  addInterviewMessage: (text: string, sender: 'interviewer' | 'user') => void;
+  addInterviewMessage: (msg: Omit<InterviewMessage, 'id' | 'timestamp'>) => void;
   resumeState: {
     resumeText: string;
     targetJdText: string;
@@ -74,13 +76,13 @@ export interface CareerContextType {
   };
   setResumeState: React.Dispatch<React.SetStateAction<CareerContextType['resumeState']>>;
   runResumeAnalysis: (jd?: string) => void;
-  switchProfile: (person: 'rahul' | 'priya') => void;
+  switchProfile: (person: 'engineer' | 'priya') => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
 
-const DEFAULT_PROFILE_RAHUL: UserProfile = {
-  name: 'Rahul Sharma',
+const DEFAULT_PROFILE_ENGINEER: UserProfile = {
+  name: 'Candidate Profile',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
   title: 'CS Graduate & Frontend Engineer',
   targetRole: 'Software Engineer (Frontend / Full-Stack)',
@@ -109,68 +111,62 @@ const INITIAL_APPLICATIONS: ApplicationTrackerItem[] = [
   {
     id: 'app-1',
     company: 'Linear',
-    role: 'Frontend Engineer - Product Systems',
-    location: 'Remote / Bengaluru',
-    salary: '₹28L - ₹42L LPA',
-    matchScore: 94,
-    appliedDate: '2026-08-10',
+    role: 'Frontend Systems Engineer',
     status: 'interviewing',
-    jdText: 'Looking for a Frontend Engineer with expert knowledge in Next.js, Framer Motion, and design systems to craft world-class software craft.',
+    matchScore: 94,
+    salary: '$140k - $175k',
+    location: 'Remote (US/EU/APAC)',
+    appliedDate: '2 days ago',
+    atsConfidence: 96,
+    missingSkills: ['WebAssembly', 'Canvas Rendering'],
   },
   {
     id: 'app-2',
     company: 'Stripe',
-    role: 'Software Engineer - Dashboard & Apps',
-    location: 'Bengaluru / Hyderabad',
-    salary: '₹35L - ₹52L LPA',
-    matchScore: 91,
-    appliedDate: '2026-08-08',
+    role: 'Full-Stack Developer (Billing)',
     status: 'interviewing',
-    jdText: 'Architecting financial dashboards with high reliability, performance tuning, and React micro-frontends.',
+    matchScore: 88,
+    salary: '$150k - $190k',
+    location: 'San Francisco, CA / Remote',
+    appliedDate: '5 days ago',
+    atsConfidence: 89,
+    missingSkills: ['Distributed Caching', 'Kafka'],
   },
   {
     id: 'app-3',
     company: 'Vercel',
-    role: 'Developer Relations / Frontend Specialist',
-    location: 'Remote India',
-    salary: '₹26L - ₹38L LPA',
-    matchScore: 89,
-    appliedDate: '2026-08-12',
+    role: 'Developer Experience Engineer',
     status: 'applied',
-    jdText: 'Building next-generation web applications, open-source demos, and developer docs for Next.js App Router.',
+    matchScore: 91,
+    salary: '$135k - $170k',
+    location: 'Remote',
+    appliedDate: '1 week ago',
+    atsConfidence: 93,
+    missingSkills: ['Turborepo CLI', 'Edge Middleware'],
   },
   {
     id: 'app-4',
-    company: 'Google',
-    role: 'Associate Software Engineer',
-    location: 'Bengaluru / Hyderabad',
-    salary: '₹32L - ₹48L LPA',
-    matchScore: 82,
-    appliedDate: '2026-08-02',
-    status: 'saved',
-    jdText: 'Core infrastructure and user-facing frontend development for Google Workspace suite.',
+    company: 'Notion',
+    role: 'Product Engineer (AI Systems)',
+    status: 'offer',
+    matchScore: 96,
+    salary: '$160k - $205k',
+    location: 'New York, NY / Remote',
+    appliedDate: '2 weeks ago',
+    atsConfidence: 97,
+    missingSkills: ['Vector Embeddings'],
   },
   {
     id: 'app-5',
-    company: 'Figma',
-    role: 'Product Engineer - Canvas & UI',
-    location: 'Remote / Pune',
-    salary: '₹30L - ₹45L LPA',
-    matchScore: 96,
-    appliedDate: '2026-07-28',
-    status: 'offered',
-    jdText: 'Creating collaborative design tools using WebGL, WebAssembly, and React state architectures.',
-  },
-  {
-    id: 'app-6',
-    company: 'Datadog',
-    role: 'Frontend Engineer',
-    location: 'Bengaluru / Gurgaon',
-    salary: '₹24L - ₹36L LPA',
-    matchScore: 78,
-    appliedDate: '2026-07-15',
-    status: 'rejected',
-    jdText: 'Data visualization and real-time observability telemetry UI dashboards.',
+    company: 'Ramp',
+    role: 'Frontend Core Engineer',
+    status: 'bookmarked',
+    matchScore: 86,
+    salary: '$145k - $180k',
+    location: 'New York, NY',
+    appliedDate: 'Saved',
+    atsConfidence: 85,
+    missingSkills: ['GraphQL Federation', 'Financial Ledger UX'],
   },
 ];
 
@@ -178,7 +174,7 @@ const INITIAL_MESSAGES: InterviewMessage[] = [
   {
     id: 'm1',
     sender: 'interviewer',
-    text: "Hello Rahul! Welcome to your technical interview for the Frontend Engineer position at Linear. Let's start by walking through a complex React/Next.js performance optimization you've driven. How did you identify the bottleneck and measure the impact?",
+    text: "Hello! Welcome to your technical interview for the Frontend Engineer position at Linear. Let's start by walking through a complex React/Next.js performance optimization you've driven. How did you identify the bottleneck and measure the impact?",
     timestamp: '10:00 AM',
   },
   {
@@ -230,7 +226,7 @@ const INITIAL_BULLET_POINTS: TailoredBulletPoint[] = [
 const CareerContext = createContext<CareerContextType | undefined>(undefined);
 
 export function CareerProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE_RAHUL);
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE_ENGINEER);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [applications, setApplications] = useState<ApplicationTrackerItem[]>(INITIAL_APPLICATIONS);
@@ -240,7 +236,7 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const [resumeState, setResumeState] = useState({
-    resumeText: `Rahul Sharma
+    resumeText: `Candidate Profile
 Computer Science B.S. | Software Engineer
 Skills: React, Next.js, TypeScript, JavaScript, Tailwind CSS, Redux, REST APIs, Git, Jest.
 Experience: Built full-stack web applications, designed accessible web interfaces, collaborated on agile sprint workflows.`,
@@ -258,73 +254,55 @@ Requirements:
     ],
     missingSkills: [
       'WebAssembly / WebGL canvas rendering',
-      'Advanced CI/CD pipeline automation',
-      'Optimistic state mutation & offline-first caching',
+      'Edge middleware micro-routing',
+      'Real-time CRDT collaborative data structures',
     ],
     tailoredBulletPoints: INITIAL_BULLET_POINTS,
     isAnalyzing: false,
   });
 
-  const addInterviewMessage = (text: string, sender: 'interviewer' | 'user') => {
+  const addInterviewMessage = (msg: Omit<InterviewMessage, 'id' | 'timestamp'>) => {
+    const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newMessage: InterviewMessage = {
-      id: `msg-${Date.now()}`,
-      sender,
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      ...(sender === 'user' && {
-        feedback: {
-          confidence: Math.floor(Math.random() * 12) + 84,
-          accuracy: Math.floor(Math.random() * 10) + 88,
-          structureTip: 'Strong technical explanation with clear architectural rationale.',
-        },
-      }),
+      ...msg,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: timeString,
     };
-
     setInterviewMessages((prev) => [...prev, newMessage]);
-
-    if (sender === 'user') {
-      setTimeout(() => {
-        const responses = [
-          "Excellent observation. Following up on that: how do you balance rapid feature delivery with code quality and test coverage when building complex UI components?",
-          "Spot on. Can you walk me through how you structured error boundary fallbacks and telemetry logging for critical user flows?",
-          "Great depth! Now let's shift to a scenario question: Imagine a customer reports a memory leak during long-session usage in your app. What profiling tools and steps would you use to isolate the leak?",
-        ];
-        const randomResp = responses[Math.floor(Math.random() * responses.length)];
-        const interviewerMsg: InterviewMessage = {
-          id: `msg-${Date.now() + 1}`,
-          sender: 'interviewer',
-          text: randomResp,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setInterviewMessages((prev) => [...prev, interviewerMsg]);
-      }, 1200);
-    }
   };
 
-  const runResumeAnalysis = async (jd?: string) => {
+  const runResumeAnalysis = async (customJd?: string) => {
+    const jdToUse = customJd || resumeState.targetJdText;
     setResumeState((prev) => ({ ...prev, isAnalyzing: true }));
-    const targetJd = jd || resumeState.targetJdText;
 
     try {
-      const res = await fetch('/api/resume/analyze', {
+      const response = await fetch('/api/resume/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resumeText: resumeState.resumeText,
-          targetJdText: targetJd,
+          jobDescription: jdToUse,
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.analysis) {
+      if (response.ok) {
+        const json = await response.json();
+        const data = json.data || json;
+        if (data.atsScore !== undefined) {
           setResumeState((prev) => ({
             ...prev,
             isAnalyzing: false,
-            atsScore: data.analysis.atsScore || 91,
-            matchStrengths: data.analysis.matchStrengths || prev.matchStrengths,
-            missingSkills: data.analysis.missingSkills || prev.missingSkills,
-            tailoredBulletPoints: data.analysis.tailoredBulletPoints || prev.tailoredBulletPoints,
+            atsScore: data.atsScore,
+            matchStrengths: data.resumeStrengths || prev.matchStrengths,
+            missingSkills: data.missingKeywords || prev.missingSkills,
+            tailoredBulletPoints: data.starOptimizations?.map((s: any, idx: number) => ({
+              id: `star-${idx}`,
+              category: 'STAR Impact Optimization',
+              originalText: s.originalBullet,
+              suggestedText: s.starOptimizedBullet,
+              reasoning: s.rationale,
+              impactScore: s.metricImpact,
+            })) || prev.tailoredBulletPoints,
           }));
           return;
         }
@@ -340,9 +318,9 @@ Requirements:
     }));
   };
 
-  const switchProfile = (person: 'rahul' | 'priya') => {
-    if (person === 'rahul') {
-      setProfile(DEFAULT_PROFILE_RAHUL);
+  const switchProfile = (person: 'engineer' | 'priya') => {
+    if (person === 'engineer') {
+      setProfile(DEFAULT_PROFILE_ENGINEER);
       setActiveInterviewRole('Frontend Engineer');
       setActiveInterviewCompany('Linear');
     } else {

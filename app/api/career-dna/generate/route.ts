@@ -109,7 +109,7 @@ Extract verified strengths, identify real market skill gaps for ${targetRole}, l
     const aiResponse = await generateObject({
       model: claudeSonnetModel,
       schema: CareerDnaSchema,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 1500,
       prompt,
     });
 
