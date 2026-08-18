@@ -57,14 +57,14 @@ export default function HomePage() {
     { name: 'Google', role: 'Associate SWE', fit: '85% Match', skills: 'Data Structures, System Design, Go', tag: 'Scale' },
   ];
 
-  const coreFeatures = [
+  const capabilities = [
     {
       num: '01',
       title: 'Career DNA Profiler',
-      desc: 'Synthesize your verified experience, projects, and target role into a living AI competency vector with real-time gap analysis.',
+      desc: 'Synthesize your verified experience, projects, and target role into a living AI competency vector with real-time gap metrics.',
       href: targetHref,
       icon: <Sparkles className="w-6 h-6 text-[#cc785c]" />,
-      action: 'Calibrate DNA',
+      action: 'Synthesize DNA',
     },
     {
       num: '02',
@@ -77,42 +77,42 @@ export default function HomePage() {
     {
       num: '03',
       title: 'Live Web Job Fit Engine',
-      desc: 'Real-time web scraping across LinkedIn, Wellfound, Naukri, and Y Combinator with batch AI skill scoring and direct apply links.',
+      desc: 'Real-time web scraping across LinkedIn, Wellfound, Naukri, and Y Combinator with batch AI match scores & deep links.',
       href: targetHref,
       icon: <Cpu className="w-6 h-6 text-[#cc785c]" />,
-      action: 'Scrape Opportunities',
+      action: 'Analyze Fit',
     },
     {
       num: '04',
       title: 'AI Mock Interview Studio',
-      desc: 'Interactive roleplay drills with live delivery confidence, technical accuracy, and STAR structure evaluation meters.',
+      desc: 'Interactive roleplay drills with live delivery confidence, technical accuracy, and STAR evaluation meters.',
       href: targetHref,
       icon: <MessageSquare className="w-6 h-6 text-[#cc785c]" />,
-      action: 'Start Practice Round',
+      action: 'Practice Now',
     },
     {
       num: '05',
       title: 'Next-Best Action Dashboard',
-      desc: 'Priority AI orchestrator recommending your single highest-leverage daily action to maximize recruiter callback rates.',
+      desc: 'Priority AI orchestrator recommending your single highest-impact daily action based on pipeline health.',
       href: targetHref,
       icon: <BarChart3 className="w-6 h-6 text-[#cc785c]" />,
-      action: 'Open Command Center',
+      action: 'Open Dashboard',
     },
     {
       num: '06',
       title: 'Application Pipeline Kanban',
-      desc: 'Drag-and-drop hiring pipeline across Saved, Applied, Interviewing, Offered, and Rejected stages with INR LPA tracking.',
+      desc: 'Full lifecycle drag-and-drop hiring pipeline spanning Saved, Applied, Interviewing, Offered, and Rejected roles.',
       href: targetHref,
       icon: <Briefcase className="w-6 h-6 text-[#cc785c]" />,
-      action: 'Track Applications',
+      action: 'Track Pipeline',
     },
   ];
 
   return (
-    <div className="bg-[#181715] text-[#faf9f5] selection:bg-[#cc785c] selection:text-white">
+    <div className="bg-[#181715] text-[#faf9f5] selection:bg-[#cc785c] selection:text-white font-sans">
       
       {/* ═══════════════════════════════════════════════
-          SECTION I: HERO — Autonomous AI Career Operating System
+          SECTION I: HERO — Full-Bleed Video Background
          ═══════════════════════════════════════════════ */}
       <section
         id="section-intro"
@@ -147,16 +147,17 @@ export default function HomePage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs sm:text-sm font-mono text-[#cc785c]">
               <Sparkles className="w-4 h-4" />
-              <span>AUTONOMOUS AI CAREER OPERATING SYSTEM</span>
+              <span>THE AUTONOMOUS AI CAREER OPERATING SYSTEM</span>
             </div>
 
             <h1 className="font-display text-5xl sm:text-7xl lg:text-8xl xl:text-[6.8rem] text-[#faf9f5] font-light leading-[0.96] tracking-tight">
-              Your Autonomous <br />
-              <span className="text-[#cc785c] italic font-normal">AI Career Operating System.</span>
+              Craft your <span className="text-[#cc785c] italic font-normal">Career DNA.</span> <br />
+              Master every interview. <br />
+              Land dream offers.
             </h1>
 
             <p className="text-lg sm:text-2xl text-[#a09d96] max-w-2xl font-sans font-light leading-relaxed">
-              Stop applying blindly. Build verified Career DNA, optimize resumes with ATS precision, practice live AI mock interviews, and land offers at top tech companies.
+              An autonomous studio for tech professionals, new graduates, and career switchers. Optimize resumes, rehearse live AI mock interviews, and organize your pipeline.
             </p>
           </motion.div>
 
@@ -176,7 +177,7 @@ export default function HomePage() {
                 iconPosition="right"
                 className="font-mono uppercase tracking-wider text-sm px-10 h-14 bg-[#cc785c] hover:bg-[#a9583e] shadow-xl"
               >
-                {user ? 'Open My Workspace ↗' : 'Get Started for Free ↗'}
+                {user ? 'Open My Career DNA ↗' : 'Get Started for Free ↗'}
               </Button>
             </Link>
 
@@ -192,80 +193,22 @@ export default function HomePage() {
           </motion.div>
         </div>
 
-        <ScrollIndicator targetId="features" />
+        <ScrollIndicator targetId="section-introduce" />
       </section>
 
       {/* ═══════════════════════════════════════════════
-          SECTION II: CORE FEATURES GRID
-         ═══════════════════════════════════════════════ */}
-      <section id="features" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto space-y-16">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3">
-              <span className="font-mono text-xs uppercase tracking-widest text-[#cc785c]">
-                II. PLATFORM MODULES
-              </span>
-              <h2 className="font-display text-4xl sm:text-6xl text-[#faf9f5] font-light tracking-tight">
-                6 Connected Career Engines. <br />
-                <span className="text-[#cc785c] italic">One Unified Workspace.</span>
-              </h2>
-            </div>
-            <p className="text-sm text-[#a09d96] font-sans max-w-md">
-              Every tool shares candidate context in real-time. Changes to your resume automatically recalibrate job recommendations and mock interview drills.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {coreFeatures.map((feat) => (
-              <Card
-                key={feat.num}
-                variant="dark-elevated"
-                className="p-8 bg-[#1f1e1b] border-white/10 hover:border-[#cc785c]/60 transition-all flex flex-col justify-between space-y-6 group"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-xl bg-[#252320] flex items-center justify-center group-hover:scale-110 transition-transform">
-                      {feat.icon}
-                    </div>
-                    <span className="font-mono text-xs font-bold text-[#6c6a64]">{feat.num}</span>
-                  </div>
-
-                  <h3 className="font-display text-2xl font-bold text-[#faf9f5] group-hover:text-[#cc785c] transition-colors">
-                    {feat.title}
-                  </h3>
-                  <p className="text-xs text-[#a09d96] font-sans leading-relaxed">
-                    {feat.desc}
-                  </p>
-                </div>
-
-                <Link
-                  href={feat.href}
-                  className="font-mono text-xs uppercase text-[#cc785c] group-hover:underline flex items-center gap-1.5 pt-4 border-t border-white/5"
-                >
-                  <span>{feat.action}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════
-          SECTION III: SHOWREEL & LIVE DEMO
+          SECTION II: INTRODUCE & SHOWREEL
          ═══════════════════════════════════════════════ */}
       <section id="section-introduce" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10">
         <div className="max-w-[1400px] mx-auto space-y-20">
-          <div className="space-y-4 max-w-4xl">
-            <span className="font-mono text-xs uppercase tracking-widest text-[#cc785c]">
-              III. LIVE DEMO &amp; INTELLIGENCE
-            </span>
-            <h2 className="font-display text-4xl sm:text-6xl text-[#faf9f5] font-light leading-tight tracking-tight">
-              Real-time roleplay drills with instant STAR scoring.
+          <div className="space-y-6 max-w-4xl">
+            <p className="font-mono text-sm uppercase tracking-widest text-[#cc785c]">Same passion. New mission.</p>
+            <h2 className="font-display text-4xl sm:text-6xl lg:text-7xl text-[#faf9f5] font-light leading-[1.05] tracking-tight">
+              After years of building products for high-growth tech companies and guiding hundreds of candidates...
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-14 items-center">
             <div className="lg:col-span-7">
               <VideoCard
                 src="/videos/mock-interview-session.mp4"
@@ -275,30 +218,19 @@ export default function HomePage() {
                 showMeters={true}
               />
             </div>
-
-            <div className="lg:col-span-5 space-y-8 font-sans text-[#a09d96] text-base sm:text-lg leading-relaxed">
+            <div className="lg:col-span-5 space-y-8 font-sans text-[#a09d96] text-lg sm:text-xl leading-relaxed">
               <p>
-                Opaque recruitment filters and ghosting end here. Our engine evaluates your real answer delivery, technical accuracy, and metric impact in live multi-turn conversations.
+                The modern hiring pipeline is broken. Candidates submit hundreds of resumes into opaque ATS algorithms with zero actionable feedback.
               </p>
-
-              <div className="p-4 bg-[#1f1e1b] rounded-xl border border-white/10 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#5db872] font-semibold">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Real Placement Outcomes</span>
-                </div>
-                <p className="text-xs text-[#a09d96] font-mono leading-relaxed">
-                  +34% higher recruiter callback rate after ATS STAR optimization. Average 2.8x increase in candidate technical confidence.
-                </p>
-              </div>
-
-              <div className="pt-2 flex items-center gap-4">
-                <Link href={targetHref}>
-                  <Button variant="primary" size="md" className="bg-[#cc785c] hover:bg-[#a9583e] font-mono uppercase text-xs">
-                    Try Live Mock Drill ↗
-                  </Button>
+              <p>
+                Our mission is to arm candidates with real-time behavioral simulation used by top engineering leaders—transforming anxiety into structured, offer-winning confidence.
+              </p>
+              <div className="pt-4 flex flex-wrap items-center gap-6">
+                <Link href={targetHref} className="font-mono text-sm uppercase tracking-wider text-[#cc785c] hover:underline flex items-center gap-1.5">
+                  Synthesize Your DNA <ChevronRight className="w-5 h-5" />
                 </Link>
-                <Link href="/#pricing" className="font-mono text-xs uppercase text-[#faf9f5] hover:text-[#cc785c]">
-                  See Pricing ↗
+                <Link href={targetHref} className="font-mono text-sm uppercase tracking-wider text-[#faf9f5] hover:text-[#cc785c] transition-colors flex items-center gap-1.5">
+                  Start Live Drill <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
             </div>
@@ -307,7 +239,163 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════════════════
-          SECTION IV: MONETIZATION & PRICING MATRIX (CRUCIAL)
+          SECTION III: MASSIVE TEXT REVEAL
+         ═══════════════════════════════════════════════ */}
+      <section className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10 overflow-hidden">
+        <div className="max-w-[1400px] mx-auto space-y-12">
+          <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <span className="font-mono text-sm uppercase tracking-widest text-[#cc785c] font-bold">III. IMPACT MATRIX</span>
+            <span className="font-mono text-sm text-[#6c6a64]">SCALE · PRECISION · OUTCOMES</span>
+          </div>
+          <TextReveal />
+          <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-t border-white/10">
+            <p className="text-base sm:text-lg text-[#a09d96] max-w-xl font-sans leading-relaxed">
+              Engineered with proven STAR interview frameworks, semantic ATS parsing vectors, and personalized skill gap roadmaps.
+            </p>
+            <Link href={targetHref}>
+              <Button
+                variant="secondary-dark"
+                size="lg"
+                icon={<ArrowRight className="w-5 h-5 text-[#cc785c]" />}
+                iconPosition="right"
+                className="font-mono text-sm uppercase tracking-wider h-12 px-6"
+              >
+                Explore Platform ↗
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          SECTION IV: BRAND EXPERIENCE (BENCHMARK ROLES)
+         ═══════════════════════════════════════════════ */}
+      <section id="section-brand-experience" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10">
+        <div className="max-w-[1400px] mx-auto space-y-16">
+          <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <span className="font-mono text-sm uppercase tracking-widest text-[#cc785c] font-bold">IV. BENCHMARK ROLES</span>
+            <span className="font-mono text-sm text-[#6c6a64]">REAL-WORLD HIRING CALIBRATION</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div className="lg:col-span-7 space-y-3">
+              {partnerBrands.map((brand, idx) => {
+                const isActive = activeBrandIndex === idx;
+                return (
+                  <div
+                    key={brand.name}
+                    onMouseEnter={() => setActiveBrandIndex(idx)}
+                    onClick={() => setActiveBrandIndex(idx)}
+                    className={`p-5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                      isActive
+                        ? 'bg-[#252320] border-[#cc785c] shadow-lg translate-x-2'
+                        : 'bg-[#1f1e1b]/60 border-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-xs text-[#6c6a64]">0{idx + 1}</span>
+                      <span className={`font-display text-2xl sm:text-3xl ${isActive ? 'text-[#cc785c]' : 'text-[#faf9f5]'}`}>
+                        {brand.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-mono text-[#a09d96] hidden sm:inline">{brand.role}</span>
+                      <span className={`px-2.5 py-1 rounded-md text-sm font-mono font-bold ${isActive ? 'bg-[#cc785c] text-white' : 'bg-white/10 text-[#a09d96]'}`}>
+                        {brand.fit}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="lg:col-span-5">
+              <Card variant="dark-elevated" className="p-8 space-y-6 border-white/10 shadow-2xl bg-[#1f1e1b]">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div>
+                    <span className="font-mono text-sm text-[#cc785c] uppercase">Target Profile</span>
+                    <h3 className="font-display text-4xl sm:text-5xl text-[#faf9f5] mt-1">{partnerBrands[activeBrandIndex].name}</h3>
+                  </div>
+                  <Badge variant="coral" size="md">{partnerBrands[activeBrandIndex].tag}</Badge>
+                </div>
+                <div className="space-y-4 font-mono text-sm">
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-[#6c6a64]">TARGET ROLE:</span>
+                    <span className="text-[#faf9f5] font-bold">{partnerBrands[activeBrandIndex].role}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-[#6c6a64]">KEY ATTRIBUTES:</span>
+                    <span className="text-[#5db872]">{partnerBrands[activeBrandIndex].skills}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-[#6c6a64]">MATCH CONFIDENCE:</span>
+                    <span className="text-[#cc785c] font-bold">{partnerBrands[activeBrandIndex].fit}</span>
+                  </div>
+                </div>
+                <Link href={targetHref}>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full font-mono text-sm uppercase tracking-wider h-12 bg-[#cc785c] hover:bg-[#a9583e]"
+                    icon={<ArrowRight className="w-5 h-5" />}
+                    iconPosition="right"
+                  >
+                    Practice {partnerBrands[activeBrandIndex].name} Interview
+                  </Button>
+                </Link>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          SECTION V: 6 AUTONOMOUS CAREER ENGINES (FEATURES)
+         ═══════════════════════════════════════════════ */}
+      <section id="features" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10">
+        <div className="max-w-[1400px] mx-auto space-y-16">
+          <div className="space-y-2">
+            <span className="font-mono text-sm uppercase tracking-widest text-[#cc785c] font-bold">V. UNIFIED SYSTEM</span>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+              <h2 className="font-display text-5xl sm:text-7xl text-[#faf9f5] font-light leading-tight">6 Autonomous Career Engines</h2>
+              <p className="text-base sm:text-lg text-[#a09d96] max-w-md font-sans">
+                Each engine works cohesively to transform fragmented job hunting into a high-probability process.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {capabilities.map((cap) => (
+              <Card
+                key={cap.num}
+                variant="dark-elevated"
+                hoverable
+                className="p-8 space-y-6 flex flex-col justify-between border-white/10 hover:border-[#cc785c]/60 transition-all bg-[#1f1e1b]"
+                data-cursor="EXPLORE"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-lg bg-[#252320] border border-white/10 flex items-center justify-center">
+                      {cap.icon}
+                    </div>
+                    <span className="font-mono text-sm text-[#cc785c] font-bold">{cap.num}</span>
+                  </div>
+                  <h3 className="font-display text-3xl text-[#faf9f5]">{cap.title}</h3>
+                  <p className="text-sm sm:text-base text-[#a09d96] font-sans leading-relaxed">{cap.desc}</p>
+                </div>
+                <div className="pt-4 border-t border-white/10">
+                  <Link href={cap.href} className="font-mono text-sm uppercase font-bold text-[#cc785c] hover:underline flex items-center gap-1">
+                    {cap.action} <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          SECTION VI: MONETIZATION & PRICING MATRIX (CRUCIAL)
          ═══════════════════════════════════════════════ */}
       <section id="pricing" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10 bg-[#141210]">
         <div className="max-w-[1400px] mx-auto space-y-16">
@@ -315,7 +403,7 @@ export default function HomePage() {
           {/* Header & Toggle */}
           <div className="text-center space-y-4 max-w-3xl mx-auto">
             <span className="font-mono text-xs uppercase tracking-widest text-[#cc785c] font-bold">
-              IV. TRANSPARENT PRICING
+              VI. TRANSPARENT PRICING
             </span>
             <h2 className="font-display text-4xl sm:text-6xl text-[#faf9f5] font-light tracking-tight">
               Invest in your career. <br />
@@ -522,38 +610,47 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════════════════
-          SECTION V: CONVERSION BANNER
+          SECTION VII: GET IN TOUCH / ACTION LAUNCHPAD
          ═══════════════════════════════════════════════ */}
-      <section className="py-24 sm:py-32 px-4 sm:px-8 border-b border-white/10 bg-gradient-to-r from-[#1f1e1b] via-[#252320] to-[#1f1e1b]">
-        <div className="max-w-[1200px] mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#cc785c]/15 text-[#cc785c] border border-[#cc785c]/30 font-mono text-xs">
-            <Award className="w-4 h-4" />
-            <span>JOIN THOUSANDS OF PLACED ENGINEERS</span>
+      <section id="section-get-in-touch" className="py-28 sm:py-36 px-4 sm:px-8 border-b border-white/10">
+        <div className="max-w-[1400px] mx-auto space-y-16">
+          <div className="space-y-4">
+            <span className="font-mono text-sm uppercase tracking-widest text-[#cc785c]">VII. GET IN TOUCH</span>
+            <h2 className="font-display text-6xl sm:text-8xl lg:text-9xl text-[#cc785c] font-light uppercase tracking-tighter leading-none">
+              LET&apos;S GET STARTED
+            </h2>
           </div>
-
-          <h2 className="font-display text-4xl sm:text-6xl text-[#faf9f5] font-light tracking-tight max-w-3xl mx-auto leading-tight">
-            Ready to calibrate your Career DNA and land your next role?
-          </h2>
-
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-            <Link href={targetHref}>
-              <Button
-                variant="primary"
-                size="lg"
-                className="bg-[#cc785c] hover:bg-[#a9583e] font-mono uppercase text-xs sm:text-sm px-8 h-12"
-              >
-                Get Started for Free ↗
-              </Button>
-            </Link>
-            <Link href="/#pricing">
-              <Button
-                variant="secondary-dark"
-                size="lg"
-                className="bg-[#181715] hover:bg-[#252320] text-white border border-white/10 font-mono uppercase text-xs sm:text-sm px-8 h-12"
-              >
-                Explore Pro Pricing
-              </Button>
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-white/10 font-mono">
+            <div className="space-y-4 p-8 rounded-xl bg-[#1f1e1b] border border-white/10">
+              <span className="text-sm text-[#6c6a64] uppercase block">Route 01</span>
+              <h4 className="font-display text-3xl text-[#faf9f5]">Candidate Onboarding</h4>
+              <p className="text-sm text-[#a09d96] font-sans">Build your Career DNA profile in under 2 minutes.</p>
+              <Link href={targetHref} className="block pt-2">
+                <Button variant="primary" size="sm" className="w-full uppercase text-sm bg-[#cc785c] hover:bg-[#a9583e]">
+                  Launch Onboarding ↗
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-4 p-8 rounded-xl bg-[#1f1e1b] border border-white/10">
+              <span className="text-sm text-[#6c6a64] uppercase block">Route 02</span>
+              <h4 className="font-display text-3xl text-[#faf9f5]">AI Mock Studio</h4>
+              <p className="text-sm text-[#a09d96] font-sans">Real-time roleplay drill with live STAR evaluation.</p>
+              <Link href={targetHref} className="block pt-2">
+                <Button variant="secondary-dark" size="sm" className="w-full uppercase text-sm text-[#faf9f5] border border-white/10">
+                  Start Live Drill ↗
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-4 p-8 rounded-xl bg-[#1f1e1b] border border-white/10">
+              <span className="text-sm text-[#6c6a64] uppercase block">Route 03</span>
+              <h4 className="font-display text-3xl text-[#faf9f5]">Full Workspace</h4>
+              <p className="text-sm text-[#a09d96] font-sans">Access Resume intelligence, job fit matrix, and application tracker.</p>
+              <Link href={targetHref} className="block pt-2">
+                <Button variant="secondary-dark" size="sm" className="w-full uppercase text-sm text-[#faf9f5] border border-white/10">
+                  {user ? 'Open Dashboard ↗' : 'Sign In ↗'}
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
