@@ -507,7 +507,7 @@ function InterviewStudioContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Conversation Chat Interface */}
-          <div className="lg:col-span-2 bg-[#181715] border border-[#252320] rounded-xl flex flex-col h-[640px] overflow-hidden shadow-lg">
+          <div className="lg:col-span-2 bg-[#181715] border border-[#252320] rounded-xl flex flex-col h-[520px] sm:h-[640px] overflow-hidden shadow-lg">
             
             {/* Live Status Bar */}
             <div className="bg-[#1f1e1b] px-5 py-2.5 border-b border-[#252320] flex items-center justify-between">

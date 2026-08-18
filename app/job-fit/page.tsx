@@ -379,7 +379,7 @@ export default function JobFitPage() {
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Platform Selector */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full">
               {platformsList.map((plat) => (
                 <button
                   key={plat}

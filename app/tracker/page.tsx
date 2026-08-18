@@ -348,7 +348,7 @@ export default function TrackerPage() {
                 onDragEnter={() => setDragOverCol(col.id)}
                 onDragLeave={() => setDragOverCol((curr) => (curr === col.id ? null : curr))}
                 onDrop={(e) => handleDrop(e, col.id)}
-                className={`p-4 rounded-xl border transition-all min-h-[520px] flex flex-col justify-between ${
+                className={`p-4 rounded-xl border transition-all min-h-[160px] sm:min-h-[520px] flex flex-col justify-between ${
                   isOver
                     ? 'bg-[#2a2723] border-[#cc785c] ring-2 ring-[#cc785c]/50 shadow-2xl scale-[1.01]'
                     : 'bg-[#252320]/60 border-white/10'

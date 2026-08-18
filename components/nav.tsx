@@ -318,7 +318,7 @@ export function Navigation() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-40 bg-[#181715] pt-24 pb-8 px-6 flex flex-col justify-between lg:hidden"
+            className="fixed inset-0 z-40 bg-[#181715] pt-24 pb-8 px-6 flex flex-col justify-between overflow-y-auto max-h-screen lg:hidden"
           >
             <div className="space-y-6">
               <span className="font-mono text-xs text-[#cc785c] uppercase tracking-widest block">
