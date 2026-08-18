@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +16,11 @@ import {
   BarChart3,
   User,
   Compass,
+  Settings,
+  HelpCircle,
+  ChevronDown,
+  Shield,
+  CreditCard,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useCareer } from '@/lib/career-store';
@@ -25,10 +30,12 @@ export function Navigation() {
   const router = useRouter();
   const { profile } = useCareer();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
   const isLandingPage = pathname === '/';
   const isAuthPage = pathname === '/auth';
@@ -37,7 +44,9 @@ export function Navigation() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         setUser(user);
       } catch (err) {
         console.warn('Auth check notice:', err);
@@ -48,13 +57,26 @@ export function Navigation() {
 
     fetchUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoadingUser(false);
     });
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  // Click outside to close user dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Global scroll progress
   useEffect(() => {
@@ -71,6 +93,7 @@ export function Navigation() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setUserDropdownOpen(false);
     router.push('/');
     router.refresh();
   };
@@ -85,12 +108,15 @@ export function Navigation() {
     { label: 'Tracker', href: '/tracker', icon: <Sparkles className="w-3.5 h-3.5" /> },
   ];
 
+  const userDisplayName =
+    profile?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Account';
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 h-20 w-full nav-blur-dark text-[#faf9f5] border-b border-white/10 transition-all duration-300">
         <div className="max-w-[1400px] mx-auto h-full px-4 sm:px-8 flex items-center justify-between">
           
-          {/* Left: Brand Identity (Logo + CAREERPILOT AI in bold uppercase) */}
+          {/* Left: Brand Identity (Logo + CAREERPILOT AI) */}
           <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-3 group">
             <div className="w-9 h-9 rounded-lg bg-[#faf9f5] flex items-center justify-center text-[#181715] group-hover:bg-[#cc785c] group-hover:text-white transition-all shadow-md">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="18" fill="none" viewBox="0 0 31 25">
@@ -108,10 +134,22 @@ export function Navigation() {
           </Link>
 
           {/* Center Navigation:
-              1. PUBLIC LANDING PAGE: Clean marketing focus (no app links)
+              1. PUBLIC LANDING PAGE: Features, Pricing
               2. AUTHENTICATED PAGES: Full app suite navigation
           */}
-          {!isLandingPage && (
+          {isLandingPage ? (
+            <nav className="hidden md:flex items-center gap-6 font-mono text-xs text-[#a09d96]">
+              <Link href="/#features" className="hover:text-white transition-colors">
+                Features
+              </Link>
+              <Link href="/#pricing" className="hover:text-[#cc785c] transition-colors font-medium">
+                Pricing &amp; Plans
+              </Link>
+              <Link href="/#section-introduce" className="hover:text-white transition-colors">
+                About
+              </Link>
+            </nav>
+          ) : (
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
               {appNavItems.map((item) => {
                 const isActive =
@@ -142,9 +180,9 @@ export function Navigation() {
               // Public Landing Page Header Actions
               <div className="flex items-center gap-3">
                 {user ? (
-                  <Link href="/onboarding">
+                  <Link href="/dashboard">
                     <button className="px-5 py-2.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
-                      <span>Open Career DNA</span>
+                      <span>Open Workspace</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </Link>
@@ -152,7 +190,7 @@ export function Navigation() {
                   <>
                     <Link href="/auth" className="hidden sm:inline-block">
                       <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-mono text-[#faf9f5] border border-white/10 transition-colors cursor-pointer">
-                        Sign In
+                        Log In
                       </button>
                     </Link>
                     <Link href="/auth">
@@ -174,25 +212,76 @@ export function Navigation() {
                 </Link>
               </div>
             ) : (
-              // Authenticated Pages Header Actions
+              // Authenticated Workspace Header with User Profile Dropdown
               <div className="flex items-center gap-3">
                 {user ? (
-                  <>
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#a09d96]">
-                      <User className="w-3.5 h-3.5 text-[#cc785c]" />
-                      <span className="text-[#faf9f5] truncate max-w-[140px]">{user?.email?.split('@')[0]}</span>
-                    </div>
-
+                  <div className="relative" ref={dropdownRef}>
                     <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="px-3 py-1.5 rounded-lg bg-[#252320] hover:bg-red-500/20 hover:text-red-400 border border-white/10 hover:border-red-500/30 text-xs font-mono text-[#a09d96] flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Sign Out"
+                      onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f1e1b] hover:bg-[#252320] border border-white/10 hover:border-[#cc785c]/40 text-xs font-mono text-[#a09d96] transition-all cursor-pointer shadow-sm"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Sign Out</span>
+                      <div className="w-6 h-6 rounded-full bg-[#252320] border border-[#cc785c] flex items-center justify-center font-bold text-[10px] text-[#faf9f5]">
+                        {userDisplayName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="text-[#faf9f5] truncate max-w-[110px] hidden sm:inline">{userDisplayName}</span>
+                      <ChevronDown className="w-3 h-3 text-[#6c6a64]" />
                     </button>
-                  </>
+
+                    {/* Authenticated Dropdown Menu */}
+                    <AnimatePresence>
+                      {userDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 mt-2 w-56 bg-[#1f1e1b] border border-white/10 rounded-xl p-2 shadow-2xl z-50 text-xs font-mono space-y-1"
+                        >
+                          <div className="p-2 border-b border-white/5 pb-2.5">
+                            <p className="font-bold text-[#faf9f5] truncate">{userDisplayName}</p>
+                            <p className="text-[11px] text-[#6c6a64] truncate">{user?.email}</p>
+                          </div>
+
+                          <Link
+                            href="/settings"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2.5 p-2 rounded-lg text-[#faf9f5] hover:bg-[#252320] hover:text-[#cc785c] transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-[#cc785c]" />
+                            <span>Settings &amp; Billing</span>
+                          </Link>
+
+                          <Link
+                            href="/onboarding?edit=true"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2.5 p-2 rounded-lg text-[#faf9f5] hover:bg-[#252320] hover:text-[#cc785c] transition-colors"
+                          >
+                            <Compass className="w-4 h-4 text-[#5db872]" />
+                            <span>Career DNA Vector</span>
+                          </Link>
+
+                          <a
+                            href="mailto:contact@careerpilot-ai.com"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-2.5 p-2 rounded-lg text-[#a09d96] hover:bg-[#252320] hover:text-white transition-colors"
+                          >
+                            <HelpCircle className="w-4 h-4" />
+                            <span>Help &amp; Support</span>
+                          </a>
+
+                          <div className="pt-1 border-t border-white/5">
+                            <button
+                              onClick={handleSignOut}
+                              className="w-full flex items-center gap-2.5 p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              <span>Sign Out</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 ) : (
                   <Link href="/auth">
                     <button className="px-4 py-2 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
@@ -233,20 +322,58 @@ export function Navigation() {
           >
             <div className="space-y-6">
               <span className="font-mono text-xs text-[#cc785c] uppercase tracking-widest block">
-                CAREERPILOT AI · WORKSPACE
+                CAREERPILOT AI · MENU
               </span>
+              
               <nav className="space-y-2">
-                {appNavItems.map((item) => (
+                {isLandingPage ? (
+                  <>
+                    <Link
+                      href="/#features"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg border border-white/5 bg-[#1f1e1b] text-white hover:text-[#cc785c] transition-colors font-display text-xl"
+                    >
+                      Features
+                    </Link>
+                    <Link
+                      href="/#pricing"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg border border-white/5 bg-[#1f1e1b] text-[#cc785c] font-display text-xl"
+                    >
+                      Pricing &amp; Plans
+                    </Link>
+                    <Link
+                      href="/#section-introduce"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg border border-white/5 bg-[#1f1e1b] text-white hover:text-[#cc785c] transition-colors font-display text-xl"
+                    >
+                      About Mission
+                    </Link>
+                  </>
+                ) : (
+                  appNavItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg border border-white/5 bg-[#1f1e1b] text-white hover:text-[#cc785c] transition-colors"
+                    >
+                      <span className="text-[#cc785c]">{item.icon}</span>
+                      <span className="font-display text-xl font-normal">{item.label}</span>
+                    </Link>
+                  ))
+                )}
+
+                {user && (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    href="/settings"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 py-3 px-3 rounded-lg border border-white/5 bg-[#1f1e1b] text-white hover:text-[#cc785c] transition-colors"
                   >
-                    <span className="text-[#cc785c]">{item.icon}</span>
-                    <span className="font-display text-xl font-normal">{item.label}</span>
+                    <Settings className="w-5 h-5 text-[#cc785c]" />
+                    <span className="font-display text-xl font-normal">Settings &amp; Billing</span>
                   </Link>
-                ))}
+                )}
               </nav>
             </div>
             
@@ -257,7 +384,7 @@ export function Navigation() {
                     handleSignOut();
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full py-3 rounded-lg bg-[#252320] text-red-400 font-mono text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-2 border border-red-500/20"
+                  className="w-full py-3 rounded-lg bg-[#252320] text-red-400 font-mono text-xs uppercase font-bold tracking-wider flex items-center justify-center gap-2 border border-red-500/20 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" /> Sign Out ({user.email})
                 </button>

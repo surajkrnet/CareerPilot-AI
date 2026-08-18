@@ -3,86 +3,170 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Sparkles, Shield, Cpu, ExternalLink, Heart } from 'lucide-react';
 
 export function Footer() {
   const pathname = usePathname();
   const isLandingPage = pathname === '/';
 
-  // 1. Streamlined Minimal Footer for Authenticated Workspace Pages
-  if (!isLandingPage) {
-    return (
-      <footer className="mt-auto bg-[#141210] text-[#a09d96] border-t border-white/10 py-6 px-4 sm:px-8">
-        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded bg-[#cc785c] text-white flex items-center justify-center font-bold text-[10px]">
-              CP
-            </div>
-            <span className="text-[#faf9f5]">CAREERPILOT AI</span>
-            <span className="text-[#6c6a64] hidden sm:inline">•</span>
-            <span className="text-[#6c6a64] hidden sm:inline">Autonomous Career OS</span>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[#6c6a64]">
-            <Link href="/dashboard" className="hover:text-[#cc785c] transition-colors">Dashboard</Link>
-            <Link href="/onboarding?edit=true" className="hover:text-[#cc785c] transition-colors">Career DNA</Link>
-            <Link href="/resume" className="hover:text-[#cc785c] transition-colors">ATS Studio</Link>
-            <Link href="/jobs" className="hover:text-[#cc785c] transition-colors">Job Fit</Link>
-            <Link href="/interview" className="hover:text-[#cc785c] transition-colors">Mock Prep</Link>
-            <Link href="/tracker" className="hover:text-[#cc785c] transition-colors">Tracker</Link>
-          </div>
-
-          <div className="text-center md:text-right text-[#6c6a64] text-[11px]">
-            <span>© 2026 CareerPilot AI. All rights reserved.</span>
-          </div>
-        </div>
-      </footer>
-    );
-  }
-
-  // 2. Full Showcase Marketing Footer for Public Landing Page
   return (
-    <footer className="mt-auto bg-[#141210] text-[#a09d96] border-t border-white/10 pt-20 pb-12 px-4 sm:px-8">
-      <div className="max-w-[1400px] mx-auto space-y-16">
+    <footer className="mt-auto bg-[#141210] text-[#a09d96] border-t border-white/10 pt-16 pb-12 px-4 sm:px-8 font-sans">
+      <div className="max-w-[1400px] mx-auto space-y-12">
         
-        {/* Social Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-12 border-b border-white/10">
-          <div className="flex items-center gap-6">
-            <span className="font-mono text-sm uppercase tracking-widest text-[#6c6a64]">Social</span>
-            <div className="flex items-center gap-6 font-mono text-sm">
-              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">LinkedIn ↗</a>
-              <a href="https://github.com/surajkrnet/CareerPilot-AI" target="_blank" rel="noreferrer" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">GitHub ↗</a>
-              <a href="https://x.com" target="_blank" rel="noreferrer" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">Twitter/X ↗</a>
+        {/* Main 4-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/10">
+          
+          {/* Col 1 & 2: Brand Identity & Trust Statement */}
+          <div className="lg:col-span-2 space-y-4">
+            <Link href="/" className="flex items-center gap-3 group inline-flex">
+              <div className="w-8 h-8 rounded-lg bg-[#cc785c] text-white flex items-center justify-center font-mono font-bold text-sm shadow-md">
+                CP
+              </div>
+              <span className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#faf9f5] group-hover:text-[#cc785c] transition-colors uppercase">
+                CAREERPILOT<span className="text-[#cc785c]"> AI</span>
+              </span>
+            </Link>
+
+            <p className="text-xs text-[#a09d96] leading-relaxed max-w-sm">
+              Your Autonomous AI Career Operating System. Craft verified Career DNA, optimize resumes with ATS precision, practice live STAR mock interviews, and land dream offers.
+            </p>
+
+            {/* Tech Trust Badge */}
+            <div className="pt-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-[11px] font-mono text-[#faf9f5]">
+                <Cpu className="w-3.5 h-3.5 text-[#cc785c]" />
+                <span>Built with Next.js, Supabase &amp; OpenRouter</span>
+              </div>
             </div>
           </div>
+
+          {/* Col 3: Product Suite */}
+          <div className="space-y-3">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+              Product Suite
+            </h4>
+            <ul className="space-y-2 text-xs font-mono">
+              <li>
+                <Link href="/#features" className="hover:text-[#cc785c] transition-colors">
+                  Core Features
+                </Link>
+              </li>
+              <li>
+                <Link href="/#pricing" className="hover:text-[#cc785c] transition-colors">
+                  Pricing &amp; Plans
+                </Link>
+              </li>
+              <li>
+                <Link href="/onboarding" className="hover:text-[#cc785c] transition-colors">
+                  Career DNA Profiler
+                </Link>
+              </li>
+              <li>
+                <Link href="/resume" className="hover:text-[#cc785c] transition-colors">
+                  ATS Resume Scanner
+                </Link>
+              </li>
+              <li>
+                <Link href="/job-fit" className="hover:text-[#cc785c] transition-colors">
+                  Job Fit Hub
+                </Link>
+              </li>
+              <li>
+                <Link href="/interview" className="hover:text-[#cc785c] transition-colors">
+                  Mock Interview Studio
+                </Link>
+              </li>
+              <li>
+                <Link href="/tracker" className="hover:text-[#cc785c] transition-colors">
+                  Application Tracker
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 4: Company & Resources */}
+          <div className="space-y-3">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+              Company
+            </h4>
+            <ul className="space-y-2 text-xs font-mono">
+              <li>
+                <Link href="/#section-introduce" className="hover:text-[#cc785c] transition-colors">
+                  About Mission
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/surajkrnet/CareerPilot-AI"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#cc785c] transition-colors flex items-center gap-1"
+                >
+                  <span>GitHub Repository</span>
+                  <ExternalLink className="w-3 h-3 text-[#6c6a64]" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://linkedin.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#cc785c] transition-colors flex items-center gap-1"
+                >
+                  <span>LinkedIn Showcase</span>
+                  <ExternalLink className="w-3 h-3 text-[#6c6a64]" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="mailto:contact@careerpilot-ai.com"
+                  className="hover:text-[#cc785c] transition-colors"
+                >
+                  Contact Support
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 5: Legal & Responsible AI */}
+          <div className="space-y-3">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+              Trust &amp; Privacy
+            </h4>
+            <ul className="space-y-2 text-xs font-mono">
+              <li>
+                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                  Privacy Policy
+                </span>
+              </li>
+              <li>
+                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                  Terms of Service
+                </span>
+              </li>
+              <li>
+                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                  Responsible AI Guidelines
+                </span>
+              </li>
+              <li>
+                <Link href="/settings" className="text-[#cc785c] hover:underline flex items-center gap-1">
+                  <span>Data Privacy &amp; Deletion</span>
+                  <Shield className="w-3 h-3" />
+                </Link>
+              </li>
+            </ul>
+          </div>
+
         </div>
 
-        {/* Brand Banner */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#cc785c] text-white flex items-center justify-center font-mono font-bold text-base">CP</div>
-            <span className="font-mono text-sm text-[#cc785c] uppercase tracking-widest">Autonomous Career Intelligence</span>
-          </div>
-          <h3 className="font-display text-4xl sm:text-6xl lg:text-7xl text-[#faf9f5] font-light leading-tight tracking-tight">
-            Stop applying blindly. <br />
-            <span className="text-[#cc785c]">Interview with calm certainty.</span>
-          </h3>
-        </div>
-
-        {/* Bottom Action Row & Copyright Notice with Clean Responsive Grid Separation */}
-        <div className="pt-10 border-t border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-8 pb-4">
-          {/* Action Links */}
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 font-mono text-sm">
-            <Link href="/onboarding" className="text-[#cc785c] hover:underline font-semibold">TRY DEMO ↗</Link>
-            <Link href="/dashboard" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">CAREER DNA ↗</Link>
-            <Link href="/resume" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">ATS SCANNER ↗</Link>
-            <Link href="/interview" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">MOCK STUDIO ↗</Link>
-            <Link href="/tracker" className="text-[#faf9f5] hover:text-[#cc785c] transition-colors">JOB TRACKER ↗</Link>
-          </div>
-
-          {/* Copyright Information */}
-          <div className="md:text-right font-mono text-xs text-[#6c6a64] space-y-1">
-            <p>Copyright © 2026 CareerPilot AI. All rights reserved.</p>
-            <p className="text-[#cc785c]">Crafted with precision &amp; care.</p>
+        {/* Bottom Copyright Row */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6c6a64]">
+          <p>© 2026 Suraj K R — CareerPilot AI. All rights reserved.</p>
+          <div className="flex items-center gap-2">
+            <span>Crafted with precision for Indian &amp; Global Tech Aspirants</span>
+            <span className="text-[#cc785c]">•</span>
+            <span className="text-[#faf9f5] font-semibold">Bengaluru, India</span>
           </div>
         </div>
 
