@@ -36,6 +36,12 @@ export default function ResumeIntelligencePage() {
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // Target JD input modes & upload states
+  const [jdInputMode, setJdInputMode] = useState<'paste' | 'upload'>('paste');
+  const [uploadedJdFileName, setUploadedJdFileName] = useState<string | null>(null);
+  const [isParsingJdFile, setIsParsingJdFile] = useState(false);
+  const [jdUploadError, setJdUploadError] = useState<string | null>(null);
+
   // Dynamic Suggested JDs State (starts clean and empty)
   const [suggestedJds, setSuggestedJds] = useState<SuggestedJdItem[]>([]);
   const [isSuggestingJds, setIsSuggestingJds] = useState(false);
@@ -51,6 +57,7 @@ export default function ResumeIntelligencePage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jdFileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -69,6 +76,8 @@ export default function ResumeIntelligencePage() {
 
         if (profile?.full_name) {
           setUserName(profile.full_name);
+        } else if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name);
         } else if (user.email) {
           setUserName(user.email.split('@')[0]);
         }
@@ -94,7 +103,7 @@ export default function ResumeIntelligencePage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -135,6 +144,52 @@ export default function ResumeIntelligencePage() {
       setUploadError(err.message || 'Unable to parse PDF. You can paste your resume text directly below.');
     } finally {
       setIsParsingFile(false);
+    }
+  };
+
+  // Handle Target Job Description file upload (PDF / TXT / MD)
+  const handleJdFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.txt', '.md'];
+    const fileName = file.name.toLowerCase();
+    const isValid = validExtensions.some((ext) => fileName.endsWith(ext));
+
+    if (!isValid) {
+      setJdUploadError('Please upload a PDF or plain text Job Description.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setJdUploadError('File size exceeds 10MB limit.');
+      return;
+    }
+
+    setUploadedJdFileName(file.name);
+    setIsParsingJdFile(true);
+    setJdUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/career-dna/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extract text from JD file');
+
+      if (data.text) {
+        setTargetJd(data.text);
+        setSelectedJdLabel(null);
+      }
+    } catch (err: any) {
+      setJdUploadError(err.message || 'Unable to parse JD file. You can paste the job description directly.');
+    } finally {
+      setIsParsingJdFile(false);
     }
   };
 
@@ -222,7 +277,7 @@ export default function ResumeIntelligencePage() {
     }
 
     if (!currentJd) {
-      setAnalysisError('Please click "Refresh Roles" to match job descriptions to your resume or paste a target JD.');
+      setAnalysisError('Please upload a target Job Description or click "Refresh Roles" to match your stack.');
       return;
     }
 
@@ -287,7 +342,7 @@ export default function ResumeIntelligencePage() {
 
           <button
             onClick={handleAnalyzeFit}
-            disabled={loading || initialLoading || isParsingFile}
+            disabled={loading || initialLoading || isParsingFile || isParsingJdFile}
             className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-3 rounded-md font-medium text-sm transition-all flex items-center gap-2 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg font-mono"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -295,11 +350,18 @@ export default function ResumeIntelligencePage() {
           </button>
         </div>
 
-        {/* Upload Parsing Error Banner */}
+        {/* Upload Parsing Error Banners */}
         {uploadError && (
           <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{uploadError}</span>
+          </div>
+        )}
+
+        {jdUploadError && (
+          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{jdUploadError}</span>
           </div>
         )}
 
@@ -329,7 +391,7 @@ export default function ResumeIntelligencePage() {
                 <h3 className="font-serif text-lg text-white">
                   Candidate Resume ({candidateDisplayName})
                 </h3>
-                <span className="text-xs text-[#8e8b82]">Select source or edit directly</span>
+                <span className="text-xs text-[#8e8b82]">Select source or upload PDF</span>
               </div>
 
               {/* Source Toggle */}
@@ -368,7 +430,7 @@ export default function ResumeIntelligencePage() {
                   ref={fileInputRef}
                   type="file"
                   accept=".pdf,.txt,.md"
-                  onChange={handleFileUpload}
+                  onChange={handleResumeFileUpload}
                   className="hidden"
                 />
                 <div className="flex items-center gap-2.5">
@@ -394,27 +456,83 @@ export default function ResumeIntelligencePage() {
             />
           </div>
 
-          {/* Right: Target Job Description (Clean initial state with Refresh Button) */}
+          {/* Right: Target Job Description (Upload JD / Paste / AI Match) */}
           <div className="bg-[#181715] border border-[#252320] rounded-xl p-5 space-y-4 shadow-md flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between gap-2 border-b border-[#252320] pb-3">
-                <div className="flex items-center gap-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252320] pb-3">
+                <div>
                   <h3 className="font-serif text-lg text-white">Target Job Description (JD)</h3>
-                  {/* Refresh Button beside Header */}
+                  <span className="text-xs text-[#8e8b82]">Upload JD document or paste requirements</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* JD Input Mode Toggle */}
+                  <div className="flex items-center bg-[#1f1e1b] p-1 rounded-lg border border-[#3d3d3a]">
+                    <button
+                      type="button"
+                      onClick={() => setJdInputMode('paste')}
+                      className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                        jdInputMode === 'paste'
+                          ? 'bg-[#cc785c] text-white shadow-sm'
+                          : 'text-[#8e8b82] hover:text-white'
+                      }`}
+                    >
+                      <FileText className="w-3 h-3" /> Paste JD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJdInputMode('upload')}
+                      className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                        jdInputMode === 'upload'
+                          ? 'bg-[#cc785c] text-white shadow-sm'
+                          : 'text-[#8e8b82] hover:text-white'
+                      }`}
+                    >
+                      <UploadCloud className="w-3 h-3" /> Upload JD
+                    </button>
+                  </div>
+
+                  {/* Refresh Roles Button */}
                   <button
                     type="button"
                     onClick={() => handleSuggestJds()}
                     disabled={isSuggestingJds || !resumeText.trim()}
-                    className="bg-[#1f1e1b] hover:bg-[#252320] border border-[#3d3d3a] hover:border-[#cc785c] text-[#faf9f5] px-2.5 py-1 rounded-md text-[11px] font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-sm"
-                    title="Refresh AI tailored role descriptions based on active resume"
+                    className="bg-[#1f1e1b] hover:bg-[#252320] border border-[#3d3d3a] hover:border-[#cc785c] text-[#faf9f5] px-2 py-1 rounded-md text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-sm"
+                    title="Generate tailored role descriptions based on active resume"
                   >
                     <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isSuggestingJds ? 'animate-spin' : ''}`} />
-                    <span>{isSuggestingJds ? 'Synthesizing...' : 'Refresh Roles'}</span>
+                    <span className="hidden sm:inline">{isSuggestingJds ? 'Matching...' : 'Auto-Match'}</span>
                   </button>
                 </div>
-
-                <span className="text-xs text-[#8e8b82] hidden sm:inline">AI Stack Matched</span>
               </div>
+
+              {/* Upload JD File Dropzone (Shown in upload mode) */}
+              {jdInputMode === 'upload' && (
+                <div
+                  onClick={() => jdFileInputRef.current?.click()}
+                  className="mt-3 p-3.5 bg-[#1f1e1b] border border-dashed border-[#3d3d3a] hover:border-[#cc785c] rounded-lg flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={jdFileInputRef}
+                    type="file"
+                    accept=".pdf,.txt,.md"
+                    onChange={handleJdFileUpload}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded bg-[#181715] flex items-center justify-center text-[#cc785c]">
+                      {isParsingJdFile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white">
+                        {uploadedJdFileName ? `Loaded: ${uploadedJdFileName}` : 'Click to Upload Target JD (PDF / TXT)'}
+                      </p>
+                      <p className="text-[10px] text-[#8e8b82]">Extracts job requirements and role stack automatically</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-[#cc785c] font-mono hover:underline">Choose File ↗</span>
+                </div>
+              )}
 
               {/* Dynamic AI Suggested Role Chips (Shown only when generated) */}
               {suggestedJds.length > 0 && (
@@ -457,7 +575,7 @@ export default function ResumeIntelligencePage() {
                 setTargetJd(e.target.value);
                 setSelectedJdLabel(null);
               }}
-              placeholder="Target Job Description will appear here when you click 'Refresh Roles' or paste a custom JD..."
+              placeholder="Target Job Description will appear here. Upload a JD file above, paste text directly, or click 'Auto-Match'..."
               className="w-full h-64 bg-[#1f1e1b] border border-[#3d3d3a] rounded-md p-4 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-2"
             />
           </div>
