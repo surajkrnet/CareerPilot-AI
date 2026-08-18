@@ -10,86 +10,134 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    let careerDna: any = null;
+    let careerDna = body.careerDna || null;
     let applications: any[] = [];
     let interviewSessions: any[] = [];
+    let resumeScans: any[] = [];
 
     if (user) {
-      const [{ data: dna }, { data: apps }, { data: interviews }] = await Promise.all([
+      const [
+        { data: dna },
+        { data: apps },
+        { data: interviews },
+        { data: scans },
+      ] = await Promise.all([
         supabase.from('career_dna').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('applications').select('*').eq('user_id', user.id).limit(10),
         supabase.from('interview_sessions').select('*').eq('user_id', user.id).limit(5),
+        supabase.from('resume_scans').select('*').eq('user_id', user.id).limit(5),
       ]);
-      careerDna = dna;
+      if (!careerDna && dna) careerDna = dna;
       applications = apps || [];
       interviewSessions = interviews || [];
+      resumeScans = scans || [];
     }
 
-    const targetRole = careerDna?.target_roles?.[0] || 'Software Engineer (Frontend / Full-Stack)';
+    const targetRoles: string[] = careerDna?.target_roles || careerDna?.targetRoles || (careerDna?.target_role ? [careerDna.target_role] : ['Software Engineer']);
+    const targetRole = targetRoles[0] || 'Software Engineer';
+    const verifiedSkills: string[] = careerDna?.current_skills || careerDna?.currentSkills || ['React', 'TypeScript', 'SQL'];
+    const skillGaps: string[] = careerDna?.areas_to_improve || careerDna?.areasToImprove || careerDna?.skills_to_acquire || [];
+    const experienceLevel = careerDna?.experience_level || '0–2 Years';
+
     const hasDna = !!careerDna;
     const hasInterviews = interviewSessions.length > 0;
+    const hasScans = resumeScans.length > 0;
     const hasApps = applications.length > 0;
 
-    let defaultNextAction = {
+    // High Quality Default Fallback
+    const defaultNextAction = {
       title: !hasDna
-        ? 'Complete Career DNA Calibration'
+        ? 'Calibrate Your Living Career DNA Profile'
+        : !hasScans
+        ? `Scan Your Resume Against Target ${targetRole} JDs`
         : !hasInterviews
-        ? `Launch Live STAR Interview for ${targetRole}`
+        ? `Practice Live STAR Mock Interview for ${targetRole}`
         : !hasApps
-        ? 'Review High-Match Tech Opportunities'
-        : 'Run ATS Match Scan on New Positions',
+        ? 'Apply to Live Scraped High-Fit Opportunities'
+        : `Drill on Skill Gap: ${skillGaps[0] || 'System Design & STAR Delivery'}`,
       description: !hasDna
-        ? 'Upload your resume or specify target preferences to unlock tailored ATS matching and mock interview drills.'
+        ? 'Upload your resume or specify target preferences to synthesize verified competency vectors and unlock tailored ATS scoring.'
+        : !hasScans
+        ? 'Your Career DNA is calibrated. Run a live JD match scan to generate metric-backed STAR bullet points and maximize recruiter pass rate.'
         : !hasInterviews
-        ? 'Practice live technical cross-examination and receive immediate STAR scorecard feedback.'
+        ? 'Your ATS score is solid. Rehearse live multi-turn behavioral and technical cross-examinations with instant STAR scorecards.'
         : !hasApps
-        ? 'Explore curated opportunities matched directly against your verified Career DNA stack.'
-        : 'Ensure your resume keywords directly match recently posted engineering job requirements.',
-      impactScore: !hasDna ? '+45% Opportunity Discovery' : !hasInterviews ? '+38% Offer Rate' : '+28% Response Rate',
-      actionLabel: !hasDna ? 'Complete Calibration' : !hasInterviews ? 'Launch Mock Studio' : !hasApps ? 'View Matched Roles' : 'Open Resume Studio',
-      actionHref: (!hasDna ? '/onboarding' : !hasInterviews ? '/interview' : !hasApps ? '/job-fit' : '/resume-intelligence') as
+        ? 'Browse real-time job openings from LinkedIn, Wellfound, Naukri, and Y Combinator matching your verified skillset.'
+        : `Close your priority skill gap in ${skillGaps[0] || 'System Architecture'} before your upcoming interview drills.`,
+      impactScore: !hasDna ? '+45% Opportunity Discovery' : !hasScans ? '+34% ATS Pass Rate' : !hasInterviews ? '+40% Offer Probability' : '+25% Callback Velocity',
+      actionLabel: !hasDna ? 'Calibrate DNA' : !hasScans ? 'Scan in Resume Studio' : !hasInterviews ? 'Launch Mock Studio' : !hasApps ? 'Explore Matched Jobs' : 'Start Mock Drill',
+      actionHref: (!hasDna ? '/onboarding' : !hasScans ? '/resume-intelligence' : !hasInterviews ? '/interview' : !hasApps ? '/job-fit' : '/interview') as
         | '/onboarding'
         | '/interview'
         | '/job-fit'
-        | '/resume-intelligence',
+        | '/resume-intelligence'
+        | '/tracker',
       urgency: 'high' as const,
     };
 
     let nextAction = defaultNextAction;
 
+    // Generate AI Next Action with Career DNA grounding
     try {
-      const prompt = `You are a Principal AI Career Orchestrator. Determine the single highest leverage next action for this candidate.
-Candidate State:
+      const prompt = `You are a Principal AI Career Strategist for "CareerPilot AI".
+Analyze this candidate's live Career DNA and pipeline state to recommend their SINGLE MOST IMPACTFUL NEXT ACTION.
+
+Candidate Profile & State:
 - Target Role: ${targetRole}
-- Career DNA Calibrated: ${hasDna}
-- Pipeline Applications: ${applications.length}
-- Completed Mock Interviews: ${interviewSessions.length}
-- Verified Skills: ${(careerDna?.current_skills || []).join(', ') || 'React, TypeScript, SQL'}
+- Experience Level: ${experienceLevel}
+- Verified Stack/Skills: ${verifiedSkills.slice(0, 10).join(', ')}
+- Skill Gaps / Areas to Improve: ${skillGaps.slice(0, 6).join(', ') || 'Distributed Systems, System Design'}
+- Resume Scans Completed: ${resumeScans.length}
+- Live Mock Interviews Taken: ${interviewSessions.length}
+- Pipeline Tracked Applications: ${applications.length}
 
-Output a JSON object with:
+Generate a structured JSON recommendation with actionable strategic rationale.
+Rules:
+1. "actionHref" MUST be one of: "/resume-intelligence", "/interview", "/job-fit", "/onboarding", "/tracker".
+2. Title should be punchy, motivating, and specific to their target role (${targetRole}).
+3. Description should explain the exact tactical ROI (1-2 sentences).
+4. impactScore should be like "+35% Recruiter Callback" or "+42% Offer Rate".
+
+JSON Schema:
 {
-  "title": "Concise headline for the next action",
-  "description": "2-sentence strategic rationale",
-  "impactScore": "+32% Interview Conversion",
-  "actionLabel": "Button text",
-  "actionHref": "/interview" or "/resume-intelligence" or "/job-fit" or "/onboarding" or "/tracker",
-  "urgency": "high" or "medium" or "low"
+  "title": "Clear next action headline",
+  "description": "2-sentence strategic rationale based on their Career DNA",
+  "impactScore": "+35% Recruiter Response",
+  "actionLabel": "Button CTA text",
+  "actionHref": "/resume-intelligence" | "/interview" | "/job-fit" | "/onboarding" | "/tracker",
+  "urgency": "high" | "medium"
 }
-Return pure JSON only.`;
+Return JSON only.`;
 
-      const aiResponse = await generateText({
+      const aiPromise = generateText({
         model: aiModel,
         prompt,
       });
 
+      const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+        setTimeout(() => resolve({ text: JSON.stringify(defaultNextAction) }), 3000)
+      );
+
+      const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
       const parsed = extractAndParseJSON(aiResponse.text, defaultNextAction);
+
       if (parsed?.title && parsed?.actionHref) {
-        nextAction = parsed;
+        nextAction = {
+          ...defaultNextAction,
+          ...parsed,
+        };
       }
     } catch (aiErr: any) {
       console.warn('Next Action AI notice:', aiErr?.message || aiErr);

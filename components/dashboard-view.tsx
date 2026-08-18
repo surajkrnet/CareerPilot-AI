@@ -130,6 +130,7 @@ export default function DashboardView({
   // Mount client-side & retrieve onboarding name & cached DNA
   useEffect(() => {
     setMounted(true);
+    let rawSavedDna: string | null = null;
     if (typeof window !== 'undefined') {
       try {
         const draft = localStorage.getItem('careerpilot_onboarding_draft');
@@ -139,9 +140,9 @@ export default function DashboardView({
             setClientUserName(parsedDraft.fullName.trim());
           }
         }
-        const savedDna = localStorage.getItem('careerpilot_career_dna');
-        if (savedDna) {
-          const parsedDna = JSON.parse(savedDna);
+        rawSavedDna = localStorage.getItem('careerpilot_career_dna');
+        if (rawSavedDna) {
+          const parsedDna = JSON.parse(rawSavedDna);
           setCachedDna(parsedDna);
           if (parsedDna.fullName && parsedDna.fullName.trim().length > 0) {
             setClientUserName(parsedDna.fullName.trim());
@@ -155,7 +156,20 @@ export default function DashboardView({
       }
 
       // Fetch prioritized AI Next-Best Action from AI Intelligence Engine (Gemma) API
-      fetch('/api/dashboard/next-action', { method: 'POST' })
+      let localDnaObj = null;
+      try {
+        if (rawSavedDna) localDnaObj = JSON.parse(rawSavedDna);
+      } catch {}
+      const dnaPayload = currentCareerDna || careerDnaData || localDnaObj;
+
+      fetch('/api/dashboard/next-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          careerDna: dnaPayload,
+          userEmail,
+        }),
+      })
         .then((res) => res.json())
         .then((data) => {
           if (data.nextAction || data.recommendation) {
@@ -164,7 +178,7 @@ export default function DashboardView({
         })
         .catch((err) => console.warn('Next-action fetch notice:', err));
     }
-  }, []);
+  }, [careerDnaData, currentCareerDna, userEmail]);
 
   // Handler to refresh Career DNA on-demand via live AI re-synthesis
   const handleRefreshCareerDna = async () => {

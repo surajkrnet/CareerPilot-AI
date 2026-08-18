@@ -24,6 +24,8 @@ import {
   ChevronRight,
   X,
   IndianRupee,
+  Edit2,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -37,6 +39,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [careerDna, setCareerDna] = useState<any>(null);
+  const [resolvedName, setResolvedName] = useState<string>('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newNameInput, setNewNameInput] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
   const [resumeScansCount, setResumeScansCount] = useState(1);
   const [interviewsCount, setInterviewsCount] = useState(0);
   const [applicationsCount, setApplicationsCount] = useState(3);
@@ -65,23 +73,61 @@ export default function SettingsPage() {
 
         setUser(user);
 
-        // Fetch user profile, scans count, interview count, and applications count in parallel
+        // Fetch user profile, career_dna, scans count, interview count, and applications count in parallel
         const [
           { data: profData },
+          { data: dnaData },
           { count: scansCount },
           { count: intCount },
           { count: appCount },
         ] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          supabase.from('career_dna').select('*').eq('user_id', user.id).maybeSingle(),
           supabase.from('resume_scans').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
           supabase.from('interview_sessions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
           supabase.from('applications').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         ]);
 
         setProfile(profData);
+        setCareerDna(dnaData);
+
         if (typeof scansCount === 'number') setResumeScansCount(scansCount);
         if (typeof intCount === 'number') setInterviewsCount(intCount);
         if (typeof appCount === 'number') setApplicationsCount(appCount);
+
+        // Determine user's real name across database and local caches
+        let nameFound = profData?.full_name || profData?.name || user?.user_metadata?.full_name || user?.user_metadata?.name;
+
+        if (!nameFound && typeof window !== 'undefined') {
+          try {
+            const draft = localStorage.getItem('careerpilot_onboarding_draft');
+            if (draft) {
+              const parsedDraft = JSON.parse(draft);
+              if (parsedDraft.fullName && parsedDraft.fullName.trim().length > 0) {
+                nameFound = parsedDraft.fullName.trim();
+              }
+            }
+            if (!nameFound) {
+              const savedDna = localStorage.getItem('careerpilot_career_dna');
+              if (savedDna) {
+                const parsedDna = JSON.parse(savedDna);
+                if (parsedDna.fullName && parsedDna.fullName.trim().length > 0) {
+                  nameFound = parsedDna.fullName.trim();
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Cache name read notice:', e);
+          }
+        }
+
+        if (!nameFound && user?.email) {
+          nameFound = user.email.split('@')[0];
+        }
+
+        const finalName = nameFound || 'Candidate';
+        setResolvedName(finalName);
+        setNewNameInput(finalName);
 
         // Check local saved plan
         const savedPlan = localStorage.getItem('careerpilot_subscription_plan');
@@ -97,6 +143,42 @@ export default function SettingsPage() {
 
     loadAccountData();
   }, [router, supabase]);
+
+  const handleSaveName = async () => {
+    if (!newNameInput.trim() || !user) return;
+    setIsSavingName(true);
+
+    try {
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: newNameInput.trim(),
+          updated_at: new Date().toISOString(),
+        });
+
+      setResolvedName(newNameInput.trim());
+      setIsEditingName(false);
+
+      if (typeof window !== 'undefined') {
+        const draft = localStorage.getItem('careerpilot_onboarding_draft');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          parsed.fullName = newNameInput.trim();
+          localStorage.setItem('careerpilot_onboarding_draft', JSON.stringify(parsed));
+        }
+      }
+
+      setToastMsg('✓ Candidate full name updated successfully!');
+      setTimeout(() => setToastMsg(null), 4000);
+    } catch (err: any) {
+      console.error('Save name error:', err);
+      setToastMsg('Failed to update name. Please retry.');
+      setTimeout(() => setToastMsg(null), 4000);
+    } finally {
+      setIsSavingName(false);
+    }
+  };
 
   const handleSimulateUpgrade = async (tier: 'pro' | 'pass') => {
     setIsUpgrading(true);
@@ -167,7 +249,8 @@ export default function SettingsPage() {
   const scansPercentage = Math.min(100, Math.round((resumeScansCount / (scanLimit === 999 ? 50 : scanLimit)) * 100));
   const interviewPercentage = Math.min(100, Math.round((interviewsCount / interviewLimit) * 100));
 
-  const candidateName = profile?.full_name || profile?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Candidate';
+  const targetRole = profile?.target_role || careerDna?.target_roles?.[0] || 'Software Engineer';
+  const experienceLevel = profile?.experience_level || careerDna?.experience_level || '0–2 Years';
 
   return (
     <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-32 sm:pt-36 pb-20 px-4 sm:px-8 md:px-10 font-sans">
@@ -198,7 +281,7 @@ export default function SettingsPage() {
             User Settings &amp; Subscription
           </h1>
           <p className="text-xs sm:text-sm text-[#8e8b82]">
-            Manage your authenticated candidate identity, monthly AI usage quotas, plan upgrades, and privacy compliance.
+            Manage your verified candidate identity, monthly AI usage quotas, plan upgrades, and privacy compliance.
           </p>
         </div>
 
@@ -207,10 +290,49 @@ export default function SettingsPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-[#252320] border-2 border-[#cc785c] flex items-center justify-center font-display text-xl font-bold text-[#faf9f5] shrink-0 shadow-md">
-                {candidateName.slice(0, 2).toUpperCase()}
+                {resolvedName.slice(0, 2).toUpperCase()}
               </div>
-              <div className="space-y-0.5">
-                <h3 className="font-display text-xl font-bold text-[#faf9f5]">{candidateName}</h3>
+              <div className="space-y-1">
+                {isEditingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newNameInput}
+                      onChange={(e) => setNewNameInput(e.target.value)}
+                      className="bg-[#181715] text-[#faf9f5] font-display text-lg px-3 py-1 rounded-lg border border-[#cc785c] focus:outline-none"
+                      placeholder="Your Full Name"
+                    />
+                    <button
+                      onClick={handleSaveName}
+                      disabled={isSavingName}
+                      className="p-1.5 rounded-lg bg-[#cc785c] text-white hover:bg-[#a9583e] transition-colors cursor-pointer"
+                      title="Save Name"
+                    >
+                      <Save className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingName(false);
+                        setNewNameInput(resolvedName);
+                      }}
+                      className="p-1.5 rounded-lg bg-[#252320] text-[#a09d96] hover:text-white transition-colors cursor-pointer"
+                      title="Cancel"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="font-display text-2xl font-bold text-[#faf9f5]">{resolvedName}</h3>
+                    <button
+                      onClick={() => setIsEditingName(true)}
+                      className="p-1 text-[#6c6a64] hover:text-[#cc785c] rounded transition-colors cursor-pointer"
+                      title="Edit Full Name"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-xs font-mono text-[#a09d96]">{user?.email}</p>
                 <p className="text-[11px] text-[#6c6a64] font-mono">User ID: {user?.id?.slice(0, 18)}...</p>
               </div>
@@ -226,11 +348,11 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
             <div className="p-3.5 bg-[#181715] rounded-lg border border-white/5 space-y-1">
               <span className="text-[10px] uppercase text-[#6c6a64]">Target Career Track</span>
-              <p className="font-semibold text-[#faf9f5]">{profile?.target_role || 'Software Engineer'}</p>
+              <p className="font-semibold text-[#faf9f5]">{targetRole}</p>
             </div>
             <div className="p-3.5 bg-[#181715] rounded-lg border border-white/5 space-y-1">
               <span className="text-[10px] uppercase text-[#6c6a64]">Experience Level</span>
-              <p className="font-semibold text-[#faf9f5]">{profile?.experience_level || '0–2 Years'}</p>
+              <p className="font-semibold text-[#faf9f5]">{experienceLevel}</p>
             </div>
             <div className="p-3.5 bg-[#181715] rounded-lg border border-white/5 space-y-1">
               <span className="text-[10px] uppercase text-[#6c6a64]">Account Status</span>

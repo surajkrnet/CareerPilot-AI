@@ -2,7 +2,6 @@
 
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { VideoModal } from './video-modal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,15 +21,13 @@ export function VideoCard({
   src = '/videos/mock-interview-session.mp4',
   title = 'AI Mock Interview Experience',
   subtitle = 'Live evaluation of STAR responses & technical depth',
-  category = 'SHOWREEL',
+  category = 'INTERACTIVE SHOWREEL',
   variant = 'dark',
   className,
   showMeters = false,
   onPlayClick,
 }: VideoCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
   const [currentSrc, setCurrentSrc] = useState(src);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fallbackSrc = 'https://assets.mixkit.co/videos/preview/mixkit-woman-holding-a-video-call-on-laptop-42908-large.mp4';
@@ -43,34 +40,15 @@ export function VideoCard({
     }
   };
 
-  const toggleInlinePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const toggleInlineMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
-  };
-
   const isDark = variant === 'dark';
 
   return (
     <>
       <motion.div
-        whileHover={{ y: -6, scale: 1.01 }}
+        whileHover={{ y: -4, scale: 1.01 }}
         transition={{ type: 'spring', stiffness: 320, damping: 22 }}
         onClick={handleContainerClick}
-        data-cursor="WATCH INTRO"
+        data-cursor="WATCH DEMO"
         className={twMerge(
           clsx(
             'rounded-2xl overflow-hidden border shadow-2xl relative group cursor-pointer transition-colors',
@@ -81,63 +59,37 @@ export function VideoCard({
           )
         )}
       >
-        {/* Video Preview Container */}
+        {/* Video Preview Container — Plays Continuously on Autoplay Loop */}
         <div className="relative aspect-video bg-[#1f1e1b] overflow-hidden">
           <video
             ref={videoRef}
             autoPlay
             loop
-            muted={isMuted}
+            muted
             playsInline
             onError={() => setCurrentSrc(fallbackSrc)}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85 group-hover:opacity-100"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
             key={currentSrc}
           >
             <source src={currentSrc} type="video/mp4" />
           </video>
 
           {/* Dark Overlay Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#181715] via-transparent to-transparent opacity-75 pointer-events-none" />
-
-          {/* Won J You Studio Signature Circular Play Button */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full -rotate-90 group-hover:scale-110 transition-transform duration-500" viewBox="0 0 40 40">
-                <circle cx="20" cy="20" r="19" stroke="#6c6a64" strokeOpacity="0.4" fill="none" strokeWidth="1" />
-                <path stroke="#cc785c" strokeWidth="1.5" fill="none" d="M20 .5a19.5 19.5 0 1 1 0 39 19.5 19.5 0 0 1 0-39Z" />
-              </svg>
-
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#181715]/80 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#faf9f5] group-hover:bg-[#cc785c] group-hover:text-white transition-colors shadow-lg">
-                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />
-              </div>
-            </div>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#181715] via-transparent to-transparent opacity-60 pointer-events-none" />
 
           {/* Top Category Badge */}
           <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-md bg-[#181715]/85 backdrop-blur-md text-[10px] font-mono uppercase tracking-widest text-[#cc785c] border border-white/10 shadow-sm">
-              {category}
+            <span className="px-2.5 py-1 rounded-md bg-[#181715]/85 backdrop-blur-md text-[10px] font-mono uppercase tracking-widest text-[#cc785c] border border-white/10 shadow-sm flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#5db872] animate-pulse" />
+              <span>{category}</span>
             </span>
           </div>
 
-          {/* Inline Video Play/Pause & Mute Controls (Bottom overlay) */}
+          {/* Live Indicator on bottom right */}
           <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
-            <button
-              onClick={toggleInlinePlay}
-              className="w-8 h-8 rounded-full bg-[#181715]/80 hover:bg-[#cc785c] text-white flex items-center justify-center backdrop-blur-sm border border-white/10 transition-colors"
-              title={isPlaying ? 'Pause preview' : 'Play preview'}
-              aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-            >
-              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
-            </button>
-            <button
-              onClick={toggleInlineMute}
-              className="w-8 h-8 rounded-full bg-[#181715]/80 hover:bg-[#cc785c] text-white flex items-center justify-center backdrop-blur-sm border border-white/10 transition-colors"
-              title={isMuted ? 'Unmute' : 'Mute'}
-              aria-label={isMuted ? 'Unmute' : 'Mute'}
-            >
-              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-[#a09d96]" /> : <Volume2 className="w-3.5 h-3.5 text-white" />}
-            </button>
+            <span className="px-2.5 py-0.5 rounded-md bg-[#181715]/80 backdrop-blur-md text-[10px] font-mono uppercase tracking-wider text-[#faf9f5] border border-white/10">
+              Live AI Grounded
+            </span>
           </div>
         </div>
 
