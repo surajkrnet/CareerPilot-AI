@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
   ArrowRight,
@@ -27,6 +27,7 @@ import {
   TrendingUp,
   Loader2,
   RefreshCw,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -47,11 +48,13 @@ export interface DashboardViewProps {
     current_skills?: string[];
     skills_to_acquire?: string[];
     target_roles?: string[];
-    recommended_actions?: string[];
+    recommended_actions?: any[];
     summary?: string;
     education?: string;
     preferred_location?: string;
     work_preference?: string;
+    raw_resume_text?: string;
+    updated_at?: string;
   } | null;
   resumeScansData?: Array<{
     id?: string;
@@ -80,7 +83,11 @@ export default function DashboardView({
 }: DashboardViewProps) {
   const { profile, applications, resumeState } = useCareer();
   const [mounted, setMounted] = useState(false);
+  const [currentCareerDna, setCurrentCareerDna] = useState<any>(careerDnaData || null);
   const [cachedDna, setCachedDna] = useState<any>(null);
+  const [isRefreshingDna, setIsRefreshingDna] = useState(false);
+  const [dnaRefreshNotice, setDnaRefreshNotice] = useState<string | null>(null);
+
   const [dynamicAction, setDynamicAction] = useState<{
     title: string;
     description: string;
@@ -96,7 +103,11 @@ export default function DashboardView({
       try {
         const saved = localStorage.getItem('careerpilot_career_dna');
         if (saved) {
-          setCachedDna(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setCachedDna(parsed);
+          if (!currentCareerDna) {
+            setCurrentCareerDna(parsed);
+          }
         }
       } catch (e) {
         console.warn('Cache read notice:', e);
@@ -114,46 +125,134 @@ export default function DashboardView({
     }
   }, []);
 
-  // Compute values with safe fallbacks
+  // Handler to refresh Career DNA on-demand via live AI re-synthesis
+  const handleRefreshCareerDna = async () => {
+    if (isRefreshingDna) return;
+    setIsRefreshingDna(true);
+    setDnaRefreshNotice(null);
+
+    try {
+      const res = await fetch('/api/career-dna/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to refresh Career DNA');
+      }
+
+      const updatedDna = json.data || json.careerDna;
+      if (updatedDna) {
+        setCurrentCareerDna(updatedDna);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            'careerpilot_career_dna',
+            JSON.stringify({
+              ...updatedDna,
+              updatedAt: new Date().toISOString(),
+            })
+          );
+        }
+        setDnaRefreshNotice('✓ Career DNA successfully re-synthesized by AI Intelligence Engine (Gemma)!');
+        setTimeout(() => setDnaRefreshNotice(null), 5000);
+      }
+    } catch (err: any) {
+      console.error('Refresh DNA error:', err);
+      setDnaRefreshNotice(err.message || 'Failed to refresh Career DNA. Please retry.');
+    } finally {
+      setIsRefreshingDna(false);
+    }
+  };
+
+  // Compute values dynamically prioritizing active AI Career DNA state
+  const activeDna = currentCareerDna || careerDnaData || cachedDna;
+
   const displayName =
-    userName || cachedDna?.fullName || profile?.name || (userEmail ? userEmail.split('@')[0] : 'Engineer');
-  const targetRole =
-    careerDnaData?.target_roles?.[0] || careerDnaData?.target_role || cachedDna?.targetRole || profile?.targetRole || 'Full-Stack Development';
+    userName || activeDna?.fullName || profile?.name || (userEmail ? userEmail.split('@')[0] : 'Engineer');
+
+  const targetRoles: string[] =
+    activeDna?.target_roles ||
+    activeDna?.targetRoles ||
+    (activeDna?.target_role ? [activeDna.target_role] : null) ||
+    (profile?.targetRole ? [profile.targetRole] : ['Full-Stack Development', 'Software Engineer']);
+
+  const primaryTargetRole = targetRoles[0] || 'Software Engineer';
+
   const experienceLevel =
-    careerDnaData?.experience_level || cachedDna?.experienceLevel || profile?.experienceLevel || '0–1 Years';
+    activeDna?.experience_level || activeDna?.experienceLevel || profile?.experienceLevel || '0–2 Years';
+
   const healthScore =
-    careerDnaData?.health_score || cachedDna?.resumeHealthScore || profile?.resumeHealthScore || 92;
+    activeDna?.health_score || activeDna?.resumeHealthScore || profile?.resumeHealthScore || 92;
+
   const readinessScore =
-    careerDnaData?.readiness_score || cachedDna?.interviewReadinessScore || profile?.interviewReadinessScore || 86;
-  const strengths =
-    careerDnaData?.strengths ||
-    careerDnaData?.current_skills ||
-    cachedDna?.strengths ||
-    profile?.strengths || [
-      'React 19 & Next.js Architecture',
-      'TypeScript & Modular Systems',
-      'Node.js & Express / NestJS',
-      'PostgreSQL & Relational Data Modeling',
-      'RESTful & GraphQL API Design',
+    activeDna?.readiness_score || activeDna?.interviewReadinessScore || profile?.interviewReadinessScore || 88;
+
+  const currentSkills: string[] =
+    activeDna?.current_skills ||
+    activeDna?.currentSkills ||
+    activeDna?.skills ||
+    ['React', 'TypeScript', 'JavaScript', 'SQL', 'Git', 'Node.js', 'Python'];
+
+  const strengths: string[] =
+    activeDna?.strengths || [
+      'Strong core programming fundamentals and modular component architecture',
+      'Typed state management and reactive UI performance optimization',
+      'RESTful API integration and relational database schema design',
+      'Agile collaborative workflow, Git version control, and CI/CD discipline',
     ];
-  const skillGaps =
-    careerDnaData?.areas_to_improve ||
-    careerDnaData?.skill_gaps ||
-    careerDnaData?.skills_to_acquire ||
-    cachedDna?.skillGaps ||
-    profile?.skillGaps || [
+
+  const skillGaps: string[] =
+    activeDna?.areas_to_improve ||
+    activeDna?.areasToImprove ||
+    activeDna?.skill_gaps ||
+    activeDna?.skillGaps || [
       'Distributed Caching & Redis Pipelines',
-      'Docker & Kubernetes Cloud Deployment',
-      'Automated Integration Testing Suites',
+      'Docker & Containerized Microservices Deployment',
+      'End-to-End Automated Testing Suites (Playwright / Cypress)',
     ];
+
+  const skillsToAcquire: string[] =
+    activeDna?.skills_to_acquire ||
+    activeDna?.skillsToAcquire || [
+      'Next.js App Router',
+      'Tailwind CSS',
+      'Docker',
+      'Redis',
+      'GraphQL',
+      'System Design',
+    ];
+
+  const recommendedActions: any[] =
+    activeDna?.recommended_actions ||
+    activeDna?.recommendedActions || [
+      {
+        title: 'Optimize Resume for ATS Match on Target Roles',
+        rationale: 'Align technical bullet points with modern hiring keywords to boost recruiter callback rates.',
+        urgency: 'high',
+        moduleLink: '/resume-intelligence',
+      },
+      {
+        title: 'Launch Live STAR Mock Interview Drill',
+        rationale: 'Cross-examine your project decisions against hiring manager evaluation criteria.',
+        urgency: 'high',
+        moduleLink: '/interview',
+      },
+      {
+        title: 'Explore High-Fit Matched Tech Opportunities',
+        rationale: 'Review curated roles matching your exact verified stack across LinkedIn and Wellfound.',
+        urgency: 'medium',
+        moduleLink: '/job-fit',
+      },
+    ];
+
   const summary =
-    careerDnaData?.summary ||
-    cachedDna?.summary ||
-    profile?.title ||
-    'Full-stack engineer with strong front-to-back mastery, modern TypeScript proficiency, and agile product execution focus.';
-  const education = cachedDna?.education || 'B.Tech / B.E.';
-  const location = cachedDna?.preferredLocation || 'Bangalore';
-  const workPreference = cachedDna?.workPreference || 'Hybrid';
+    activeDna?.summary ||
+    `Verified technical profile specializing in ${targetRoles.slice(0, 2).join(' & ')} with hands-on proficiency in ${currentSkills.slice(0, 4).join(', ')}. Calibrated for modern product engineering teams.`;
+
+  const education = activeDna?.education || cachedDna?.education || 'B.Tech / B.E.';
+  const location = activeDna?.preferred_location || cachedDna?.preferredLocation || 'Bengaluru';
+  const workPreference = activeDna?.work_preference || cachedDna?.workPreference || 'Hybrid';
 
   const currentApps =
     applicationsData && applicationsData.length > 0
@@ -166,7 +265,7 @@ export default function DashboardView({
           { id: '3', company: 'Vercel', role: 'DevRel Specialist', status: 'saved', match_score: 89, salary: '₹24L - ₹36L LPA' },
         ];
 
-  // Helper to extract a display string from any bullet point structure
+  // Helper to extract display string from bullet points
   const getBulletString = (bullet: any): string => {
     if (!bullet) return '';
     if (typeof bullet === 'string') return bullet;
@@ -190,7 +289,7 @@ export default function DashboardView({
   const latestDbScan = resumeScansData && resumeScansData.length > 0 ? resumeScansData[0] : null;
   const latestAtsScore = latestDbScan?.ats_score || resumeState?.atsScore || healthScore;
   const latestMissingSkills = latestDbScan?.missing_skills || resumeState?.missingSkills || skillGaps;
-  
+
   const rawBullet =
     latestDbScan?.feedback_summary?.starOptimizations?.[0] ||
     latestDbScan?.feedback_summary?.tailoredBulletPoints?.[0] ||
@@ -198,13 +297,13 @@ export default function DashboardView({
     resumeState?.tailoredBulletPoints?.[0];
   const latestBulletText = getBulletString(rawBullet);
 
-  const hasCareerDna = !!careerDnaData || !!cachedDna;
+  const hasCareerDna = !!activeDna;
   const hasResumeAnalysis = !!latestDbScan || (resumeState?.atsScore > 0 && resumeState?.matchStrengths?.length > 0);
 
   // Loading skeleton while mounting on first paint
   if (!mounted) {
     return (
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-8 animate-pulse">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-32 pb-16 space-y-8 animate-pulse">
         <div className="h-32 bg-[#252320] rounded-xl border border-white/10" />
         <div className="h-24 bg-[#cc785c]/20 rounded-xl border border-white/10" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -216,22 +315,22 @@ export default function DashboardView({
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-28 pb-16 space-y-10">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-32 pb-16 space-y-10">
       
-      {/* 1. HEADER ROW: CANDIDATE CAREER IDENTITY & QUICK STATS */}
+      {/* 1. HEADER ROW: CANDIDATE CAREER IDENTITY, REFRESH ACTION & QUICK STATS */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 sm:p-8 rounded-xl bg-[#252320] border border-white/10 shadow-lg">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-[#1f1e1b] border-2 border-[#cc785c] flex items-center justify-center font-display text-2xl font-bold text-[#faf9f5] shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-[#1f1e1b] border-2 border-[#cc785c] flex items-center justify-center font-display text-2xl font-bold text-[#faf9f5] shadow-sm shrink-0">
             {displayName.slice(0, 2).toUpperCase()}
           </div>
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-3xl sm:text-4xl text-[#faf9f5]">Welcome back, {displayName}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-display text-2xl sm:text-3xl text-[#faf9f5]">Welcome back, {displayName}</h1>
               <Badge variant="coral" size="sm">{experienceLevel}</Badge>
             </div>
-            <p className="text-sm font-medium text-[#a09d96]">{targetRole}</p>
-            <p className="text-xs text-[#6c6a64] flex flex-wrap items-center gap-2">
-              <span>Target: <strong className="text-[#faf9f5]">{targetRole}</strong></span>
+            <p className="text-sm font-medium text-[#cc785c]">{primaryTargetRole}</p>
+            <p className="text-xs text-[#8e8b82] flex flex-wrap items-center gap-2">
+              <span>Target: <strong className="text-[#faf9f5]">{primaryTargetRole}</strong></span>
               <span>•</span>
               <span>Location: <strong className="text-[#faf9f5]">{location} ({workPreference})</strong></span>
               <span>•</span>
@@ -241,23 +340,35 @@ export default function DashboardView({
         </div>
 
         {/* Action & Stats summary */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-4 md:pt-0">
-          <div className="text-center px-4 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
-            <div className="text-2xl font-bold text-[#cc785c] font-sans">{healthScore}%</div>
-            <div className="text-[11px] text-[#6c6a64] font-medium">ATS Match</div>
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-4 md:pt-0 flex-wrap">
+          <div className="text-center px-3.5 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
+            <div className="text-xl font-bold text-[#cc785c] font-sans">{healthScore}%</div>
+            <div className="text-[10px] text-[#8e8b82] font-mono">ATS Match</div>
           </div>
 
-          <div className="text-center px-4 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
-            <div className="text-2xl font-bold text-[#5db872] font-sans">{readinessScore}%</div>
-            <div className="text-[11px] text-[#6c6a64] font-medium">Interview Ready</div>
+          <div className="text-center px-3.5 py-2 bg-[#1f1e1b] rounded-lg border border-white/10">
+            <div className="text-xl font-bold text-[#5db872] font-sans">{readinessScore}%</div>
+            <div className="text-[10px] text-[#8e8b82] font-mono">Interview Ready</div>
           </div>
+
+          {/* Header Refresh DNA Button */}
+          <button
+            type="button"
+            onClick={handleRefreshCareerDna}
+            disabled={isRefreshingDna}
+            className="bg-[#1f1e1b] hover:bg-[#2e2d29] border border-white/15 hover:border-[#cc785c] text-[#faf9f5] px-3 py-2 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+            title="Re-analyze Career DNA with AI Intelligence Engine (Gemma)"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${isRefreshingDna ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isRefreshingDna ? 'Re-analyzing...' : 'Refresh DNA'}</span>
+          </button>
 
           <Link href="/onboarding?edit=true">
             <Button
               variant="outline"
               size="sm"
               icon={<Edit3 className="w-3.5 h-3.5" />}
-              className="border-white/20 hover:border-[#cc785c]"
+              className="border-white/20 hover:border-[#cc785c] text-xs font-mono"
             >
               Edit DNA
             </Button>
@@ -265,7 +376,34 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* 2. ONBOARDING PROMPT BANNER (IF CAREER DNA IS NOT YET FULLY CONFIGURED) */}
+      {/* 2. REFRESH STATUS NOTICE */}
+      <AnimatePresence>
+        {dnaRefreshNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`p-3.5 rounded-xl border text-xs font-mono flex items-center justify-between shadow-lg ${
+              dnaRefreshNotice.startsWith('✓')
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-[#cc785c]/10 border-[#cc785c]/30 text-[#faf9f5]'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#cc785c] shrink-0" />
+              <span>{dnaRefreshNotice}</span>
+            </div>
+            <button
+              onClick={() => setDnaRefreshNotice(null)}
+              className="text-[#8e8b82] hover:text-white text-xs cursor-pointer ml-4"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. ONBOARDING PROMPT BANNER (IF CAREER DNA IS NOT YET CONFIGURED) */}
       {!hasCareerDna && (
         <div className="p-6 rounded-xl bg-[#1f1e1b] border border-[#cc785c]/50 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
           <div className="flex items-center gap-3">
@@ -283,7 +421,7 @@ export default function DashboardView({
         </div>
       )}
 
-      {/* 3. AI NEXT-BEST ACTION PRIORITY BANNER */}
+      {/* 4. AI NEXT-BEST ACTION PRIORITY BANNER */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -301,7 +439,7 @@ export default function DashboardView({
               <span className="text-xs text-white/90">• {dynamicAction?.impactScore || 'High Impact (+22% Interview Conversion)'}</span>
             </div>
             <h2 className="font-display text-2xl sm:text-3xl text-white">
-              {dynamicAction?.title || `Scan & Optimize Your Resume for target ${targetRole} roles.`}
+              {dynamicAction?.title || `Scan & Optimize Your Resume for target ${primaryTargetRole} roles.`}
             </h2>
             <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
               {dynamicAction?.description ||
@@ -311,7 +449,7 @@ export default function DashboardView({
         </div>
 
         <div className="shrink-0 w-full md:w-auto flex flex-col sm:flex-row gap-3">
-          <Link href={(dynamicAction?.actionHref as any) || '/resume'}>
+          <Link href={(dynamicAction?.actionHref as any) || '/resume-intelligence'}>
             <Button
               variant="secondary"
               size="md"
@@ -322,7 +460,7 @@ export default function DashboardView({
               {dynamicAction?.actionLabel || 'Resume Studio'}
             </Button>
           </Link>
-          <Link href="/jobs">
+          <Link href="/job-fit">
             <Button
               variant="secondary-dark"
               size="md"
@@ -336,14 +474,14 @@ export default function DashboardView({
         </div>
       </motion.div>
 
-      {/* 4. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
+      {/* 5. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* PILLAR 1 & 2 (LEFT 7 COLS): CAREER DNA + RESUME INTELLIGENCE */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* SECTION: CAREER DNA SUMMARY */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+          {/* SECTION: CAREER DNA SUMMARY WITH REFRESH BUTTON & COMPLETE AI DATA */}
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-6 bg-[#252320]">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
@@ -351,56 +489,143 @@ export default function DashboardView({
                 </div>
                 <div>
                   <h3 className="font-display text-xl text-[#faf9f5]">Career DNA Profile</h3>
-                  <p className="text-[11px] text-[#6c6a64]">Synthesized by AI Intelligence Engine (Gemma)</p>
+                  <p className="text-[11px] text-[#8e8b82]">Synthesized by AI Intelligence Engine (Gemma)</p>
                 </div>
               </div>
-              <Badge variant="teal" size="sm">Active Vector</Badge>
+
+              <div className="flex items-center gap-2">
+                {/* Dedicated Refresh Button inside Career DNA Card */}
+                <button
+                  type="button"
+                  onClick={handleRefreshCareerDna}
+                  disabled={isRefreshingDna}
+                  className="bg-[#1f1e1b] hover:bg-[#181715] border border-white/15 hover:border-[#cc785c] text-[#dcd7cb] px-2.5 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Re-run AI synthesis with Gemma"
+                >
+                  <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isRefreshingDna ? 'animate-spin' : ''}`} />
+                  <span>{isRefreshingDna ? 'Refreshing...' : 'Refresh DNA'}</span>
+                </button>
+                <Badge variant="teal" size="sm">Active Vector</Badge>
+              </div>
             </div>
 
-            <p className="text-xs text-[#a09d96] leading-relaxed bg-[#1f1e1b] p-3.5 rounded-lg border border-white/5 font-sans">
+            {/* AI Profile Summary */}
+            <p className="text-xs text-[#dcd7cb] leading-relaxed bg-[#1f1e1b] p-3.5 rounded-lg border border-white/5 font-sans italic">
               &quot;{summary}&quot;
             </p>
 
-            {/* Core Competencies Matrix */}
+            {/* Target Roles Alignment Vector */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">Core Technical Strengths ({strengths.length})</span>
-                <span className="text-[#5db872] font-mono text-[11px]">✓ Verified Match</span>
+                <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px] flex items-center gap-1.5">
+                  <Target className="w-3 h-3 text-[#cc785c]" /> Target Roles ({targetRoles.length})
+                </span>
+                <span className="text-[#cc785c] font-mono text-[10px]">AI Calibrated</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
+                {targetRoles.map((role, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-md bg-[#181715] border border-[#cc785c]/40 text-[#faf9f5] text-xs font-mono font-medium"
+                  >
+                    🎯 {role}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Verified Current Skills Matrix */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#5db872] uppercase font-mono text-[11px] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#5db872]" /> Verified Technical Skills ({currentSkills.length})
+                </span>
+                <span className="text-[#5db872] font-mono text-[10px]">✓ Extracted from Resume</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {currentSkills.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-md bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#dcd7cb]"
+                  >
+                    ✓ {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Core Architectural & Technical Strengths */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">
+                Core Technical Strengths
+              </span>
+              <ul className="space-y-1.5 text-xs text-[#a09d96]">
                 {strengths.map((str: any, idx: number) => {
                   const label = typeof str === 'string' ? str : (str?.title || str?.skill || str?.name || str?.strength || '');
                   if (!label) return null;
                   return (
-                    <Badge key={typeof str === 'string' ? str : `str-${idx}`} variant="dark" size="sm" className="bg-[#1f1e1b] border-white/10 text-xs">
-                      ✓ {label}
-                    </Badge>
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-emerald-400 font-bold mt-0.5">•</span>
+                      <span className="leading-relaxed text-[#dcd7cb]">{label}</span>
+                    </li>
                   );
                 })}
+              </ul>
+            </div>
+
+            {/* Target Skill Gaps & Skills to Acquire */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#e8a55a] uppercase font-mono text-[11px]">
+                  High-ROI Skills to Acquire Next ({skillsToAcquire.length})
+                </span>
+                <span className="text-[#e8a55a] font-mono text-[10px]">! Recommended to Learn</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {skillsToAcquire.map((skill: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-md bg-[#1f1e1b] border border-[#e8a55a]/30 text-xs font-mono text-[#e8a55a]"
+                  >
+                    + {skill}
+                  </span>
+                ))}
               </div>
             </div>
 
-            {/* Target Skill Gaps to Close */}
+            {/* AI Actionable Module Roadmap */}
             <div className="space-y-2 pt-2 border-t border-white/5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#e8a55a] uppercase font-mono text-[11px]">Identified Skill Gaps ({skillGaps.length})</span>
-                <span className="text-[#e8a55a] font-mono text-[11px]">! Recommended to Learn</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {skillGaps.map((gap: any, idx: number) => {
-                  const label = typeof gap === 'string' ? gap : (gap?.title || gap?.skill || gap?.gap || gap?.name || '');
-                  if (!label) return null;
-                  return (
-                    <Badge key={typeof gap === 'string' ? gap : `gap-${idx}`} variant="amber" size="sm" className="text-xs">
-                      + {label}
-                    </Badge>
-                  );
-                })}
+              <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">
+                AI Recommended Actions ({recommendedActions.length})
+              </span>
+              <div className="space-y-2">
+                {recommendedActions.map((action: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-[#1f1e1b] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  >
+                    <div>
+                      <h4 className="font-medium text-xs text-[#faf9f5]">{action.title}</h4>
+                      <p className="text-[11px] text-[#8e8b82]">{action.rationale}</p>
+                    </div>
+                    {action.moduleLink && (
+                      <Link
+                        href={action.moduleLink}
+                        className="text-[11px] font-mono text-[#cc785c] hover:underline flex items-center gap-1 shrink-0 self-start sm:self-auto"
+                      >
+                        <span>Open Studio</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64] font-mono">Readiness: {readinessScore}%</span>
+              <span className="text-xs text-[#8e8b82] font-mono">
+                {activeDna?.updated_at ? `Updated: ${new Date(activeDna.updated_at).toLocaleDateString()}` : 'AI Calibrated'}
+              </span>
               <Link href="/onboarding?edit=true" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
                 Edit Preferences <ArrowRight className="w-3.5 h-3.5" />
               </Link>
@@ -408,7 +633,7 @@ export default function DashboardView({
           </Card>
 
           {/* SECTION: RESUME INTELLIGENCE & ATS SUMMARY */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5 bg-[#252320]">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
@@ -416,7 +641,7 @@ export default function DashboardView({
                 </div>
                 <div>
                   <h3 className="font-display text-xl text-[#faf9f5]">Resume &amp; ATS Intelligence</h3>
-                  <p className="text-[11px] text-[#6c6a64]">Keyword density, formatting &amp; bullet points</p>
+                  <p className="text-[11px] text-[#8e8b82]">Keyword density, formatting &amp; bullet points</p>
                 </div>
               </div>
               <Badge variant="coral" size="sm">{latestAtsScore}% ATS Score</Badge>
@@ -426,11 +651,11 @@ export default function DashboardView({
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
-                    <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Match Strengths</span>
+                    <span className="text-[10px] uppercase font-mono text-[#8e8b82]">Match Strengths</span>
                     <p className="text-xs text-[#5db872] font-semibold">{strengths?.length || 3} Core Areas</p>
                   </div>
                   <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
-                    <span className="text-[10px] uppercase font-mono text-[#6c6a64]">Missing Keywords</span>
+                    <span className="text-[10px] uppercase font-mono text-[#8e8b82]">Missing Keywords</span>
                     <p className="text-xs text-[#e8a55a] font-semibold">{latestMissingSkills?.length || 2} Keyword Gaps</p>
                   </div>
                 </div>
@@ -453,7 +678,7 @@ export default function DashboardView({
                 <p className="text-xs text-[#a09d96]">
                   Resume analysis ready to run against your target job posting.
                 </p>
-                <Link href="/resume">
+                <Link href="/resume-intelligence">
                   <Button variant="primary" size="sm" className="bg-[#cc785c] hover:bg-[#a9583e]">
                     Open Resume Studio
                   </Button>
@@ -462,8 +687,8 @@ export default function DashboardView({
             )}
 
             <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64] font-mono">3 Tailored Bullet Points</span>
-              <Link href="/resume" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+              <span className="text-xs text-[#8e8b82] font-mono">STAR Bullet Optimization</span>
+              <Link href="/resume-intelligence" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
                 Open Resume Studio <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -471,11 +696,11 @@ export default function DashboardView({
 
         </div>
 
-        {/* PILLAR 3 & 4 (RIGHT 5 COLS): JOB FIT + INTERVIEWS + RECOMMENDATIONS */}
+        {/* PILLAR 3 & 4 (RIGHT 5 COLS): JOB FIT + RECOMMENDATIONS */}
         <div className="lg:col-span-5 space-y-6">
           
           {/* SECTION: JOB FIT OPPORTUNITIES */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5">
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5 bg-[#252320]">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
@@ -483,7 +708,7 @@ export default function DashboardView({
                 </div>
                 <div>
                   <h3 className="font-display text-xl text-[#faf9f5]">Job Fit Matches</h3>
-                  <p className="text-[11px] text-[#6c6a64]">8 Hiring Engines Connected</p>
+                  <p className="text-[11px] text-[#8e8b82]">8 Hiring Engines Connected</p>
                 </div>
               </div>
               <Badge variant="teal" size="sm">India &amp; Global</Badge>
@@ -494,7 +719,7 @@ export default function DashboardView({
                 <div key={app.id} className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 flex items-center justify-between">
                   <div>
                     <h4 className="font-bold text-xs text-[#faf9f5]">{app.company}</h4>
-                    <p className="text-[11px] text-[#6c6a64] truncate max-w-[180px]">{app.role}</p>
+                    <p className="text-[11px] text-[#8e8b82] truncate max-w-[180px]">{app.role}</p>
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-mono text-[#5db872] font-bold">{(app as any).match_score || (app as any).matchScore || 92}% Fit</span>
@@ -505,15 +730,15 @@ export default function DashboardView({
             </div>
 
             <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#6c6a64] font-mono">LinkedIn, Naukri, Indeed</span>
-              <Link href="/jobs" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+              <span className="text-xs text-[#8e8b82] font-mono">LinkedIn, Naukri, Indeed</span>
+              <Link href="/job-fit" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
                 Explore All Jobs <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </Card>
 
           {/* SECTION: CAREERPILOT AI RECOMMENDATIONS */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-4">
+          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-4 bg-[#252320]">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-4 h-4 text-[#cc785c]" />
@@ -527,16 +752,16 @@ export default function DashboardView({
                 <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
                   <span className="text-[#5db872]">1.</span> Target Role Alignment
                 </span>
-                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
-                  Your profile shows strong mastery in {strengths.slice(0, 2).join(' and ')}. Highlight your production projects on your resume header.
+                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
+                  Your profile demonstrates verified strength in {currentSkills.slice(0, 2).join(' and ')}. Highlight these technologies at the top of your resume.
                 </p>
               </li>
 
               <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
                 <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
-                  <span className="text-[#e8a55a]">2.</span> Close Top Skill Gap: {skillGaps[0] || 'System Architecture'}
+                  <span className="text-[#e8a55a]">2.</span> Close Top Skill Gap: {skillsToAcquire[0] || skillGaps[0] || 'System Design'}
                 </span>
-                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
+                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
                   High-paying roles in {location} frequently test for this competency during technical rounds.
                 </p>
               </li>
@@ -545,7 +770,7 @@ export default function DashboardView({
                 <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
                   <span className="text-[#cc785c]">3.</span> Rehearse STAR Interview Scenarios
                 </span>
-                <p className="text-[11px] text-[#6c6a64] leading-relaxed">
+                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
                   Practice 15 minutes of roleplay drills in the AI Mock Studio to boost live response clarity.
                 </p>
               </li>
