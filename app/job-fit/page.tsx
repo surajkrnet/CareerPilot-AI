@@ -26,6 +26,7 @@ import {
   Layers,
   ArrowRight,
   X,
+  Globe,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useCareer } from '@/lib/career-store';
@@ -61,7 +62,7 @@ export default function JobFitPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const [targetRole, setTargetRole] = useState<string>('Frontend / Full-Stack Engineer');
+  const [targetRole, setTargetRole] = useState<string>('Associate Software Developer');
   const [verifiedSkills, setVerifiedSkills] = useState<string[]>([]);
   const [opportunities, setOpportunities] = useState<JobOpportunity[]>([]);
   const [marketInsights, setMarketInsights] = useState<MarketInsights | null>(null);
@@ -76,15 +77,27 @@ export default function JobFitPage() {
   // Modal JD State
   const [modalJob, setModalJob] = useState<JobOpportunity | null>(null);
 
-  const fetchRecommendations = async (isRefresh = false) => {
+  const fetchRecommendations = async (
+    isRefresh = false,
+    searchOverride?: string,
+    platformOverride?: string
+  ) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setErrorMsg(null);
 
+    const activeRole = searchOverride !== undefined ? searchOverride : searchQuery || targetRole;
+    const activePlatform = platformOverride !== undefined ? platformOverride : selectedPlatform;
+
     try {
-      const res = await fetch('/api/jobs/recommend', {
+      const res = await fetch('/api/jobs/fetch-real-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roleQuery: activeRole,
+          searchQuery: activeRole,
+          platformFilter: activePlatform,
+        }),
       });
 
       let json: any = {};
@@ -92,7 +105,7 @@ export default function JobFitPage() {
         json = await res.json();
       } catch {
         const text = await res.text().catch(() => '');
-        json = { error: text || 'Failed to parse job recommendations response.' };
+        json = { error: text || 'Failed to parse live job scraper response.' };
       }
 
       if (!res.ok) {
@@ -100,7 +113,7 @@ export default function JobFitPage() {
           setErrorMsg('Career DNA profile not found. Please complete the Onboarding setup first.');
           return;
         }
-        throw new Error(json.error || 'Failed to fetch job opportunities');
+        throw new Error(json.error || 'Failed to fetch live job postings.');
       }
 
       const recs = json.data?.recommendations || json.recommendations;
@@ -118,7 +131,7 @@ export default function JobFitPage() {
       }
     } catch (err: any) {
       console.error('Job fit fetch error:', err);
-      setErrorMsg(err.message || 'Unable to load job recommendations. Please retry.');
+      setErrorMsg(err.message || 'Unable to scrape live job postings. Please retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -144,6 +157,16 @@ export default function JobFitPage() {
     fetchRecommendations();
   }, []);
 
+  const handlePlatformFilterChange = (plat: string) => {
+    setSelectedPlatform(plat);
+    fetchRecommendations(false, searchQuery, plat);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchRecommendations(false, searchQuery, selectedPlatform);
+  };
+
   // Save Job to Supabase public.applications
   const handleSaveToTracker = async (job: JobOpportunity) => {
     try {
@@ -163,7 +186,7 @@ export default function JobFitPage() {
         status: 'Saved',
         job_url: job.applyUrl,
         match_score: job.fitScore,
-        notes: `Matched via Job Fit Studio (${job.fitScore}% Match). Why Fit: ${job.whyFit}`,
+        notes: `Scraped via Real Job Fit Hub (${job.fitScore}% Match). Why Fit: ${job.whyFit}`,
         applied_date: new Date().toISOString(),
       });
 
@@ -244,18 +267,18 @@ export default function JobFitPage() {
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <span className="px-2.5 py-1 rounded bg-[#cc785c]/10 text-[#cc785c] text-[11px] font-mono font-semibold border border-[#cc785c]/30 flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5" />
-                Job Fit &amp; Opportunity Hub
+                <Globe className="w-3.5 h-3.5" />
+                Live Job Market Hub
               </span>
               <span className="px-2.5 py-1 rounded bg-[#5db872]/10 text-[#5db872] text-[11px] font-mono font-semibold border border-[#5db872]/30">
-                AI Match Grounded
+                Real Scraped Postings
               </span>
             </div>
             <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-[#faf9f5]">
-              Job Fit &amp; Opportunity Recommendation Engine
+              Real-Time Job Fit &amp; Opportunity Hub
             </h1>
             <p className="text-sm text-[#a09d96] mt-1 max-w-2xl">
-              High-relevance job opportunities matched directly against your verified Career DNA competencies across top platforms.
+              Live web scraped job postings across LinkedIn, Wellfound, Naukri, and Y Combinator scored against your active Career DNA.
             </p>
           </div>
 
@@ -266,7 +289,7 @@ export default function JobFitPage() {
               className="px-4 py-2.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-xs font-mono text-[#faf9f5] border border-white/10 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Analyzing Market...' : 'Refresh AI Opportunities'}</span>
+              <span>{refreshing ? 'Scraping Live Postings...' : 'Scrape Live Jobs'}</span>
             </button>
           </div>
         </header>
@@ -300,7 +323,7 @@ export default function JobFitPage() {
                 <strong className="text-sm font-display text-[#faf9f5] font-semibold">{targetRole}</strong>
               </div>
               <p className="text-xs text-[#a09d96]">
-                Matching algorithms cross-reference candidate technical depth, frameworks, and seniority requirements.
+                Real-time web scraping queries live job boards against candidate technical depth, frameworks, and seniority requirements.
               </p>
             </div>
 
@@ -335,17 +358,23 @@ export default function JobFitPage() {
 
         {/* SEARCH & FILTERS BAR */}
         <section className="p-4 rounded-xl bg-[#1f1e1b] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Search Box */}
-          <div className="relative flex-1">
+          {/* Search Form */}
+          <form onSubmit={handleSearchSubmit} className="relative flex-1">
             <Search className="w-4 h-4 text-[#6c6a64] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by job title, company name, skills (e.g. React, Zepto, Linear)..."
-              className="w-full bg-[#181715] text-[#faf9f5] text-xs font-mono pl-10 pr-4 py-2.5 rounded-lg border border-white/10 focus:border-[#cc785c] focus:outline-none placeholder-[#6c6a64]"
+              placeholder="Search live jobs (e.g. Associate Developer, Java Backend, React, Bangalore)..."
+              className="w-full bg-[#181715] text-[#faf9f5] text-xs font-mono pl-10 pr-20 py-2.5 rounded-lg border border-white/10 focus:border-[#cc785c] focus:outline-none placeholder-[#6c6a64]"
             />
-          </div>
+            <button
+              type="submit"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#cc785c] hover:bg-[#a9583e] text-white px-2.5 py-1 rounded text-xs font-mono cursor-pointer"
+            >
+              Search
+            </button>
+          </form>
 
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
@@ -354,7 +383,7 @@ export default function JobFitPage() {
               {platformsList.map((plat) => (
                 <button
                   key={plat}
-                  onClick={() => setSelectedPlatform(plat)}
+                  onClick={() => handlePlatformFilterChange(plat)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                     selectedPlatform === plat
                       ? 'bg-[#cc785c] text-white font-semibold shadow-sm'
@@ -384,8 +413,8 @@ export default function JobFitPage() {
           <div className="py-24 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-[#cc785c] animate-spin mx-auto" />
             <div className="space-y-1 font-mono text-xs text-[#a09d96]">
-              <p className="text-[#faf9f5] font-semibold">Synthesizing Job Opportunities with Gemma AI...</p>
-              <p>Evaluating candidate skill overlap against active platform market criteria.</p>
+              <p className="text-[#faf9f5] font-semibold">Scraping Live Web Job Postings &amp; AI Scoring...</p>
+              <p>Fetching real-time openings from LinkedIn, Wellfound, Naukri, and Y Combinator.</p>
             </div>
           </div>
         ) : filteredJobs.length === 0 ? (
@@ -393,7 +422,7 @@ export default function JobFitPage() {
             <Briefcase className="w-8 h-8 text-[#6c6a64] mx-auto" />
             <h3 className="text-sm font-semibold text-[#faf9f5] font-display">No matching opportunities found</h3>
             <p className="text-xs text-[#a09d96] font-mono">
-              Try adjusting your search keywords or platform filters.
+              Try adjusting your search keywords or clicking another platform filter.
             </p>
           </div>
         ) : (
@@ -448,108 +477,123 @@ export default function JobFitPage() {
                     </div>
 
                     {/* AI Reasoning Text */}
-                    <p className="text-xs text-[#a09d96] leading-relaxed bg-[#181715] p-3 rounded-xl border border-white/5">
-                      <strong className="text-[#faf9f5] font-semibold">AI Match Rationale: </strong>
-                      {job.whyFit}
+                    <p className="text-xs text-[#a09d96] leading-relaxed bg-[#181715] p-3 rounded-lg border border-white/5 italic">
+                      &quot;{job.whyFit}&quot;
                     </p>
 
-                    {/* Skill Alignment Chips */}
+                    {/* Skills Matrix: Matched vs Missing */}
                     <div className="space-y-2 pt-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-mono text-[#5db872] font-semibold">Matched:</span>
-                        {job.matchedSkills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="px-2 py-0.5 rounded bg-[#5db872]/10 text-[#5db872] text-[10px] font-mono border border-[#5db872]/20"
-                          >
-                            ✓ {skill}
-                          </span>
-                        ))}
-                      </div>
-
-                      {job.missingSkills.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-mono text-[#e8a55a] font-semibold">Growth Gaps:</span>
-                          {job.missingSkills.map((skill) => (
+                      {/* Matched Skills */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#5db872] font-bold">
+                          ✓ Matched Skills ({job.matchedSkills?.length || 0})
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {job.matchedSkills?.map((skill, idx) => (
                             <span
-                              key={skill}
-                              className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px] font-mono border border-amber-500/20"
+                              key={idx}
+                              className="px-2 py-0.5 rounded bg-[#5db872]/10 text-[#5db872] text-[11px] font-mono border border-[#5db872]/20"
                             >
-                              ! {skill}
+                              ✓ {skill}
                             </span>
                           ))}
                         </div>
+                      </div>
+
+                      {/* Missing Gaps */}
+                      {job.missingSkills && job.missingSkills.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-[#e8a55a] font-bold">
+                            ! Skill Gaps to Close ({job.missingSkills.length})
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {job.missingSkills.map((gap, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded bg-[#e8a55a]/10 text-[#e8a55a] text-[11px] font-mono border border-[#e8a55a]/20"
+                              >
+                                + {gap}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
+                  </div>
 
-                    {/* Collapsible Full Job Description */}
+                  {/* Expandable Scraped JD Preview */}
+                  <div className="space-y-2 pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => setExpandedJdId(isExpanded ? null : job.id)}
+                      className="w-full text-left flex items-center justify-between text-xs font-mono text-[#a09d96] hover:text-white transition-colors cursor-pointer py-1"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-[#cc785c]" />
+                        <span>{isExpanded ? 'Hide Scraped Job Description' : 'View Full Scraped Job Description'}</span>
+                      </span>
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
                     {isExpanded && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-[#181715] border border-white/10 space-y-2 text-xs font-mono">
-                        <div className="flex items-center justify-between text-[#cc785c] font-bold text-[11px]">
-                          <span>Synthesized Job Description:</span>
-                          <button
-                            onClick={() => setExpandedJdId(null)}
-                            className="text-[#6c6a64] hover:text-white cursor-pointer"
-                          >
-                            Close
-                          </button>
-                        </div>
-                        <p className="text-[#a09d96] whitespace-pre-line leading-relaxed font-sans text-xs">
-                          {job.fullJobDescription}
-                        </p>
+                      <div className="p-3.5 rounded-lg bg-[#181715] border border-white/10 text-xs font-mono text-[#e6dfd8] whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                        {job.fullJobDescription}
                       </div>
                     )}
                   </div>
 
-                  {/* BOTTOM ACTION TOOLBAR (4 Key Integrations) */}
-                  <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* 1. Track in Kanban */}
+                  {/* Bottom: 4 Action CTAs */}
+                  <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                    
+                    {/* Left CTAs: 1-Click Kanban + Real Apply Link */}
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleSaveToTracker(job)}
                         disabled={isSaved}
-                        className={`px-3 py-2 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer border ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
                           isSaved
-                            ? 'bg-[#5db872]/20 text-[#5db872] border-[#5db872]/40'
-                            : 'bg-[#252320] hover:bg-[#2e2c28] text-[#faf9f5] border-white/10 hover:border-[#cc785c]'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
+                            : 'bg-[#252320] hover:bg-[#2c2a27] text-[#faf9f5] border border-white/10'
                         }`}
                         title="Save to Application Tracker"
                       >
                         <BookmarkPlus className="w-3.5 h-3.5 text-[#cc785c]" />
-                        <span>{isSaved ? 'Saved to Tracker' : 'Track in Kanban'}</span>
+                        <span>{isSaved ? 'Saved to Kanban' : 'Save to Kanban'}</span>
                       </button>
 
-                      {/* 2. Run Resume ATS Match */}
+                      {/* Real External Apply Link */}
+                      <a
+                        href={job.applyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-semibold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                        title={`Open live application on ${job.platform}`}
+                      >
+                        <span>Apply on {job.platform}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+
+                    {/* Right Workflow Links: ATS Match & Mock Prep */}
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleAnalyzeInResumeStudio(job)}
-                        className="px-3 py-2 rounded-lg bg-[#252320] hover:bg-[#2e2c28] text-xs font-mono text-[#faf9f5] border border-white/10 hover:border-[#cc785c] flex items-center gap-1.5 transition-all cursor-pointer"
-                        title="Test Resume Fit with AI Agent"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-[#a09d96] hover:text-[#cc785c] text-[11px] font-mono border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Pass this scraped JD directly into Resume Intelligence"
                       >
-                        <FileText className="w-3.5 h-3.5 text-[#cc785c]" />
+                        <FileText className="w-3 h-3 text-[#cc785c]" />
                         <span>ATS Match</span>
                       </button>
 
-                      {/* 3. Start Mock Interview */}
                       <button
                         onClick={() => handlePracticeMockInterview(job)}
-                        className="px-3 py-2 rounded-lg bg-[#252320] hover:bg-[#2e2c28] text-xs font-mono text-[#faf9f5] border border-white/10 hover:border-[#cc785c] flex items-center gap-1.5 transition-all cursor-pointer"
-                        title="Practice Live Roleplay for this Role"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-[#a09d96] hover:text-[#5db872] text-[11px] font-mono border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Launch Mock Interview grounded in this exact scraped role"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-[#cc785c]" />
-                        <span>Interview Drill</span>
+                        <MessageSquare className="w-3 h-3 text-[#5db872]" />
+                        <span>Mock Prep</span>
                       </button>
                     </div>
 
-                    {/* 4. Direct Apply Link */}
-                    <a
-                      href={job.applyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
-                    >
-                      <span>Apply on {job.platform}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
                   </div>
                 </div>
               );
