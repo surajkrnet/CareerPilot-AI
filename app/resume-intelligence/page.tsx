@@ -27,81 +27,6 @@ interface SuggestedJdItem {
   fullJobDescription: string;
 }
 
-const DEFAULT_SUGGESTED_JDS: SuggestedJdItem[] = [
-  {
-    label: 'Full-Stack Systems',
-    roleTitle: 'Software Engineer (Full-Stack Systems)',
-    companyType: 'High-Growth Tech SaaS',
-    fullJobDescription: `Role: Software Engineer (Full-Stack Systems)
-Company: High-Growth Product SaaS
-Location: Bengaluru / Hybrid (Remote Eligible)
-Experience: 0-3 Years
-
-Overview:
-We are looking for a Software Engineer to design, build, and scale interactive web applications and microservices.
-
-Key Requirements:
-- Hands-on proficiency in React, TypeScript, and modern component state architectures.
-- Experience developing RESTful APIs and connecting backend services with Node.js, Java, or Python.
-- Working knowledge of SQL database modeling (PostgreSQL / MySQL) and schema optimization.
-- Familiarity with Git version control, CI/CD pipelines, and writing maintainable unit tests.`,
-  },
-  {
-    label: 'Java Backend Engineer',
-    roleTitle: 'Software Engineer (Java Backend & Distributed Systems)',
-    companyType: 'Fintech & Scale-Up Platforms',
-    fullJobDescription: `Role: Software Engineer (Java Backend)
-Company: Fintech & Enterprise Scale-Up
-Location: Bengaluru / Remote
-Experience: 0-3 Years
-
-Overview:
-Join our platform infrastructure team building low-latency, resilient transaction and data handling engines.
-
-Key Requirements:
-- Strong core foundation in Java (Spring Boot / Core Java) and OOP architecture patterns.
-- Strong SQL proficiency for designing relational schemas, indexing, and query optimization.
-- Solid understanding of data structures, algorithms, concurrency, and REST API design.
-- Passion for reliability metrics, system design principles, and automated testing.`,
-  },
-  {
-    label: 'Frontend React / Next.js',
-    roleTitle: 'Frontend Engineer (React & Web Systems)',
-    companyType: 'Product Craft & Consumer Web',
-    fullJobDescription: `Role: Frontend Engineer (React & Web Systems)
-Company: Product Craft & Consumer Web
-Location: Bengaluru / Remote
-Experience: 0-2 Years
-
-Overview:
-Help craft responsive, accessible, and ultra-fast user interfaces across modern web browsers.
-
-Key Requirements:
-- Strong foundation in HTML5, modern CSS / Tailwind CSS, JavaScript (ES6+), and TypeScript.
-- Demonstrated experience building interactive web applications with React or Next.js.
-- Focus on Core Web Vitals, responsive layouts, client-side state, and clean component boundaries.
-- Ability to collaborate with product managers and designers on rapid prototyping.`,
-  },
-  {
-    label: 'IoT & Systems Software',
-    roleTitle: 'IoT & Systems Software Engineer',
-    companyType: 'Deep Tech & Connected Devices',
-    fullJobDescription: `Role: IoT & Systems Software Engineer
-Company: Smart Devices & Cloud Connected Systems
-Location: Bengaluru / On-Site
-Experience: 0-2 Years
-
-Overview:
-Bridge hardware/data streams with cloud web platforms and automated data handling pipelines.
-
-Key Requirements:
-- Familiarity with IoT protocols (MQTT, HTTP), sensor data acquisition, and embedded fundamentals.
-- Python or C++ scripting for automated telemetry acquisition and backend services.
-- Strong problem-solving aptitude, debugging capabilities, and SQL querying fundamentals.
-- Understanding of distributed computing, telemetry logging, and secure data transmission.`,
-  },
-];
-
 export default function ResumeIntelligencePage() {
   const [userName, setUserName] = useState('');
   const [storedResumeText, setStoredResumeText] = useState('');
@@ -111,12 +36,13 @@ export default function ResumeIntelligencePage() {
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Dynamic Suggested JDs State
-  const [suggestedJds, setSuggestedJds] = useState<SuggestedJdItem[]>(DEFAULT_SUGGESTED_JDS);
+  // Dynamic Suggested JDs State (starts clean and empty)
+  const [suggestedJds, setSuggestedJds] = useState<SuggestedJdItem[]>([]);
   const [isSuggestingJds, setIsSuggestingJds] = useState(false);
-  const [selectedJdLabel, setSelectedJdLabel] = useState<string | null>(DEFAULT_SUGGESTED_JDS[0].label);
+  const [selectedJdLabel, setSelectedJdLabel] = useState<string | null>(null);
 
-  const [targetJd, setTargetJd] = useState(DEFAULT_SUGGESTED_JDS[0].fullJobDescription);
+  // Target JD starts empty
+  const [targetJd, setTargetJd] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -150,17 +76,6 @@ export default function ResumeIntelligencePage() {
         if (dna?.raw_resume_text) {
           setStoredResumeText(dna.raw_resume_text);
           setResumeText(dna.raw_resume_text);
-        }
-
-        if (typeof window !== 'undefined') {
-          const preloadedJd = localStorage.getItem('careerpilot_target_jd');
-          const preloadedRole = localStorage.getItem('careerpilot_target_role');
-          if (preloadedJd && preloadedJd.trim().length > 0) {
-            setTargetJd(preloadedJd);
-            if (preloadedRole) {
-              setSelectedJdLabel(preloadedRole);
-            }
-          }
         }
       } catch (err) {
         console.error('Error fetching user data:', err);
@@ -224,8 +139,12 @@ export default function ResumeIntelligencePage() {
   };
 
   // Dynamic Suggest JDs API call based on active resume text
-  const handleSuggestJds = async () => {
-    if (!resumeText.trim() || isSuggestingJds) return;
+  const handleSuggestJds = async (textToUse?: string) => {
+    const resume = (textToUse || resumeText).trim();
+    if (!resume) {
+      setAnalysisError('Please upload or paste your resume on the left first to match target job descriptions.');
+      return;
+    }
 
     setIsSuggestingJds(true);
     setAnalysisError(null);
@@ -234,7 +153,7 @@ export default function ResumeIntelligencePage() {
       const res = await fetch('/api/resume/suggest-jds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText }),
+        body: JSON.stringify({ resumeText: resume }),
       });
 
       const json = await res.json();
@@ -270,8 +189,40 @@ export default function ResumeIntelligencePage() {
   };
 
   const handleAnalyzeFit = async () => {
-    if (!resumeText.trim() || !targetJd.trim()) {
-      setAnalysisError('Please provide both candidate resume text and a target job description.');
+    const resume = resumeText.trim();
+    let currentJd = targetJd.trim();
+
+    if (!resume) {
+      setAnalysisError('Please provide or upload a candidate resume on the left first.');
+      return;
+    }
+
+    // If target JD is empty, auto-generate and populate the best matched JD on the fly
+    if (!currentJd) {
+      setIsSuggestingJds(true);
+      try {
+        const res = await fetch('/api/resume/suggest-jds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeText: resume }),
+        });
+        const json = await res.json();
+        const roles = json.data || json.suggestedRoles;
+        if (Array.isArray(roles) && roles.length > 0) {
+          setSuggestedJds(roles);
+          currentJd = roles[0].fullJobDescription;
+          setTargetJd(currentJd);
+          setSelectedJdLabel(roles[0].label);
+        }
+      } catch (err) {
+        console.warn('Auto-JD suggest note:', err);
+      } finally {
+        setIsSuggestingJds(false);
+      }
+    }
+
+    if (!currentJd) {
+      setAnalysisError('Please click "Refresh Roles" to match job descriptions to your resume or paste a target JD.');
       return;
     }
 
@@ -282,7 +233,7 @@ export default function ResumeIntelligencePage() {
       const res = await fetch('/api/resume/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText, jobDescription: targetJd }),
+        body: JSON.stringify({ resumeText: resume, jobDescription: currentJd }),
       });
 
       let json: any = {};
@@ -443,59 +394,61 @@ export default function ResumeIntelligencePage() {
             />
           </div>
 
-          {/* Right: Target Job Description (Dynamic AI Suggestions & Chips) */}
+          {/* Right: Target Job Description (Clean initial state with Refresh Button) */}
           <div className="bg-[#181715] border border-[#252320] rounded-xl p-5 space-y-4 shadow-md flex flex-col justify-between">
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252320] pb-3">
-                <div>
+              <div className="flex items-center justify-between gap-2 border-b border-[#252320] pb-3">
+                <div className="flex items-center gap-2.5">
                   <h3 className="font-serif text-lg text-white">Target Job Description (JD)</h3>
-                  <span className="text-xs text-[#8e8b82]">Select tailored role or custom paste</span>
+                  {/* Refresh Button beside Header */}
+                  <button
+                    type="button"
+                    onClick={() => handleSuggestJds()}
+                    disabled={isSuggestingJds || !resumeText.trim()}
+                    className="bg-[#1f1e1b] hover:bg-[#252320] border border-[#3d3d3a] hover:border-[#cc785c] text-[#faf9f5] px-2.5 py-1 rounded-md text-[11px] font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 shadow-sm"
+                    title="Refresh AI tailored role descriptions based on active resume"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isSuggestingJds ? 'animate-spin' : ''}`} />
+                    <span>{isSuggestingJds ? 'Synthesizing...' : 'Refresh Roles'}</span>
+                  </button>
                 </div>
 
-                {/* AI Match Button */}
-                <button
-                  type="button"
-                  onClick={handleSuggestJds}
-                  disabled={isSuggestingJds || !resumeText.trim()}
-                  className="bg-[#cc785c]/15 hover:bg-[#cc785c]/25 border border-[#cc785c]/40 text-[#cc785c] px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
-                  title="Generate tailored job descriptions matching your active resume stack"
-                >
-                  {isSuggestingJds ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>{isSuggestingJds ? 'Matching Roles...' : '✨ Match JDs to My Resume'}</span>
-                </button>
+                <span className="text-xs text-[#8e8b82] hidden sm:inline">AI Stack Matched</span>
               </div>
 
-              {/* Dynamic AI Suggested Role Chips */}
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-[#a09d96] flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-[#cc785c]" /> Tailored Roles for Your Stack:
-                  </span>
-                  <span className="text-[10px] font-mono text-[#8e8b82]">Click chip to load JD</span>
-                </div>
+              {/* Dynamic AI Suggested Role Chips (Shown only when generated) */}
+              {suggestedJds.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-[#a09d96] flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-[#cc785c]" /> Tailored Roles for Your Stack:
+                    </span>
+                    <span className="text-[10px] font-mono text-[#8e8b82]">Click chip to load JD</span>
+                  </div>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestedJds.map((item, idx) => {
-                    const isSelected = selectedJdLabel === item.label;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectSuggestedJd(item)}
-                        className={`text-xs px-2.5 py-1 rounded-md border transition-all flex items-center gap-1.5 cursor-pointer font-mono ${
-                          isSelected
-                            ? 'bg-[#cc785c] text-white border-[#cc785c] font-semibold shadow-md'
-                            : 'bg-[#1f1e1b] text-[#dcd7cb] border-[#3d3d3a] hover:border-[#cc785c]'
-                        }`}
-                        title={`${item.roleTitle} (${item.companyType})`}
-                      >
-                        <Briefcase className="w-3 h-3 opacity-75 shrink-0" />
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestedJds.map((item, idx) => {
+                      const isSelected = selectedJdLabel === item.label;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectSuggestedJd(item)}
+                          className={`text-xs px-2.5 py-1 rounded-md border transition-all flex items-center gap-1.5 cursor-pointer font-mono ${
+                            isSelected
+                              ? 'bg-[#cc785c] text-white border-[#cc785c] font-semibold shadow-md'
+                              : 'bg-[#1f1e1b] text-[#dcd7cb] border-[#3d3d3a] hover:border-[#cc785c]'
+                          }`}
+                          title={`${item.roleTitle} (${item.companyType})`}
+                        >
+                          <Briefcase className="w-3 h-3 opacity-75 shrink-0" />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <textarea
@@ -504,7 +457,7 @@ export default function ResumeIntelligencePage() {
                 setTargetJd(e.target.value);
                 setSelectedJdLabel(null);
               }}
-              placeholder="Paste target job description or pick an AI-tailored role chip above..."
+              placeholder="Target Job Description will appear here when you click 'Refresh Roles' or paste a custom JD..."
               className="w-full h-64 bg-[#1f1e1b] border border-[#3d3d3a] rounded-md p-4 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-2"
             />
           </div>

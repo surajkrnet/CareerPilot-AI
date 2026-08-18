@@ -20,28 +20,29 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
-    }
+    let customResumeText = '';
+    try {
+      const body = await req.json();
+      customResumeText = body.resumeText || '';
+    } catch {}
 
-    const { resumeText: customResumeText } = await req.json();
-
-    let resumeText = customResumeText || '';
+    let resumeText = customResumeText;
 
     if (!resumeText || resumeText.trim().length < 20) {
-      const { data: dna } = await supabase
-        .from('career_dna')
-        .select('raw_resume_text, current_skills, target_roles')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      if (user) {
+        const { data: dna } = await supabase
+          .from('career_dna')
+          .select('raw_resume_text, current_skills, target_roles')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (dna?.raw_resume_text) {
-        resumeText = dna.raw_resume_text;
-      } else if (dna?.current_skills) {
-        resumeText = `Skills: ${dna.current_skills.join(', ')}. Target: ${(dna.target_roles || []).join(', ')}`;
+        if (dna?.raw_resume_text) {
+          resumeText = dna.raw_resume_text;
+        } else if (dna?.current_skills) {
+          resumeText = `Skills: ${dna.current_skills.join(', ')}. Target: ${(dna.target_roles || []).join(', ')}`;
+        }
       }
     }
 
@@ -55,7 +56,6 @@ export async function POST(req: NextRequest) {
     const hasJava = resumeLower.includes('java') && !resumeLower.includes('javascript');
     const hasPython = resumeLower.includes('python');
     const hasIot = resumeLower.includes('iot') || resumeLower.includes('embedded') || resumeLower.includes('internet of things');
-    const hasBackend = resumeLower.includes('node') || resumeLower.includes('sql') || resumeLower.includes('api') || hasJava || hasPython;
 
     const fallbackJds: SuggestedJobDescription[] = [
       {
@@ -113,7 +113,7 @@ Key Requirements:
 - Ability to collaborate with product managers and designers on rapid prototyping.`,
       },
       {
-        label: hasIot ? 'IoT & Embedded Systems' : hasPython ? 'Python Data / AI Engineer' : 'Junior Systems Engineer',
+        label: hasIot ? 'IoT & Systems Software' : hasPython ? 'Python Data / AI Engineer' : 'Junior Systems Engineer',
         roleTitle: hasIot ? 'IoT & Systems Software Engineer' : hasPython ? 'Python Software & Data Engineer' : 'Systems & Cloud Infrastructure Engineer',
         companyType: 'Deep Tech & Connected Devices',
         fullJobDescription: `Role: ${hasIot ? 'IoT & Systems Software Engineer' : hasPython ? 'Python Software Engineer' : 'Systems Engineer'}
@@ -138,7 +138,7 @@ Key Requirements:
 Analyze the following candidate resume text and extract their core technical skills (languages, frameworks, domains, projects).
 
 Candidate Resume:
-${resumeText.slice(0, 3500)}
+${resumeText.slice(0, 3000)}
 
 Task:
 Generate exactly 4 realistic, targeted job descriptions tailored to this candidate's demonstrated background (e.g. Full-Stack, Backend, Frontend, Specialized Systems).
@@ -157,11 +157,16 @@ Output a valid JSON object matching this schema:
 
 Return ONLY the pure JSON object.`;
 
-      const aiResponse = await generateText({
+      const aiPromise = generateText({
         model: aiModel,
         prompt,
       });
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI suggest timeout')), 2500)
+      );
+
+      const aiResponse: any = await Promise.race([aiPromise, timeoutPromise]);
       const parsed = extractAndParseJSON(aiResponse.text, { suggestedRoles: fallbackJds });
 
       if (parsed && Array.isArray(parsed.suggestedRoles) && parsed.suggestedRoles.length > 0) {
@@ -173,7 +178,7 @@ Return ONLY the pure JSON object.`;
         }));
       }
     } catch (aiErr: any) {
-      console.warn('AI Suggest JDs note (using calibrated fallback):', aiErr?.message || aiErr);
+      // Fallback is already prepared
     }
 
     return NextResponse.json({
@@ -188,4 +193,8 @@ Return ONLY the pure JSON object.`;
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  return POST(req);
 }
