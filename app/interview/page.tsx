@@ -60,7 +60,7 @@ function InterviewStudioContent() {
     takeaways: string[];
   } | null>(null);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   // Load candidate info, scan context, and resume text
@@ -76,10 +76,38 @@ function InterviewStudioContent() {
         supabase.from('career_dna').select('raw_resume_text, target_roles').eq('user_id', user.id).maybeSingle(),
       ]);
 
-      if (profile?.full_name) {
-        setCandidateName(profile.full_name);
-      } else if (user.email) {
-        setCandidateName(user.email.split('@')[0]);
+      let nameToUse = profile?.full_name || '';
+
+      if (!nameToUse && typeof window !== 'undefined') {
+        try {
+          const draft = localStorage.getItem('careerpilot_onboarding_draft');
+          if (draft) {
+            const parsed = JSON.parse(draft);
+            if (parsed.fullName && parsed.fullName.trim().length > 0) {
+              nameToUse = parsed.fullName.trim();
+            }
+          }
+          if (!nameToUse) {
+            const savedDna = localStorage.getItem('careerpilot_career_dna');
+            if (savedDna) {
+              const parsedDna = JSON.parse(savedDna);
+              if (parsedDna.fullName && parsedDna.fullName.trim().length > 0) {
+                nameToUse = parsedDna.fullName.trim();
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (!nameToUse && user.user_metadata?.full_name) {
+        nameToUse = user.user_metadata.full_name;
+      }
+      if (!nameToUse && user.email) {
+        nameToUse = user.email.split('@')[0];
+      }
+
+      if (nameToUse) {
+        setCandidateName(nameToUse);
       }
 
       if (dna?.raw_resume_text) setCandidateResume(dna.raw_resume_text);
@@ -140,7 +168,7 @@ function InterviewStudioContent() {
     }
 
     fetchCandidateInfo();
-  }, [scanId]);
+  }, [scanId, supabase]);
 
   // Session timer
   useEffect(() => {
@@ -151,9 +179,12 @@ function InterviewStudioContent() {
     return () => clearInterval(timer);
   }, [isStarted, showScorecard]);
 
+  // Auto-scroll inside chat bubble stream ONLY, never scrolling the browser window
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    if (isStarted && messages.length > 0 && messagesScrollRef.current) {
+      messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+    }
+  }, [messages, loading, isStarted]);
 
   const formatTimer = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -491,7 +522,7 @@ function InterviewStudioContent() {
             </div>
 
             {/* Message Stream */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
               {!isStarted && (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-3 p-8">
                   <div className="w-14 h-14 rounded-full bg-[#cc785c]/20 border border-[#cc785c] flex items-center justify-center text-[#cc785c] mb-1">
@@ -548,7 +579,6 @@ function InterviewStudioContent() {
                   Alex is evaluating your answer with AI Intelligence Engine (Gemma)...
                 </div>
               )}
-              <div ref={chatEndRef} />
             </div>
 
             {/* Input Form */}
