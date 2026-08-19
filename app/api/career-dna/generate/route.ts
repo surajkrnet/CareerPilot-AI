@@ -171,28 +171,41 @@ Output a valid JSON object matching this exact schema:
 
 Return ONLY the pure JSON object.`;
 
-      const aiResponse = await generateText({
-        model: aiModel,
-        prompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const parsed = extractAndParseJSON(aiResponse.text, defaultCalibratedDna);
+      try {
+        const aiPromise = generateText({
+          model: aiModel,
+          prompt,
+          abortSignal: controller.signal,
+        });
 
-      if (parsed && Array.isArray(parsed.strengths) && Array.isArray(parsed.currentSkills)) {
-        structuredResult = {
-          strengths: parsed.strengths.length > 0 ? parsed.strengths : defaultCalibratedDna.strengths,
-          areasToImprove: Array.isArray(parsed.areasToImprove) && parsed.areasToImprove.length > 0 ? parsed.areasToImprove : defaultCalibratedDna.areasToImprove,
-          currentSkills: parsed.currentSkills.length > 0 ? parsed.currentSkills : defaultCalibratedDna.currentSkills,
-          skillsToAcquire: Array.isArray(parsed.skillsToAcquire) && parsed.skillsToAcquire.length > 0 ? parsed.skillsToAcquire : defaultCalibratedDna.skillsToAcquire,
-          targetRoles: Array.isArray(parsed.targetRoles) && parsed.targetRoles.length > 0 ? parsed.targetRoles : defaultCalibratedDna.targetRoles,
-          recommendedActions: Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0 ? parsed.recommendedActions : defaultCalibratedDna.recommendedActions,
-        };
+        const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+          setTimeout(() => resolve({ text: JSON.stringify(defaultCalibratedDna) }), 3500)
+        );
+
+        const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+        const parsed = extractAndParseJSON(aiResponse.text, defaultCalibratedDna);
+
+        if (parsed && Array.isArray(parsed.strengths) && Array.isArray(parsed.currentSkills)) {
+          structuredResult = {
+            strengths: parsed.strengths.length > 0 ? parsed.strengths : defaultCalibratedDna.strengths,
+            areasToImprove: Array.isArray(parsed.areasToImprove) && parsed.areasToImprove.length > 0 ? parsed.areasToImprove : defaultCalibratedDna.areasToImprove,
+            currentSkills: parsed.currentSkills.length > 0 ? parsed.currentSkills : defaultCalibratedDna.currentSkills,
+            skillsToAcquire: Array.isArray(parsed.skillsToAcquire) && parsed.skillsToAcquire.length > 0 ? parsed.skillsToAcquire : defaultCalibratedDna.skillsToAcquire,
+            targetRoles: Array.isArray(parsed.targetRoles) && parsed.targetRoles.length > 0 ? parsed.targetRoles : defaultCalibratedDna.targetRoles,
+            recommendedActions: Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0 ? parsed.recommendedActions : defaultCalibratedDna.recommendedActions,
+          };
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (aiErr: any) {
       console.warn('AI Career DNA generation note (using calibrated baseline):', aiErr?.message || aiErr);
     }
 
-    // 4. Atomic Supabase Upsert into public.career_dna
+    // 4. Parallel Supabase Writes into public.career_dna and public.profiles
     const upsertRecord = {
       user_id: user.id,
       strengths: structuredResult.strengths,
@@ -205,25 +218,16 @@ Return ONLY the pure JSON object.`;
       updated_at: new Date().toISOString(),
     };
 
-    const { error: dbError } = await supabase
-      .from('career_dna')
-      .upsert(upsertRecord, { onConflict: 'user_id' });
-
-    if (dbError) {
-      console.warn('career_dna upsert note:', dbError.message);
-    }
-
-    // 5. Update public.profiles onboarding flag
-    await supabase
-      .from('profiles')
-      .update({
+    await Promise.all([
+      supabase.from('career_dna').upsert(upsertRecord, { onConflict: 'user_id' }),
+      supabase.from('profiles').update({
         onboarding_completed: true,
         target_role: targetRole,
         experience_level: experienceLevel,
         full_name: metadata.fullName || undefined,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+      }).eq('id', user.id),
+    ]).catch((err) => console.warn('Supabase DB write note:', err));
 
     return NextResponse.json({
       success: true,

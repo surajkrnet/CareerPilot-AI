@@ -5,13 +5,20 @@ import Lenis from 'lenis';
 
 export default function LenisProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    // Gracefully bypass if user requested reduced motion
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
     const lenis = new Lenis({
-      duration: 1.0,
+      duration: 0.85,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
-      touchMultiplier: 1.2,
+      wheelMultiplier: 1.0,
+      touchMultiplier: 1.0,
+      infinite: false,
     });
 
     let rafId: number;

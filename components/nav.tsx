@@ -136,9 +136,6 @@ export function Navigation() {
                   transition={{ duration: 0.18, ease: 'easeOut' }}
                   className="hidden md:flex items-center gap-8 font-mono text-xs text-[#3b3834] dark:text-[#dcd7cb]"
                 >
-                  <Link href="/#about" className="hover:text-[#cc785c] dark:hover:text-white transition-colors relative py-1 font-medium">
-                    About
-                  </Link>
                   <Link href="/#features" className="hover:text-[#cc785c] dark:hover:text-white transition-colors relative py-1 font-medium">
                     Features
                   </Link>
@@ -348,13 +345,6 @@ export function Navigation() {
               <nav className="space-y-2">
                 {isLandingPage ? (
                   <>
-                    <Link
-                      href="/#about"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 py-3 px-3.5 rounded-xl border border-[#ded7cb] dark:border-white/5 bg-[#ffffff] dark:bg-[#181716] text-[#121110] dark:text-white hover:text-[#cc785c] transition-colors font-display text-xl"
-                    >
-                      About Platform
-                    </Link>
                     <Link
                       href="/#features"
                       onClick={() => setMobileMenuOpen(false)}

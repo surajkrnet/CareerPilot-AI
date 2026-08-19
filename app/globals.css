@@ -1,3 +1,5 @@
+@import 'lenis/dist/lenis.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,11 +35,16 @@
   }
 
   .lenis.lenis-stopped {
-    overflow: hidden;
+    overflow: clip;
   }
 
   .lenis.lenis-scrolling iframe {
     pointer-events: none;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
   }
 
   /* Tinted Warm Linen Canvas Floor (Light Default with zero eye-strain glare) */
@@ -45,11 +52,11 @@
     background-color: #f6f4ee;
     color: #141413;
     font-family: var(--font-sans);
-    overflow-x: hidden;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 

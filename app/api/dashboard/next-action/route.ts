@@ -121,23 +121,31 @@ JSON Schema:
 }
 Return JSON only.`;
 
-      const aiPromise = generateText({
-        model: aiModel,
-        prompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2800);
 
-      const timeoutPromise = new Promise<{ text: string }>((resolve) =>
-        setTimeout(() => resolve({ text: JSON.stringify(defaultNextAction) }), 3000)
-      );
+      try {
+        const aiPromise = generateText({
+          model: aiModel,
+          prompt,
+          abortSignal: controller.signal,
+        });
 
-      const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
-      const parsed = extractAndParseJSON(aiResponse.text, defaultNextAction);
+        const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+          setTimeout(() => resolve({ text: JSON.stringify(defaultNextAction) }), 2800)
+        );
 
-      if (parsed?.title && parsed?.actionHref) {
-        nextAction = {
-          ...defaultNextAction,
-          ...parsed,
-        };
+        const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+        const parsed = extractAndParseJSON(aiResponse.text, defaultNextAction);
+
+        if (parsed?.title && parsed?.actionHref) {
+          nextAction = {
+            ...defaultNextAction,
+            ...parsed,
+          };
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (aiErr: any) {
       console.warn('Next Action AI notice:', aiErr?.message || aiErr);

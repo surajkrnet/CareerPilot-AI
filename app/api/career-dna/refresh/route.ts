@@ -118,22 +118,35 @@ Output a valid JSON object matching this exact schema:
 
 Return ONLY the valid JSON object.`;
 
-      const aiResponse = await generateText({
-        model: aiModel,
-        prompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const parsed = extractAndParseJSON(aiResponse.text, defaultDna);
+      try {
+        const aiPromise = generateText({
+          model: aiModel,
+          prompt,
+          abortSignal: controller.signal,
+        });
 
-      if (parsed && Array.isArray(parsed.strengths) && Array.isArray(parsed.currentSkills)) {
-        structuredResult = {
-          strengths: parsed.strengths.length > 0 ? parsed.strengths : defaultDna.strengths,
-          areasToImprove: Array.isArray(parsed.areasToImprove) && parsed.areasToImprove.length > 0 ? parsed.areasToImprove : defaultDna.areasToImprove,
-          currentSkills: parsed.currentSkills.length > 0 ? parsed.currentSkills : defaultDna.currentSkills,
-          skillsToAcquire: Array.isArray(parsed.skillsToAcquire) && parsed.skillsToAcquire.length > 0 ? parsed.skillsToAcquire : defaultDna.skillsToAcquire,
-          targetRoles: Array.isArray(parsed.targetRoles) && parsed.targetRoles.length > 0 ? parsed.targetRoles : defaultDna.targetRoles,
-          recommendedActions: Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0 ? parsed.recommendedActions : defaultDna.recommendedActions,
-        };
+        const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+          setTimeout(() => resolve({ text: JSON.stringify(defaultDna) }), 3000)
+        );
+
+        const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+        const parsed = extractAndParseJSON(aiResponse.text, defaultDna);
+
+        if (parsed && Array.isArray(parsed.strengths) && Array.isArray(parsed.currentSkills)) {
+          structuredResult = {
+            strengths: parsed.strengths.length > 0 ? parsed.strengths : defaultDna.strengths,
+            areasToImprove: Array.isArray(parsed.areasToImprove) && parsed.areasToImprove.length > 0 ? parsed.areasToImprove : defaultDna.areasToImprove,
+            currentSkills: parsed.currentSkills.length > 0 ? parsed.currentSkills : defaultDna.currentSkills,
+            skillsToAcquire: Array.isArray(parsed.skillsToAcquire) && parsed.skillsToAcquire.length > 0 ? parsed.skillsToAcquire : defaultDna.skillsToAcquire,
+            targetRoles: Array.isArray(parsed.targetRoles) && parsed.targetRoles.length > 0 ? parsed.targetRoles : defaultDna.targetRoles,
+            recommendedActions: Array.isArray(parsed.recommendedActions) && parsed.recommendedActions.length > 0 ? parsed.recommendedActions : defaultDna.recommendedActions,
+          };
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (aiErr: any) {
       console.warn('AI Career DNA refresh note:', aiErr?.message || aiErr);

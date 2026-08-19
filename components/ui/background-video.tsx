@@ -35,11 +35,28 @@ export function BackgroundVideo({
     const video = videoRef.current;
     if (!video) return;
 
+    // IntersectionObserver to pause playback when out of viewport for max GPU performance
+    let observer: IntersectionObserver | null = null;
+    if ('IntersectionObserver' in window) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              video.play().catch(() => {});
+            } else {
+              video.pause();
+            }
+          });
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(video);
+    }
+
     const attemptPlay = () => {
       video.play().then(() => {
         setIsLoaded(true);
       }).catch(() => {
-        // Autoplay policy fallback: ensure muted is set and retry
         video.muted = true;
         video.play().then(() => setIsLoaded(true)).catch(() => {});
       });
@@ -67,6 +84,7 @@ export function BackgroundVideo({
     attemptPlay();
 
     return () => {
+      if (observer) observer.disconnect();
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('loadedmetadata', handleCanPlay);
@@ -80,21 +98,21 @@ export function BackgroundVideo({
   };
 
   return (
-    <div className={twMerge(clsx('relative overflow-hidden w-full', className))}>
-      {/* HTML5 Video Element with autoPlay, loop, muted, playsInline, preload */}
+    <div className={twMerge(clsx('relative overflow-hidden w-full contain-paint', className))}>
+      {/* HTML5 Video Element with autoPlay, loop, muted, playsInline, preload, GPU acceleration */}
       <video
         ref={videoRef}
         autoPlay
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         poster={poster}
         onLoadedData={() => setIsLoaded(true)}
         onCanPlay={() => setIsLoaded(true)}
         onError={handleVideoError}
         style={{ opacity: isLoaded ? opacity : 0.8 }}
-        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 will-change-transform transform-gpu"
         key={currentSrc}
       >
         <source src={currentSrc} type="video/mp4" />

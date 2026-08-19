@@ -93,11 +93,23 @@ Candidate has joined the interview room for ${role}. Output a JSON object with:
 }
 Return pure JSON only.`;
 
-        const result = await generateText({
-          model: aiModel,
-          prompt,
-        });
-        resultObject = extractAndParseJSON(result.text, defaultStart);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        try {
+          const aiPromise = generateText({
+            model: aiModel,
+            prompt,
+            abortSignal: controller.signal,
+          });
+          const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+            setTimeout(() => resolve({ text: JSON.stringify(defaultStart) }), 3000)
+          );
+          const result = await Promise.race([aiPromise, timeoutPromise]);
+          resultObject = extractAndParseJSON(result.text, defaultStart);
+        } finally {
+          clearTimeout(timeoutId);
+        }
       } catch {
         resultObject = defaultStart;
       }
@@ -141,11 +153,23 @@ Output a JSON object with:
 }
 Return pure JSON only.`;
 
-        const result = await generateText({
-          model: aiModel,
-          prompt,
-        });
-        resultObject = extractAndParseJSON(result.text, fallbackTurn);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        try {
+          const aiPromise = generateText({
+            model: aiModel,
+            prompt,
+            abortSignal: controller.signal,
+          });
+          const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+            setTimeout(() => resolve({ text: JSON.stringify(fallbackTurn) }), 3000)
+          );
+          const result = await Promise.race([aiPromise, timeoutPromise]);
+          resultObject = extractAndParseJSON(result.text, fallbackTurn);
+        } finally {
+          clearTimeout(timeoutId);
+        }
       } catch (modelErr: any) {
         console.warn('AI Turn generation fallback note:', modelErr?.message || modelErr);
         resultObject = fallbackTurn;

@@ -111,29 +111,42 @@ Output a valid JSON object matching this exact structure:
 
 Return ONLY pure JSON.`;
 
-      const aiResponse = await generateText({
-        model: aiModel,
-        prompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const parsed = extractAndParseJSON(aiResponse.text, defaultAnalysis);
+      try {
+        const aiPromise = generateText({
+          model: aiModel,
+          prompt,
+          abortSignal: controller.signal,
+        });
 
-      if (parsed && typeof parsed.atsScore === 'number') {
-        const normalizeScore = (score: number) => {
-          if (typeof score !== 'number' || isNaN(score)) return 80;
-          if (score <= 1 && score > 0) return Math.round(score * 100);
-          return Math.min(100, Math.max(0, Math.round(score)));
-        };
+        const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+          setTimeout(() => resolve({ text: JSON.stringify(defaultAnalysis) }), 3500)
+        );
 
-        finalAnalysis = {
-          atsScore: normalizeScore(parsed.atsScore),
-          matchPercentage: normalizeScore(parsed.matchPercentage),
-          resumeStrengths: Array.isArray(parsed.resumeStrengths) && parsed.resumeStrengths.length ? parsed.resumeStrengths : defaultAnalysis.resumeStrengths,
-          areasOfImprovement: Array.isArray(parsed.areasOfImprovement) && parsed.areasOfImprovement.length ? parsed.areasOfImprovement : defaultAnalysis.areasOfImprovement,
-          missingKeywords: Array.isArray(parsed.missingKeywords) && parsed.missingKeywords.length ? parsed.missingKeywords : defaultAnalysis.missingKeywords,
-          actionableRecommendations: Array.isArray(parsed.actionableRecommendations) && parsed.actionableRecommendations.length ? parsed.actionableRecommendations : defaultAnalysis.actionableRecommendations,
-          starOptimizations: Array.isArray(parsed.starOptimizations) && parsed.starOptimizations.length ? parsed.starOptimizations : defaultAnalysis.starOptimizations,
-        };
+        const aiResponse = await Promise.race([aiPromise, timeoutPromise]);
+        const parsed = extractAndParseJSON(aiResponse.text, defaultAnalysis);
+
+        if (parsed && typeof parsed.atsScore === 'number') {
+          const normalizeScore = (score: number) => {
+            if (typeof score !== 'number' || isNaN(score)) return 80;
+            if (score <= 1 && score > 0) return Math.round(score * 100);
+            return Math.min(100, Math.max(0, Math.round(score)));
+          };
+
+          finalAnalysis = {
+            atsScore: normalizeScore(parsed.atsScore),
+            matchPercentage: normalizeScore(parsed.matchPercentage),
+            resumeStrengths: Array.isArray(parsed.resumeStrengths) && parsed.resumeStrengths.length ? parsed.resumeStrengths : defaultAnalysis.resumeStrengths,
+            areasOfImprovement: Array.isArray(parsed.areasOfImprovement) && parsed.areasOfImprovement.length ? parsed.areasOfImprovement : defaultAnalysis.areasOfImprovement,
+            missingKeywords: Array.isArray(parsed.missingKeywords) && parsed.missingKeywords.length ? parsed.missingKeywords : defaultAnalysis.missingKeywords,
+            actionableRecommendations: Array.isArray(parsed.actionableRecommendations) && parsed.actionableRecommendations.length ? parsed.actionableRecommendations : defaultAnalysis.actionableRecommendations,
+            starOptimizations: Array.isArray(parsed.starOptimizations) && parsed.starOptimizations.length ? parsed.starOptimizations : defaultAnalysis.starOptimizations,
+          };
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (aiErr: any) {
       console.warn('AI Resume analyze note (using calibrated fallback):', aiErr?.message || aiErr);
