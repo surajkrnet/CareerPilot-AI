@@ -323,58 +323,58 @@ export default function ResumeIntelligencePage() {
   const candidateDisplayName = userName || 'Candidate';
 
   return (
-    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-32 pb-16 px-4 sm:px-8 md:px-10 font-sans">
+    <main className="min-h-screen bg-[#f6f4ee] dark:bg-[#121110] text-[#121110] dark:text-[#faf9f5] pt-28 pb-20 px-4 sm:px-8 md:px-10 font-sans transition-colors duration-200">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#252320] pb-6 gap-4">
+        {/* Studio Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#ded7cb] dark:border-white/[0.08] pb-6 gap-4">
           <div>
-            <span className="text-xs uppercase tracking-widest text-[#cc785c] font-semibold flex items-center gap-1.5 font-mono">
-              <Briefcase className="w-3.5 h-3.5" /> Resume Intelligence Studio
+            <span className="text-xs uppercase tracking-widest text-[#cc785c] font-bold flex items-center gap-2 font-mono">
+              <Briefcase className="w-3.5 h-3.5" /> Resume Intelligence &amp; ATS Studio
             </span>
-            <h1 className="font-serif text-3xl md:text-5xl font-normal text-white mt-1">
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
               Resume Intelligence &amp; ATS Match
             </h1>
-            <p className="text-sm text-[#8e8b82] mt-1">
-              Evaluating candidate resume against target role requirements with AI Intelligence Engine (Gemma).
+            <p className="text-xs sm:text-sm text-[#57534e] dark:text-[#a09d96] mt-1 font-medium">
+              Cross-evaluating candidate resume against target role requirements with AI Intelligence Engine.
             </p>
           </div>
 
           <button
             onClick={handleAnalyzeFit}
             disabled={loading || initialLoading || isParsingFile || isParsingJdFile}
-            className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-6 py-3 rounded-md font-medium text-sm transition-all flex items-center gap-2 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg font-mono"
+            className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-7 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2.5 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] font-mono coral-glow-subtle"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? 'Analyzing with Gemma...' : 'Analyze Fit with AI Agent'}
+            <span>{loading ? 'Analyzing with AI...' : 'Analyze Fit with AI'}</span>
           </button>
         </div>
 
         {/* Upload Parsing Error Banners */}
         {uploadError && (
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2.5 shadow-sm font-medium">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
             <span>{uploadError}</span>
           </div>
         )}
 
         {jdUploadError && (
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2.5 shadow-sm font-medium">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
             <span>{jdUploadError}</span>
           </div>
         )}
 
-        {/* Real Live Analysis Status Notification */}
+        {/* Analysis Status Notification */}
         {analysisError && (
-          <div className="p-3.5 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-lg text-[#faf9f5] text-xs flex items-center justify-between gap-3 shadow-md">
+          <div className="p-4 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-xl text-[#121110] dark:text-[#faf9f5] text-xs flex items-center justify-between gap-3 shadow-md">
             <div className="flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 text-[#cc785c]" />
-              <span className="text-[#e6dfd8]">{analysisError}</span>
+              <span className="text-[#2d2a26] dark:text-[#e6dfd8] font-medium">{analysisError}</span>
             </div>
             <button
               onClick={() => setAnalysisError(null)}
-              className="text-[#a09d96] hover:text-white text-xs font-mono cursor-pointer"
+              className="text-[#57534e] dark:text-[#a09d96] hover:text-[#121110] dark:hover:text-white text-xs font-mono cursor-pointer font-bold"
             >
               Dismiss
             </button>
@@ -385,24 +385,24 @@ export default function ResumeIntelligencePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Left: Candidate Resume (Dual Source Toggle) */}
-          <div className="bg-[#181715] border border-[#252320] rounded-xl p-5 space-y-4 shadow-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252320] pb-3">
+          <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
               <div>
-                <h3 className="font-serif text-lg text-white">
+                <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">
                   Candidate Resume ({candidateDisplayName})
                 </h3>
-                <span className="text-xs text-[#8e8b82]">Select source or upload PDF</span>
+                <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Select source or upload PDF</span>
               </div>
 
               {/* Source Toggle */}
-              <div className="flex items-center bg-[#1f1e1b] p-1 rounded-lg border border-[#3d3d3a]">
+              <div className="flex items-center bg-[#f0ebe1] dark:bg-[#201e1c] p-1 rounded-xl border border-[#ded7cb] dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('stored')}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                     inputMode === 'stored'
-                      ? 'bg-[#cc785c] text-white shadow-sm'
-                      : 'text-[#8e8b82] hover:text-white'
+                      ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                      : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                   }`}
                 >
                   <Database className="w-3 h-3" /> Stored Resume
@@ -410,10 +410,10 @@ export default function ResumeIntelligencePage() {
                 <button
                   type="button"
                   onClick={() => handleModeSwitch('upload')}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                     inputMode === 'upload'
-                      ? 'bg-[#cc785c] text-white shadow-sm'
-                      : 'text-[#8e8b82] hover:text-white'
+                      ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                      : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                   }`}
                 >
                   <UploadCloud className="w-3 h-3" /> Upload PDF
@@ -424,7 +424,7 @@ export default function ResumeIntelligencePage() {
             {inputMode === 'upload' && (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="p-3.5 bg-[#1f1e1b] border border-dashed border-[#3d3d3a] hover:border-[#cc785c] rounded-lg flex items-center justify-between cursor-pointer transition-colors"
+                className="p-4 bg-[#f6f4ee] dark:bg-[#201e1c] border border-dashed border-[#ded7cb] dark:border-white/15 hover:border-[#cc785c] rounded-xl flex items-center justify-between cursor-pointer transition-colors"
               >
                 <input
                   ref={fileInputRef}
@@ -433,18 +433,18 @@ export default function ResumeIntelligencePage() {
                   onChange={handleResumeFileUpload}
                   className="hidden"
                 />
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-[#181715] flex items-center justify-center text-[#cc785c]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
                     {isParsingFile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-white">
+                    <p className="text-xs font-semibold text-[#121110] dark:text-white">
                       {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Resume (PDF / TXT)'}
                     </p>
-                    <p className="text-[10px] text-[#8e8b82]">Parses plain text server-side without binary corruption</p>
+                    <p className="text-[10px] text-[#57534e] dark:text-[#8e8b82]">Parses plain text server-side without binary corruption</p>
                   </div>
                 </div>
-                <span className="text-xs text-[#cc785c] font-mono hover:underline">Choose File ↗</span>
+                <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
               </div>
             )}
 
@@ -452,29 +452,29 @@ export default function ResumeIntelligencePage() {
               value={resumeText}
               onChange={(e) => setResumeText(e.target.value)}
               placeholder={initialLoading ? "Loading candidate resume from database..." : "Paste or review your resume plain text here..."}
-              className="w-full h-72 bg-[#1f1e1b] border border-[#3d3d3a] rounded-md p-4 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner"
+              className="w-full h-72 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner"
             />
           </div>
 
           {/* Right: Target Job Description (Upload JD / Paste / AI Match) */}
-          <div className="bg-[#181715] border border-[#252320] rounded-xl p-5 space-y-4 shadow-md flex flex-col justify-between">
+          <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-md flex flex-col justify-between">
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252320] pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
                 <div>
-                  <h3 className="font-serif text-lg text-white">Target Job Description (JD)</h3>
-                  <span className="text-xs text-[#8e8b82]">Upload JD document or paste requirements</span>
+                  <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">Target Job Description (JD)</h3>
+                  <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Upload JD document or paste requirements</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {/* JD Input Mode Toggle */}
-                  <div className="flex items-center bg-[#1f1e1b] p-1 rounded-lg border border-[#3d3d3a]">
+                  <div className="flex items-center bg-[#f0ebe1] dark:bg-[#201e1c] p-1 rounded-xl border border-[#ded7cb] dark:border-white/10">
                     <button
                       type="button"
                       onClick={() => setJdInputMode('paste')}
-                      className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
                         jdInputMode === 'paste'
-                          ? 'bg-[#cc785c] text-white shadow-sm'
-                          : 'text-[#8e8b82] hover:text-white'
+                          ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                          : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                       }`}
                     >
                       <FileText className="w-3 h-3" /> Paste JD
@@ -482,10 +482,10 @@ export default function ResumeIntelligencePage() {
                     <button
                       type="button"
                       onClick={() => setJdInputMode('upload')}
-                      className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
                         jdInputMode === 'upload'
-                          ? 'bg-[#cc785c] text-white shadow-sm'
-                          : 'text-[#8e8b82] hover:text-white'
+                          ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                          : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                       }`}
                     >
                       <UploadCloud className="w-3 h-3" /> Upload JD
@@ -497,11 +497,11 @@ export default function ResumeIntelligencePage() {
                     type="button"
                     onClick={() => handleSuggestJds()}
                     disabled={isSuggestingJds || !resumeText.trim()}
-                    className="bg-[#1f1e1b] hover:bg-[#252320] border border-[#3d3d3a] hover:border-[#cc785c] text-[#faf9f5] px-2 py-1 rounded-md text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-sm"
+                    className="bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c] text-[#121110] dark:text-[#faf9f5] px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-sm"
                     title="Generate tailored role descriptions based on active resume"
                   >
                     <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isSuggestingJds ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">{isSuggestingJds ? 'Matching...' : 'Auto-Match'}</span>
+                    <span className="hidden sm:inline font-medium">{isSuggestingJds ? 'Matching...' : 'Auto-Match'}</span>
                   </button>
                 </div>
               </div>
@@ -510,7 +510,7 @@ export default function ResumeIntelligencePage() {
               {jdInputMode === 'upload' && (
                 <div
                   onClick={() => jdFileInputRef.current?.click()}
-                  className="mt-3 p-3.5 bg-[#1f1e1b] border border-dashed border-[#3d3d3a] hover:border-[#cc785c] rounded-lg flex items-center justify-between cursor-pointer transition-colors"
+                  className="mt-3 p-4 bg-[#f6f4ee] dark:bg-[#201e1c] border border-dashed border-[#ded7cb] dark:border-white/15 hover:border-[#cc785c] rounded-xl flex items-center justify-between cursor-pointer transition-colors"
                 >
                   <input
                     ref={jdFileInputRef}
@@ -519,32 +519,32 @@ export default function ResumeIntelligencePage() {
                     onChange={handleJdFileUpload}
                     className="hidden"
                   />
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded bg-[#181715] flex items-center justify-center text-[#cc785c]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
                       {isParsingJdFile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-white">
+                      <p className="text-xs font-semibold text-[#121110] dark:text-white">
                         {uploadedJdFileName ? `Loaded: ${uploadedJdFileName}` : 'Click to Upload Target JD (PDF / TXT)'}
                       </p>
-                      <p className="text-[10px] text-[#8e8b82]">Extracts job requirements and role stack automatically</p>
+                      <p className="text-[10px] text-[#57534e] dark:text-[#8e8b82]">Extracts job requirements and role stack automatically</p>
                     </div>
                   </div>
-                  <span className="text-xs text-[#cc785c] font-mono hover:underline">Choose File ↗</span>
+                  <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
                 </div>
               )}
 
-              {/* Dynamic AI Suggested Role Chips (Shown only when generated) */}
+              {/* Dynamic AI Suggested Role Chips */}
               {suggestedJds.length > 0 && (
-                <div className="mt-3 space-y-1.5">
+                <div className="mt-3.5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-[#a09d96] flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-[#cc785c]" /> Tailored Roles for Your Stack:
+                    <span className="text-[11px] font-mono text-[#57534e] dark:text-[#a09d96] flex items-center gap-1.5 font-bold">
+                      <Layers className="w-3.5 h-3.5 text-[#cc785c]" /> Tailored Roles for Your Stack:
                     </span>
-                    <span className="text-[10px] font-mono text-[#8e8b82]">Click chip to load JD</span>
+                    <span className="text-[10px] font-mono text-[#57534e] dark:text-[#8e8b82]">Click chip to load JD</span>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {suggestedJds.map((item, idx) => {
                       const isSelected = selectedJdLabel === item.label;
                       return (
@@ -552,10 +552,10 @@ export default function ResumeIntelligencePage() {
                           key={idx}
                           type="button"
                           onClick={() => handleSelectSuggestedJd(item)}
-                          className={`text-xs px-2.5 py-1 rounded-md border transition-all flex items-center gap-1.5 cursor-pointer font-mono ${
+                          className={`text-xs px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer font-mono ${
                             isSelected
-                              ? 'bg-[#cc785c] text-white border-[#cc785c] font-semibold shadow-md'
-                              : 'bg-[#1f1e1b] text-[#dcd7cb] border-[#3d3d3a] hover:border-[#cc785c]'
+                              ? 'bg-[#cc785c] text-white border-[#cc785c] font-bold shadow-md'
+                              : 'bg-[#f6f4ee] dark:bg-[#201e1c] text-[#121110] dark:text-[#dcd7cb] border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c]'
                           }`}
                           title={`${item.roleTitle} (${item.companyType})`}
                         >
@@ -576,50 +576,50 @@ export default function ResumeIntelligencePage() {
                 setSelectedJdLabel(null);
               }}
               placeholder="Target Job Description will appear here. Upload a JD file above, paste text directly, or click 'Auto-Match'..."
-              className="w-full h-64 bg-[#1f1e1b] border border-[#3d3d3a] rounded-md p-4 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-2"
+              className="w-full h-64 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-3"
             />
           </div>
 
         </div>
 
-        {/* Dynamic Output Section (Renders only when live analysis is present) */}
+        {/* Dynamic Output Section */}
         {analysis && (
-          <div className="space-y-6 pt-4 border-t border-[#252320]">
+          <div className="space-y-8 pt-6 border-t border-[#ded7cb] dark:border-white/[0.08]">
             
             {/* Top Metrics Banner & Launch Mock Interview CTA */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* ATS Score Gauge */}
-              <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl flex items-center justify-between shadow-md">
+              <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 rounded-2xl flex items-center justify-between shadow-md">
                 <div>
-                  <span className="text-xs uppercase font-mono text-[#8e8b82]">Overall ATS Score</span>
-                  <div className="text-4xl font-serif text-white mt-1">{analysis.atsScore}/100</div>
-                  <p className="text-xs text-[#8e8b82] mt-1">Single-column parse rate and hard skill alignment.</p>
+                  <span className="text-xs uppercase font-mono text-[#57534e] dark:text-[#8e8b82] font-semibold">Overall ATS Score</span>
+                  <div className="text-4xl font-display font-bold text-[#121110] dark:text-white mt-1">{analysis.atsScore}/100</div>
+                  <p className="text-xs text-[#57534e] dark:text-[#8e8b82] mt-1 font-medium">Single-column parse rate &amp; skill alignment.</p>
                 </div>
-                <div className="w-16 h-16 rounded-full border-4 border-[#cc785c] flex items-center justify-center font-bold text-lg text-[#cc785c] shadow-md">
+                <div className="w-16 h-16 rounded-2xl border-2 border-[#cc785c] bg-[#cc785c]/10 flex items-center justify-center font-bold text-xl text-[#cc785c] shadow-inner font-mono">
                   {analysis.atsScore}%
                 </div>
               </div>
 
               {/* Match Percentage Gauge */}
-              <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl flex items-center justify-between shadow-md">
+              <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 rounded-2xl flex items-center justify-between shadow-md">
                 <div>
-                  <span className="text-xs uppercase font-mono text-[#8e8b82]">JD Match Percentage</span>
-                  <div className="text-4xl font-serif text-emerald-400 mt-1">{analysis.matchPercentage}%</div>
-                  <p className="text-xs text-[#8e8b82] mt-1">Semantic domain and experience relevance.</p>
+                  <span className="text-xs uppercase font-mono text-[#57534e] dark:text-[#8e8b82] font-semibold">JD Match Percentage</span>
+                  <div className="text-4xl font-display font-bold text-[#2e8544] dark:text-emerald-400 mt-1">{analysis.matchPercentage}%</div>
+                  <p className="text-xs text-[#57534e] dark:text-[#8e8b82] mt-1 font-medium">Semantic domain and experience relevance.</p>
                 </div>
-                <div className="w-16 h-16 rounded-full border-4 border-emerald-500 flex items-center justify-center font-bold text-lg text-emerald-400 shadow-md">
+                <div className="w-16 h-16 rounded-2xl border-2 border-[#2e8544] dark:border-emerald-500 bg-emerald-500/10 flex items-center justify-center font-bold text-xl text-[#2e8544] dark:text-emerald-400 shadow-inner font-mono">
                   {analysis.matchPercentage}%
                 </div>
               </div>
 
               {/* Primary Warm Coral Action Transition CTA */}
-              <div className="bg-[#cc785c] text-white p-6 rounded-xl flex flex-col justify-between shadow-lg">
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider bg-black/20 px-2 py-0.5 rounded inline-block font-mono">
+              <div className="bg-gradient-to-br from-[#cc785c] to-[#b86247] text-white p-6 rounded-2xl flex flex-col justify-between shadow-xl coral-glow-subtle border border-white/20">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold tracking-widest bg-black/25 px-2.5 py-0.5 rounded-full inline-block font-mono border border-white/20">
                     ⚡ Tailored Interview Ready
                   </span>
-                  <h3 className="font-serif text-xl font-medium text-white">Practice Role-Grounded Drills</h3>
+                  <h3 className="font-display text-2xl font-bold text-white tracking-tight">Practice Role-Grounded Drills</h3>
                   <p className="text-xs text-white/90 leading-relaxed">
                     Test your actual project trade-offs in live multi-turn technical rounds tailored to this JD.
                   </p>
@@ -627,7 +627,7 @@ export default function ResumeIntelligencePage() {
 
                 <Link
                   href={`/interview${latestScanId ? `?scanId=${latestScanId}` : ''}`}
-                  className="mt-4 inline-flex items-center justify-center gap-2 bg-[#181715] hover:bg-[#1f1e1b] text-white px-4 py-2.5 rounded-lg text-xs font-mono font-bold tracking-wider transition-all shadow-md"
+                  className="mt-4 inline-flex items-center justify-center gap-2 bg-[#121110] hover:bg-[#201e1c] text-white px-5 py-3 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-md active:scale-98"
                 >
                   <span>Launch Interview Studio</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -640,16 +640,16 @@ export default function ResumeIntelligencePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Strengths & Matching Signals */}
-              <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl space-y-4 shadow-md">
-                <div className="flex items-center gap-2 border-b border-[#252320] pb-3">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <h3 className="font-serif text-lg text-white">Resume Strengths &amp; Alignment</h3>
+              <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 sm:p-7 rounded-2xl space-y-4 shadow-md">
+                <div className="flex items-center gap-2.5 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
+                  <CheckCircle2 className="w-5 h-5 text-[#2e8544] dark:text-emerald-400" />
+                  <h3 className="font-display text-xl font-bold text-[#121110] dark:text-white">Resume Strengths &amp; Alignment</h3>
                 </div>
 
-                <ul className="space-y-2.5 text-xs text-[#dcd7cb]">
+                <ul className="space-y-2.5 text-xs text-[#2d2a26] dark:text-[#dcd7cb] font-medium">
                   {analysis.resumeStrengths?.map((strength: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold mt-0.5">•</span>
+                    <li key={idx} className="flex items-start gap-2.5">
+                      <span className="text-[#2e8544] dark:text-[#5db872] font-bold mt-0.5">•</span>
                       <span className="leading-relaxed">{strength}</span>
                     </li>
                   ))}
@@ -657,13 +657,13 @@ export default function ResumeIntelligencePage() {
               </div>
 
               {/* Critical Missing Keywords & ATS Gaps */}
-              <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl space-y-4 shadow-md">
-                <div className="flex items-center justify-between border-b border-[#252320] pb-3">
-                  <div className="flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-[#cc785c]" />
-                    <h3 className="font-serif text-lg text-white">Missing Keywords in JD</h3>
+              <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 sm:p-7 rounded-2xl space-y-4 shadow-md">
+                <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <KeyRound className="w-5 h-5 text-[#cc785c]" />
+                    <h3 className="font-display text-xl font-bold text-[#121110] dark:text-white">Missing Keywords in JD</h3>
                   </div>
-                  <span className="text-xs font-mono text-[#cc785c] bg-[#cc785c]/10 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono text-[#cc785c] bg-[#cc785c]/10 px-2.5 py-0.5 rounded-md font-bold">
                     {analysis.missingKeywords?.length || 0} Gaps Detected
                   </span>
                 </div>
@@ -672,7 +672,7 @@ export default function ResumeIntelligencePage() {
                   {analysis.missingKeywords?.map((kw: string, idx: number) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded bg-[#1f1e1b] border border-[#cc785c]/30 text-[#cc785c] text-xs font-mono"
+                      className="px-3 py-1.5 rounded-lg bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#cc785c]/30 text-[#cc785c] text-xs font-mono font-bold shadow-sm"
                     >
                       + {kw}
                     </span>
@@ -683,18 +683,18 @@ export default function ResumeIntelligencePage() {
             </div>
 
             {/* STAR-Method Bullet Point Optimization Workbench */}
-            <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl space-y-6 shadow-md">
-              <div className="flex items-center justify-between border-b border-[#252320] pb-3">
+            <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 sm:p-8 rounded-2xl space-y-6 shadow-md">
+              <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-4">
                 <div>
-                  <h3 className="font-serif text-xl text-white">
+                  <h3 className="font-display text-2xl font-bold text-[#121110] dark:text-white">
                     STAR-Method Bullet Point Optimization Workbench
                   </h3>
-                  <p className="text-xs text-[#8e8b82] mt-0.5">
+                  <p className="text-xs sm:text-sm text-[#57534e] dark:text-[#8e8b82] mt-0.5 font-medium">
                     Transform weak project descriptions into metric-driven achievements (Situation/Task, Action, Result).
                   </p>
                 </div>
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-                  Gemma Evaluated
+                <span className="text-xs font-mono text-[#2e8544] dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-bold">
+                  AI Evaluated
                 </span>
               </div>
 
@@ -702,40 +702,40 @@ export default function ResumeIntelligencePage() {
                 {analysis.starOptimizations?.map((item: any, idx: number) => (
                   <div
                     key={idx}
-                    className="p-5 rounded-lg bg-[#1f1e1b] border border-[#2e2d29] space-y-3 shadow-inner"
+                    className="p-5 sm:p-6 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 space-y-3.5 shadow-sm"
                   >
-                    <div className="space-y-1">
-                      <span className="text-[10px] uppercase font-mono tracking-widest text-[#8e8b82]">
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] uppercase font-mono tracking-widest text-[#57534e] dark:text-[#8e8b82] font-bold">
                         Original Bullet (Weak / Unquantified)
                       </span>
-                      <p className="text-xs font-mono text-[#8e8b82] bg-[#181715] p-2.5 rounded border border-[#252320]">
+                      <p className="text-xs font-mono text-[#57534e] dark:text-[#8e8b82] bg-[#ffffff] dark:bg-[#181716] p-3 rounded-lg border border-[#ded7cb] dark:border-white/5 line-through opacity-80 font-medium">
                         &quot;{item.originalBullet}&quot;
                       </p>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-bold">
+                        <span className="text-[10px] uppercase font-mono tracking-widest text-[#2e8544] dark:text-emerald-400 font-bold flex items-center gap-1.5">
                           ✨ AI STAR-Optimized Version (Ready to paste)
                         </span>
                         <button
                           onClick={() => handleCopy(item.starOptimizedBullet, idx)}
-                          className="text-xs font-mono text-[#cc785c] hover:text-[#a9583e] flex items-center gap-1 cursor-pointer transition-colors"
+                          className="text-xs font-mono text-[#cc785c] hover:text-[#a9583e] flex items-center gap-1.5 cursor-pointer transition-colors font-bold"
                         >
-                          {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-[#2e8544] dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{copiedIdx === idx ? 'Copied!' : 'Copy Bullet'}</span>
                         </button>
                       </div>
-                      <p className="text-xs font-mono text-white bg-[#181715] p-3 rounded border border-emerald-500/30 leading-relaxed font-medium">
+                      <p className="text-xs font-mono text-[#121110] dark:text-white bg-[#ffffff] dark:bg-[#181716] p-3.5 rounded-lg border border-emerald-500/30 leading-relaxed font-bold shadow-inner">
                         {item.starOptimizedBullet}
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                      <span className="text-emerald-400 font-mono font-semibold">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] font-mono">
+                      <span className="text-[#2e8544] dark:text-emerald-400 font-bold">
                         Impact Metric: {item.metricImpact}
                       </span>
-                      <span className="text-[#8e8b82] italic">
+                      <span className="text-[#57534e] dark:text-[#8e8b82] italic font-medium">
                         Rationale: {item.rationale}
                       </span>
                     </div>
@@ -745,13 +745,13 @@ export default function ResumeIntelligencePage() {
             </div>
 
             {/* Strategic Actionable Next Steps */}
-            <div className="bg-[#181715] border border-[#252320] p-6 rounded-xl space-y-4 shadow-md">
-              <h3 className="font-serif text-lg text-white">Actionable Next Steps for this Role</h3>
+            <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] p-6 sm:p-8 rounded-2xl space-y-4 shadow-md">
+              <h3 className="font-display text-xl font-bold text-[#121110] dark:text-white">Actionable Next Steps for this Role</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {analysis.actionableRecommendations?.map((rec: string, idx: number) => (
-                  <div key={idx} className="p-4 rounded-lg bg-[#1f1e1b] border border-[#2e2d29] space-y-1.5">
+                  <div key={idx} className="p-4 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 space-y-1.5">
                     <span className="text-xs font-bold text-[#cc785c] font-mono">0{idx + 1}.</span>
-                    <p className="text-xs text-[#dcd7cb] leading-relaxed">{rec}</p>
+                    <p className="text-xs text-[#2d2a26] dark:text-[#dcd7cb] leading-relaxed font-medium">{rec}</p>
                   </div>
                 ))}
               </div>

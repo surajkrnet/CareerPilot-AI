@@ -3,18 +3,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, Shield, Cpu, ExternalLink, Heart } from 'lucide-react';
+import { Cpu, ExternalLink, Shield } from 'lucide-react';
 
 export function Footer() {
   const pathname = usePathname();
-  const isLandingPage = pathname === '/';
 
   return (
-    <footer className="mt-auto bg-[#141210] text-[#a09d96] border-t border-white/10 pt-16 pb-12 px-4 sm:px-8 font-sans">
+    <footer className="mt-auto bg-[#ede8df] dark:bg-[#141210] text-[#57534e] dark:text-[#a09d96] border-t border-[#ded7cb] dark:border-white/10 pt-16 pb-12 px-4 sm:px-8 font-sans transition-colors duration-200">
       <div className="max-w-[1400px] mx-auto space-y-12">
         
-        {/* Main 4-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/10">
+        {/* Main 5-Column Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#ded7cb] dark:border-white/10">
           
           {/* Col 1 & 2: Brand Identity & Trust Statement */}
           <div className="lg:col-span-2 space-y-4">
@@ -22,18 +21,18 @@ export function Footer() {
               <div className="w-8 h-8 rounded-lg bg-[#cc785c] text-white flex items-center justify-center font-mono font-bold text-sm shadow-md">
                 CP
               </div>
-              <span className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#faf9f5] group-hover:text-[#cc785c] transition-colors uppercase">
+              <span className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] group-hover:text-[#cc785c] transition-colors uppercase">
                 CAREERPILOT<span className="text-[#cc785c]"> AI</span>
               </span>
             </Link>
 
-            <p className="text-xs text-[#a09d96] leading-relaxed max-w-sm">
+            <p className="text-xs text-[#57534e] dark:text-[#a09d96] leading-relaxed max-w-sm font-medium">
               Your Autonomous AI Career Operating System. Craft verified Career DNA, optimize resumes with ATS precision, practice live STAR mock interviews, and land dream offers.
             </p>
 
             {/* Tech Trust Badge */}
             <div className="pt-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-[11px] font-mono text-[#faf9f5]">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#ffffff] dark:bg-[#1f1e1b] border border-[#ded7cb] dark:border-white/10 text-[11px] font-mono text-[#121110] dark:text-[#faf9f5] shadow-sm font-semibold">
                 <Cpu className="w-3.5 h-3.5 text-[#cc785c]" />
                 <span>Built with Next.js, Supabase &amp; OpenRouter</span>
               </div>
@@ -42,10 +41,10 @@ export function Footer() {
 
           {/* Col 3: Product Suite */}
           <div className="space-y-3">
-            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#121110] dark:text-[#faf9f5] font-bold">
               Product Suite
             </h4>
-            <ul className="space-y-2 text-xs font-mono">
+            <ul className="space-y-2 text-xs font-mono font-medium">
               <li>
                 <Link href="/#features" className="hover:text-[#cc785c] transition-colors">
                   Core Features
@@ -62,7 +61,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/resume" className="hover:text-[#cc785c] transition-colors">
+                <Link href="/resume-intelligence" className="hover:text-[#cc785c] transition-colors">
                   ATS Resume Scanner
                 </Link>
               </li>
@@ -86,10 +85,10 @@ export function Footer() {
 
           {/* Col 4: Company & Resources */}
           <div className="space-y-3">
-            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#121110] dark:text-[#faf9f5] font-bold">
               Company
             </h4>
-            <ul className="space-y-2 text-xs font-mono">
+            <ul className="space-y-2 text-xs font-mono font-medium">
               <li>
                 <Link href="/#section-introduce" className="hover:text-[#cc785c] transition-colors">
                   About Mission
@@ -103,7 +102,7 @@ export function Footer() {
                   className="hover:text-[#cc785c] transition-colors flex items-center gap-1"
                 >
                   <span>GitHub Repository</span>
-                  <ExternalLink className="w-3 h-3 text-[#6c6a64]" />
+                  <ExternalLink className="w-3 h-3 text-[#57534e]" />
                 </a>
               </li>
               <li>
@@ -114,7 +113,7 @@ export function Footer() {
                   className="hover:text-[#cc785c] transition-colors flex items-center gap-1"
                 >
                   <span>LinkedIn Showcase</span>
-                  <ExternalLink className="w-3 h-3 text-[#6c6a64]" />
+                  <ExternalLink className="w-3 h-3 text-[#57534e]" />
                 </a>
               </li>
               <li>
@@ -130,27 +129,27 @@ export function Footer() {
 
           {/* Col 5: Legal & Responsible AI */}
           <div className="space-y-3">
-            <h4 className="font-mono text-xs uppercase tracking-widest text-[#faf9f5] font-semibold">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#121110] dark:text-[#faf9f5] font-bold">
               Trust &amp; Privacy
             </h4>
-            <ul className="space-y-2 text-xs font-mono">
+            <ul className="space-y-2 text-xs font-mono font-medium">
               <li>
-                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                <span className="text-[#57534e] dark:text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
                   Privacy Policy
                 </span>
               </li>
               <li>
-                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                <span className="text-[#57534e] dark:text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
                   Terms of Service
                 </span>
               </li>
               <li>
-                <span className="text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
+                <span className="text-[#57534e] dark:text-[#a09d96] hover:text-[#cc785c] cursor-pointer">
                   Responsible AI Guidelines
                 </span>
               </li>
               <li>
-                <Link href="/settings" className="text-[#cc785c] hover:underline flex items-center gap-1">
+                <Link href="/settings" className="text-[#cc785c] hover:underline flex items-center gap-1 font-bold">
                   <span>Data Privacy &amp; Deletion</span>
                   <Shield className="w-3 h-3" />
                 </Link>
@@ -161,12 +160,12 @@ export function Footer() {
         </div>
 
         {/* Bottom Copyright Row */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6c6a64]">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#57534e] font-medium">
           <p>© 2026 Suraj K R — CareerPilot AI. All rights reserved.</p>
           <div className="flex items-center gap-2">
-            <span>Crafted with precision for Indian &amp; Global Tech Aspirants</span>
+            <span>Crafted for Indian &amp; Global Tech Aspirants</span>
             <span className="text-[#cc785c]">•</span>
-            <span className="text-[#faf9f5] font-semibold">Bengaluru, India</span>
+            <span className="text-[#121110] dark:text-[#faf9f5] font-bold">Bengaluru, India</span>
           </div>
         </div>
 

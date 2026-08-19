@@ -127,7 +127,7 @@ export default function DashboardView({
     actionHref: string;
   } | null>(null);
 
-  // Mount client-side & retrieve onboarding name & cached DNA
+  // Mount client-side & retrieve onboarding name & cached DNA (runs once on mount)
   useEffect(() => {
     setMounted(true);
     let rawSavedDna: string | null = null;
@@ -151,16 +151,25 @@ export default function DashboardView({
             setCurrentCareerDna(parsedDna);
           }
         }
+
+        // Check sessionStorage cache for Next-Best Action first for zero-lag instant rendering
+        const cachedAction = sessionStorage.getItem('careerpilot_next_action');
+        if (cachedAction) {
+          try {
+            setDynamicAction(JSON.parse(cachedAction));
+            return;
+          } catch {}
+        }
       } catch (e) {
         console.warn('Cache read notice:', e);
       }
 
-      // Fetch prioritized AI Next-Best Action from AI Intelligence Engine (Gemma) API
+      // Fetch prioritized AI Next-Best Action from API once
       let localDnaObj = null;
       try {
         if (rawSavedDna) localDnaObj = JSON.parse(rawSavedDna);
       } catch {}
-      const dnaPayload = currentCareerDna || careerDnaData || localDnaObj;
+      const dnaPayload = careerDnaData || localDnaObj;
 
       fetch('/api/dashboard/next-action', {
         method: 'POST',
@@ -172,13 +181,17 @@ export default function DashboardView({
       })
         .then((res) => res.json())
         .then((data) => {
-          if (data.nextAction || data.recommendation) {
-            setDynamicAction(data.nextAction || data.recommendation);
+          const action = data.nextAction || data.recommendation;
+          if (action) {
+            setDynamicAction(action);
+            try {
+              sessionStorage.setItem('careerpilot_next_action', JSON.stringify(action));
+            } catch {}
           }
         })
         .catch((err) => console.warn('Next-action fetch notice:', err));
     }
-  }, [careerDnaData, currentCareerDna, userEmail]);
+  }, []);
 
   // Handler to refresh Career DNA on-demand via live AI re-synthesis
   const handleRefreshCareerDna = async () => {
@@ -427,88 +440,110 @@ export default function DashboardView({
     );
   }
 
+  // Compute dynamic greeting based on current local hour
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-32 pb-16 space-y-10">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-8 pt-28 pb-20 space-y-8 text-[#141413] dark:text-[#faf9f5]">
       
-      {/* 1. HEADER ROW: CANDIDATE CAREER IDENTITY, REFRESH ACTION & EVALUATED STATS */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-6 sm:p-8 rounded-xl bg-[#252320] border border-white/10 shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-[#1f1e1b] border-2 border-[#cc785c] flex items-center justify-center font-display text-2xl font-bold text-[#faf9f5] shadow-sm shrink-0">
-            {effectiveDisplayName.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-display text-2xl sm:text-3xl text-[#faf9f5]">
-                Welcome back, {effectiveDisplayName}
-              </h1>
-              <Badge variant="coral" size="sm">{experienceLevel}</Badge>
-            </div>
-            <p className="text-sm font-medium text-[#cc785c]">{primaryTargetRole}</p>
-            <p className="text-xs text-[#8e8b82] flex flex-wrap items-center gap-2">
-              <span>Target: <strong className="text-[#faf9f5]">{primaryTargetRole}</strong></span>
-              <span>•</span>
-              <span>Location: <strong className="text-[#faf9f5]">{location} ({workPreference})</strong></span>
-              <span>•</span>
-              <span>Degree: <strong className="text-[#faf9f5]">{education}</strong></span>
-            </p>
-          </div>
-        </div>
-
-        {/* Real Evaluated Metrics (ATS Score + Real Interview Ready Score) */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-4 md:pt-0 flex-wrap">
+      {/* 1. EXECUTIVE COMMAND HEADER */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="relative overflow-hidden p-6 sm:p-8 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] shadow-md dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
+      >
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
           
-          {/* ATS Score Evaluated Metric */}
-          <Link
-            href="/resume-intelligence"
-            className="text-center px-4 py-2.5 bg-[#1f1e1b] hover:bg-[#282622] rounded-lg border border-white/10 hover:border-[#cc785c] transition-all cursor-pointer group"
-            title="View full ATS Score breakdown and keyword analysis"
-          >
-            <div className="text-xl font-bold text-[#cc785c] font-sans group-hover:scale-105 transition-transform">
-              {realAtsScore !== null ? `${realAtsScore}/100` : '--'}
+          {/* Identity & Status */}
+          <div className="flex items-center gap-4 sm:gap-5">
+            <div className="relative">
+              <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-br from-[#f0ebe1] to-[#e4dcce] dark:from-[#252320] dark:to-[#1c1b19] border-2 border-[#cc785c] flex items-center justify-center font-display text-2xl sm:text-3xl font-bold text-[#cc785c] dark:text-[#faf9f5] shadow-md">
+                {effectiveDisplayName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#2e8544] dark:bg-[#5db872] border-2 border-white dark:border-[#181716] flex items-center justify-center" title="Career DNA Active & Grounded">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              </div>
             </div>
-            <div className="text-[10px] text-[#8e8b82] font-mono">
-              {realAtsScore !== null ? 'ATS Score (Evaluated)' : 'ATS Score (Run Scan)'}
-            </div>
-          </Link>
 
-          {/* Interview Ready Score Evaluated Metric */}
-          <Link
-            href="/interview"
-            className="text-center px-4 py-2.5 bg-[#1f1e1b] hover:bg-[#282622] rounded-lg border border-white/10 hover:border-[#5db872] transition-all cursor-pointer group"
-            title="Interview readiness measured across live mock drills"
-          >
-            <div className="text-xl font-bold text-[#5db872] font-sans group-hover:scale-105 transition-transform">
-              {realInterviewScore !== null ? `${realInterviewScore}%` : '--'}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-xs font-mono uppercase tracking-widest text-[#cc785c] font-bold">
+                  {getGreeting()}
+                </span>
+                <span className="text-xs text-[#57534e] dark:text-[#8e8b82]">•</span>
+                <Badge variant="coral" size="sm">{experienceLevel}</Badge>
+              </div>
+              <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5]">
+                {effectiveDisplayName}
+              </h1>
+              <p className="text-xs sm:text-sm text-[#3b3834] dark:text-[#a09d96] flex flex-wrap items-center gap-x-3 gap-y-1 font-medium">
+                <span>Track: <strong className="text-[#121110] dark:text-[#faf9f5] font-bold">{primaryTargetRole}</strong></span>
+                <span>•</span>
+                <span>Hub: <strong className="text-[#121110] dark:text-[#faf9f5] font-bold">{location} ({workPreference})</strong></span>
+              </p>
             </div>
-            <div className="text-[10px] text-[#8e8b82] font-mono">
-              {drillsTakenCount > 0 ? `${drillsTakenCount} ${drillsTakenCount === 1 ? 'Drill' : 'Drills'} Taken` : '0 Drills Taken'}
-            </div>
-          </Link>
+          </div>
 
-          {/* Header Refresh DNA Button */}
-          <button
-            type="button"
-            onClick={handleRefreshCareerDna}
-            disabled={isRefreshingDna}
-            className="bg-[#1f1e1b] hover:bg-[#2e2d29] border border-white/15 hover:border-[#cc785c] text-[#faf9f5] px-3 py-2 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
-            title="Re-analyze Career DNA with AI Intelligence Engine (Gemma)"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${isRefreshingDna ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isRefreshingDna ? 'Re-analyzing...' : 'Refresh DNA'}</span>
-          </button>
-
-          <Link href="/onboarding?edit=true">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Edit3 className="w-3.5 h-3.5" />}
-              className="border-white/20 hover:border-[#cc785c] text-xs font-mono"
+          {/* Quick Metrics Dials & Actions */}
+          <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 border-[#ded7cb] dark:border-white/10 pt-4 lg:pt-0 flex-wrap">
+            
+            {/* ATS Score Card */}
+            <Link
+              href="/resume-intelligence"
+              className="flex-1 sm:flex-none text-center px-4 py-2.5 bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] rounded-xl border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c] transition-all cursor-pointer group shadow-sm"
             >
-              Edit DNA
-            </Button>
-          </Link>
+              <div className="text-xl sm:text-2xl font-bold text-[#cc785c] font-sans group-hover:scale-105 transition-transform">
+                {realAtsScore !== null ? `${realAtsScore}` : '—'}
+                <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-normal">/100</span>
+              </div>
+              <div className="text-[10px] text-[#3b3834] dark:text-[#8e8b82] font-mono uppercase tracking-wider font-semibold">
+                ATS Health
+              </div>
+            </Link>
+
+            {/* Mock Readiness Score */}
+            <Link
+              href="/interview"
+              className="flex-1 sm:flex-none text-center px-4 py-2.5 bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] rounded-xl border border-[#ded7cb] dark:border-white/10 hover:border-[#2e8544] dark:hover:border-[#5db872] transition-all cursor-pointer group shadow-sm"
+            >
+              <div className="text-xl sm:text-2xl font-bold text-[#2e8544] dark:text-[#5db872] font-sans group-hover:scale-105 transition-transform">
+                {realInterviewScore !== null ? `${realInterviewScore}%` : '—'}
+              </div>
+              <div className="text-[10px] text-[#3b3834] dark:text-[#8e8b82] font-mono uppercase tracking-wider font-semibold">
+                {drillsTakenCount > 0 ? `${drillsTakenCount} Drills Done` : 'Mock Drill'}
+              </div>
+            </Link>
+
+            {/* Re-analyze Button */}
+            <button
+              type="button"
+              onClick={handleRefreshCareerDna}
+              disabled={isRefreshingDna}
+              className="bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c] text-[#121110] dark:text-[#faf9f5] px-3.5 py-2.5 rounded-xl text-xs font-mono transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${isRefreshingDna ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline font-bold">{isRefreshingDna ? 'Calibrating...' : 'Sync DNA'}</span>
+            </button>
+
+            <Link href="/onboarding?edit=true">
+              <Button
+                variant="outline"
+                size="md"
+                icon={<Edit3 className="w-3.5 h-3.5" />}
+                className="text-xs font-mono rounded-xl border-[#ded7cb] dark:border-white/15"
+              >
+                Edit Vector
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 2. REFRESH STATUS NOTICE */}
       <AnimatePresence>
@@ -517,19 +552,19 @@ export default function DashboardView({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`p-3.5 rounded-xl border text-xs font-mono flex items-center justify-between shadow-lg ${
+            className={`p-4 rounded-xl border text-xs font-mono flex items-center justify-between shadow-md ${
               dnaRefreshNotice.startsWith('✓')
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-[#cc785c]/10 border-[#cc785c]/30 text-[#faf9f5]'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-[#2e8544] dark:text-emerald-300'
+                : 'bg-[#cc785c]/10 border-[#cc785c]/30 text-[#141413] dark:text-[#faf9f5]'
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <Sparkles className="w-4 h-4 text-[#cc785c] shrink-0" />
-              <span>{dnaRefreshNotice}</span>
+              <span className="font-medium">{dnaRefreshNotice}</span>
             </div>
             <button
               onClick={() => setDnaRefreshNotice(null)}
-              className="text-[#8e8b82] hover:text-white text-xs cursor-pointer ml-4"
+              className="text-[#6c6a64] dark:text-[#8e8b82] hover:text-[#141413] dark:hover:text-white text-xs cursor-pointer ml-4"
             >
               ✕
             </button>
@@ -537,130 +572,114 @@ export default function DashboardView({
         )}
       </AnimatePresence>
 
-      {/* 3. ONBOARDING PROMPT BANNER (IF CAREER DNA IS NOT YET CONFIGURED) */}
-      {!hasCareerDna && (
-        <div className="p-6 rounded-xl bg-[#1f1e1b] border border-[#cc785c]/50 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-[#cc785c] shrink-0" />
-            <div>
-              <h3 className="font-display text-xl text-[#faf9f5]">Your Career DNA is not yet fully calibrated</h3>
-              <p className="text-xs text-[#a09d96]">Run our 2-minute onboarding to extract strengths and calibrate interview questions.</p>
-            </div>
-          </div>
-          <Link href="/onboarding">
-            <Button variant="primary" size="sm" className="bg-[#cc785c] hover:bg-[#a9583e] uppercase font-mono text-xs">
-              Complete Onboarding ↗
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* 4. AI NEXT-BEST ACTION PRIORITY BANNER */}
+      {/* 3. AI NEXT-BEST ACTION PRIORITY HERO CARD */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[#cc785c] text-white rounded-xl p-6 sm:p-8 border border-[#b8674d] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+        transition={{ duration: 0.35, delay: 0.1 }}
+        className="relative overflow-hidden bg-gradient-to-br from-[#cc785c] to-[#b86247] text-white rounded-2xl p-6 sm:p-8 shadow-xl coral-glow-subtle border border-white/20"
       >
-        <div className="flex items-start gap-4 max-w-3xl">
-          <div className="w-12 h-12 rounded-lg bg-[#1f1e1b]/20 border border-white/20 flex items-center justify-center shrink-0 mt-0.5 text-yellow-300">
-            <Zap className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider bg-[#1f1e1b]/30 px-2 py-0.5 rounded text-white font-mono">
-                ⚡ Priority AI Next Action
-              </span>
-              <span className="text-xs text-white/90">• {dynamicAction?.impactScore || 'High Impact (+22% Interview Conversion)'}</span>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-start gap-4 sm:gap-5 max-w-3xl">
+            <div className="w-12 h-12 rounded-xl bg-black/20 backdrop-blur-md border border-white/25 flex items-center justify-center shrink-0 mt-1 text-yellow-300 shadow-inner">
+              <Zap className="w-6 h-6 animate-pulse-beacon" />
             </div>
-            <h2 className="font-display text-2xl sm:text-3xl text-white">
-              {dynamicAction?.title || `Scan & Optimize Your Resume for target ${primaryTargetRole} roles.`}
-            </h2>
-            <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-              {dynamicAction?.description ||
-                'Your Career DNA has been synthesized. Run a live JD-aligned scan in Resume Intelligence to inject active STAR bullet points and increase your ATS pass rate.'}
-            </p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-[11px] font-bold uppercase tracking-widest bg-black/25 px-2.5 py-0.5 rounded-full text-white font-mono border border-white/20">
+                  ⚡ Autonomous Priority Directive
+                </span>
+                <span className="text-xs text-white/90 font-mono">• {dynamicAction?.impactScore || 'High Impact (+24% Callback Velocity)'}</span>
+              </div>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                {dynamicAction?.title || `Align Resume with Target ${primaryTargetRole} Standards.`}
+              </h2>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed max-w-2xl">
+                {dynamicAction?.description ||
+                  'Your verified skills and target roles are calibrated. Run an ATS alignment scan in Resume Intelligence to inject STAR bullet points and eliminate role keyword gaps.'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="shrink-0 w-full md:w-auto flex flex-col sm:flex-row gap-3">
-          <Link href={(dynamicAction?.actionHref as any) || '/resume-intelligence'}>
-            <Button
-              variant="secondary"
-              size="md"
-              className="w-full sm:w-auto bg-[#1f1e1b] text-[#faf9f5] hover:bg-[#252320] border-none shadow-md font-semibold font-mono text-xs uppercase"
-              icon={<ArrowRight className="w-4 h-4 text-[#cc785c]" />}
-              iconPosition="right"
-            >
-              {dynamicAction?.actionLabel || 'Resume Studio'}
-            </Button>
-          </Link>
-          <Link href="/job-fit">
-            <Button
-              variant="secondary-dark"
-              size="md"
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-md font-semibold font-mono text-xs uppercase"
-              icon={<ArrowRight className="w-4 h-4" />}
-              iconPosition="right"
-            >
-              Explore Jobs
-            </Button>
-          </Link>
+          <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row gap-3">
+            <Link href={(dynamicAction?.actionHref as any) || '/resume-intelligence'} className="w-full sm:w-auto">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full sm:w-auto font-bold font-mono text-xs uppercase tracking-wider bg-white text-[#cc785c] hover:bg-[#faf9f5] shadow-lg rounded-xl"
+                icon={<ArrowRight className="w-4 h-4 text-[#cc785c]" />}
+                iconPosition="right"
+              >
+                {dynamicAction?.actionLabel || 'Launch Studio'}
+              </Button>
+            </Link>
+            <Link href="/job-fit" className="w-full sm:w-auto">
+              <Button
+                variant="secondary-dark"
+                size="lg"
+                className="w-full sm:w-auto font-bold font-mono text-xs uppercase tracking-wider bg-black/30 hover:bg-black/40 text-white border border-white/20 rounded-xl"
+                icon={<Briefcase className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                Explore Live Matches
+              </Button>
+            </Link>
+          </div>
         </div>
       </motion.div>
 
-      {/* 5. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
+      {/* 4. CORE COMMAND CENTER: 4-PILLAR INTELLIGENCE BREAKDOWN */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* PILLAR 1 & 2 (LEFT 7 COLS): CAREER DNA + RESUME INTELLIGENCE */}
-        <div className="lg:col-span-7 space-y-6">
+        {/* LEFT 7 COLS: CAREER DNA + RESUME INTELLIGENCE */}
+        <div className="lg:col-span-7 space-y-8">
           
-          {/* SECTION: CAREER DNA SUMMARY WITH REFRESH BUTTON & COMPLETE AI DATA */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-6 bg-[#252320]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+          {/* SECTION: CAREER DNA PROFILE & VERIFIED SKILLS */}
+          <Card variant="dark-elevated" className="p-6 sm:p-8 space-y-6 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border-[#ded7cb] dark:border-white/[0.08] shadow-md">
+            <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#201e1c] text-[#cc785c] flex items-center justify-center shadow-inner">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-display text-xl text-[#faf9f5]">Career DNA Profile</h3>
-                  <p className="text-[11px] text-[#8e8b82]">Synthesized by AI Intelligence Engine (Gemma)</p>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold text-[#121110] dark:text-[#faf9f5]">Career DNA Vector</h3>
+                  <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82]">Calibrated with AI Intelligence Engine</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Dedicated Refresh Button inside Career DNA Card */}
                 <button
                   type="button"
                   onClick={handleRefreshCareerDna}
                   disabled={isRefreshingDna}
-                  className="bg-[#1f1e1b] hover:bg-[#181715] border border-white/15 hover:border-[#cc785c] text-[#dcd7cb] px-2.5 py-1 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title="Re-run AI synthesis with Gemma"
+                  className="bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] border border-[#ded7cb] dark:border-white/10 text-[#121110] dark:text-[#faf9f5] px-2.5 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Re-run DNA synthesis"
                 >
                   <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isRefreshingDna ? 'animate-spin' : ''}`} />
-                  <span>{isRefreshingDna ? 'Refreshing...' : 'Refresh DNA'}</span>
+                  <span className="font-medium">{isRefreshingDna ? 'Calibrating...' : 'Sync'}</span>
                 </button>
-                <Badge variant="teal" size="sm">Active Vector</Badge>
+                <Badge variant="teal" size="sm">Active</Badge>
               </div>
             </div>
 
             {/* AI Profile Summary */}
-            <p className="text-xs text-[#dcd7cb] leading-relaxed bg-[#1f1e1b] p-3.5 rounded-lg border border-white/5 font-sans italic">
+            <p className="text-xs sm:text-sm text-[#2d2a26] dark:text-[#dcd7cb] leading-relaxed bg-[#f6f4ee] dark:bg-[#201e1c] p-4 rounded-xl border border-[#ded7cb] dark:border-white/5 font-sans italic font-normal">
               &quot;{summary}&quot;
             </p>
 
-            {/* Target Roles Alignment Vector */}
-            <div className="space-y-2">
+            {/* Target Roles Alignment */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px] flex items-center gap-1.5">
-                  <Target className="w-3 h-3 text-[#cc785c]" /> Target Roles ({targetRoles.length})
+                <span className="font-bold text-[#121110] dark:text-[#faf9f5] uppercase font-mono text-[11px] flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-[#cc785c]" /> Target Roles ({targetRoles.length})
                 </span>
-                <span className="text-[#cc785c] font-mono text-[10px]">AI Calibrated</span>
+                <span className="text-[#cc785c] font-mono text-[10px] font-bold">AI Calibrated</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {targetRoles.map((role, idx) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-md bg-[#181715] border border-[#cc785c]/40 text-[#faf9f5] text-xs font-mono font-medium"
+                    className="px-3 py-1.5 rounded-lg bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#cc785c]/40 text-[#121110] dark:text-[#faf9f5] text-xs font-mono font-medium shadow-sm"
                   >
                     🎯 {role}
                   </span>
@@ -668,19 +687,19 @@ export default function DashboardView({
               </div>
             </div>
 
-            {/* Verified Current Skills Matrix */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
+            {/* Verified Current Skills */}
+            <div className="space-y-2.5 pt-4 border-t border-[#ded7cb] dark:border-white/5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#5db872] uppercase font-mono text-[11px] flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#5db872]" /> Verified Technical Skills ({currentSkills.length})
+                <span className="font-bold text-[#2e8544] dark:text-[#5db872] uppercase font-mono text-[11px] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2e8544] dark:text-[#5db872]" /> Verified Technical Stack ({currentSkills.length})
                 </span>
-                <span className="text-[#5db872] font-mono text-[10px]">✓ Extracted from Resume</span>
+                <span className="text-[#2e8544] dark:text-[#5db872] font-mono text-[10px] font-bold">✓ Profile Extracted</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {currentSkills.map((skill, idx) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-md bg-[#1f1e1b] border border-white/10 text-xs font-mono text-[#dcd7cb]"
+                    className="px-2.5 py-1 rounded-md bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 text-xs font-mono text-[#2d2a26] dark:text-[#dcd7cb] font-medium"
                   >
                     ✓ {skill}
                   </span>
@@ -688,38 +707,19 @@ export default function DashboardView({
               </div>
             </div>
 
-            {/* Core Architectural & Technical Strengths */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">
-                Core Technical Strengths
-              </span>
-              <ul className="space-y-1.5 text-xs text-[#a09d96]">
-                {strengths.map((str: any, idx: number) => {
-                  const label = typeof str === 'string' ? str : (str?.title || str?.skill || str?.name || str?.strength || '');
-                  if (!label) return null;
-                  return (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold mt-0.5">•</span>
-                      <span className="leading-relaxed text-[#dcd7cb]">{label}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            {/* Target Skill Gaps & Skills to Acquire */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
+            {/* High-ROI Skills to Acquire Next */}
+            <div className="space-y-2.5 pt-4 border-t border-[#ded7cb] dark:border-white/5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#e8a55a] uppercase font-mono text-[11px]">
-                  High-ROI Skills to Acquire Next ({skillsToAcquire.length})
+                <span className="font-bold text-[#9a4b08] dark:text-[#e8a55a] uppercase font-mono text-[11px] flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-[#9a4b08] dark:text-[#e8a55a]" /> High-ROI Skills to Acquire Next ({skillsToAcquire.length})
                 </span>
-                <span className="text-[#e8a55a] font-mono text-[10px]">! Recommended to Learn</span>
+                <span className="text-[#9a4b08] dark:text-[#e8a55a] font-mono text-[10px] font-bold">! Recommended</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {skillsToAcquire.map((skill: string, idx: number) => (
                   <span
                     key={idx}
-                    className="px-2.5 py-1 rounded-md bg-[#1f1e1b] border border-[#e8a55a]/30 text-xs font-mono text-[#e8a55a]"
+                    className="px-2.5 py-1 rounded-md bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#9a4b08]/30 dark:border-[#e8a55a]/30 text-xs font-mono text-[#9a4b08] dark:text-[#e8a55a] font-medium"
                   >
                     + {skill}
                   </span>
@@ -727,55 +727,26 @@ export default function DashboardView({
               </div>
             </div>
 
-            {/* AI Actionable Module Roadmap */}
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <span className="font-semibold text-[#faf9f5] uppercase font-mono text-[11px]">
-                AI Recommended Actions ({recommendedActions.length})
-              </span>
-              <div className="space-y-2">
-                {recommendedActions.map((action: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-lg bg-[#1f1e1b] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <h4 className="font-medium text-xs text-[#faf9f5]">{action.title}</h4>
-                      <p className="text-[11px] text-[#8e8b82]">{action.rationale}</p>
-                    </div>
-                    {action.moduleLink && (
-                      <Link
-                        href={action.moduleLink}
-                        className="text-[11px] font-mono text-[#cc785c] hover:underline flex items-center gap-1 shrink-0 self-start sm:self-auto"
-                      >
-                        <span>Open Studio</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#8e8b82] font-mono">
+            <div className="pt-3 border-t border-[#ded7cb] dark:border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-mono">
                 {activeDna?.updated_at ? `Updated: ${new Date(activeDna.updated_at).toLocaleDateString()}` : 'AI Calibrated'}
               </span>
-              <Link href="/onboarding?edit=true" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+              <Link href="/onboarding?edit=true" className="text-xs font-bold text-[#cc785c] hover:underline flex items-center gap-1">
                 Edit Preferences <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </Card>
 
           {/* SECTION: RESUME INTELLIGENCE & ATS SUMMARY */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5 bg-[#252320]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+          <Card variant="dark-elevated" className="p-6 sm:p-8 space-y-5 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border-[#ded7cb] dark:border-white/[0.08] shadow-md">
+            <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#201e1c] text-[#cc785c] flex items-center justify-center shadow-inner">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-display text-xl text-[#faf9f5]">Resume &amp; ATS Intelligence</h3>
-                  <p className="text-[11px] text-[#8e8b82]">Keyword density, formatting &amp; bullet points</p>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold text-[#121110] dark:text-[#faf9f5]">Resume Intelligence &amp; ATS</h3>
+                  <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82]">Keyword density, formatting &amp; STAR impact</p>
                 </div>
               </div>
               <Badge variant="coral" size="sm">
@@ -786,32 +757,32 @@ export default function DashboardView({
             {hasResumeAnalysis ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
-                    <span className="text-[10px] uppercase font-mono text-[#8e8b82]">Match Strengths</span>
-                    <p className="text-xs text-[#5db872] font-semibold">{strengths?.length || 3} Core Areas</p>
+                  <div className="p-3.5 bg-[#f6f4ee] dark:bg-[#201e1c] rounded-xl border border-[#ded7cb] dark:border-white/10 space-y-1">
+                    <span className="text-[10px] uppercase font-mono text-[#57534e] dark:text-[#8e8b82] font-semibold">Match Strengths</span>
+                    <p className="text-xs text-[#2e8544] dark:text-[#5db872] font-bold">{strengths?.length || 3} Core Competencies</p>
                   </div>
-                  <div className="p-3 bg-[#1f1e1b] rounded-lg border border-white/10 space-y-1">
-                    <span className="text-[10px] uppercase font-mono text-[#8e8b82]">Missing Keywords</span>
-                    <p className="text-xs text-[#e8a55a] font-semibold">{latestMissingSkills?.length || 2} Keyword Gaps</p>
+                  <div className="p-3.5 bg-[#f6f4ee] dark:bg-[#201e1c] rounded-xl border border-[#ded7cb] dark:border-white/10 space-y-1">
+                    <span className="text-[10px] uppercase font-mono text-[#57534e] dark:text-[#8e8b82] font-semibold">Missing Keywords</span>
+                    <p className="text-xs text-[#9a4b08] dark:text-[#e8a55a] font-bold">{latestMissingSkills?.length || 2} Keyword Gaps</p>
                   </div>
                 </div>
 
                 {/* Sample Tailored Bullet */}
                 {latestBulletText && (
-                  <div className="p-3 bg-[#181715] rounded-lg border border-[#cc785c]/30 space-y-1.5">
+                  <div className="p-4 bg-[#f6f4ee] dark:bg-[#201e1c] rounded-xl border border-[#cc785c]/40 space-y-2">
                     <span className="text-[10px] font-mono text-[#cc785c] uppercase font-bold flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Optimized Active Bullet Available:</span>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Optimized STAR Bullet:</span>
                     </span>
-                    <p className="text-xs text-[#faf9f5] italic font-sans leading-relaxed">
+                    <p className="text-xs text-[#121110] dark:text-[#faf9f5] italic font-sans leading-relaxed">
                       &quot;{latestBulletText}&quot;
                     </p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-6 rounded-lg bg-[#1f1e1b] border border-white/10 text-center space-y-3">
-                <p className="text-xs text-[#a09d96]">
+              <div className="p-6 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 text-center space-y-3">
+                <p className="text-xs text-[#3b3834] dark:text-[#a09d96]">
                   Upload target Job Description and run instant ATS alignment scan.
                 </p>
                 <Link href="/resume-intelligence">
@@ -822,9 +793,9 @@ export default function DashboardView({
               </div>
             )}
 
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#8e8b82] font-mono">STAR Bullet Optimization</span>
-              <Link href="/resume-intelligence" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+            <div className="pt-3 border-t border-[#ded7cb] dark:border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-mono font-medium">STAR Bullet Optimization</span>
+              <Link href="/resume-intelligence" className="text-xs font-bold text-[#cc785c] hover:underline flex items-center gap-1">
                 Open Resume Studio <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -832,63 +803,61 @@ export default function DashboardView({
 
         </div>
 
-        {/* PILLAR 3 & 4 (RIGHT 5 COLS): JOB FIT MATCHES + RECOMMENDATIONS */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* RIGHT 5 COLS: JOB FIT MATCHES + RECOMMENDATIONS */}
+        <div className="lg:col-span-5 space-y-8">
           
-          {/* SECTION: JOB FIT MATCHES (AI-Generated tailored roles for candidate resume) */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-5 bg-[#252320]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#181715] text-[#cc785c] flex items-center justify-center">
+          {/* SECTION: JOB FIT MATCHES */}
+          <Card variant="dark-elevated" className="p-6 sm:p-8 space-y-5 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border-[#ded7cb] dark:border-white/[0.08] shadow-md">
+            <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#201e1c] text-[#cc785c] flex items-center justify-center shadow-inner">
                   <Cpu className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-display text-xl text-[#faf9f5]">Job Fit Matches</h3>
-                  <p className="text-[11px] text-[#8e8b82]">AI Calibrated to Candidate Stack</p>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold text-[#121110] dark:text-[#faf9f5]">High-Fit Roles</h3>
+                  <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82]">Calibrated to candidate profile</p>
                 </div>
               </div>
               <Badge variant="teal" size="sm">India &amp; Global</Badge>
             </div>
 
-            {/* AI-Generated Role Cards with Direct Apply Links */}
+            {/* Role Cards with Direct Apply Links */}
             <div className="space-y-3">
               {generatedJobMatches.map((job) => {
                 const deepLink = generateJobDeepLink(job.platform, job.role, job.company);
                 return (
                   <div
                     key={job.id}
-                    className="p-3.5 bg-[#1f1e1b] rounded-lg border border-white/10 hover:border-[#cc785c]/50 transition-all space-y-2 group"
+                    className="p-4 bg-[#f6f4ee] dark:bg-[#201e1c] rounded-xl border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c]/60 transition-all space-y-2.5 group shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="font-bold text-xs text-[#faf9f5] group-hover:text-[#cc785c] transition-colors">
-                            {job.role}
-                          </h4>
-                        </div>
-                        <p className="text-[11px] text-[#8e8b82] flex items-center gap-1.5 mt-0.5">
+                        <h4 className="font-bold text-xs sm:text-sm text-[#121110] dark:text-[#faf9f5] group-hover:text-[#cc785c] transition-colors">
+                          {job.role}
+                        </h4>
+                        <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82] flex items-center gap-1.5 mt-0.5 font-medium">
                           <span>{job.company}</span>
                           <span>•</span>
-                          <span className="text-[#cc785c] font-mono text-[10px] bg-[#cc785c]/10 px-1.5 py-0.2 rounded">
+                          <span className="text-[#cc785c] font-mono text-[10px] bg-[#cc785c]/10 px-1.5 py-0.5 rounded font-bold">
                             {job.platform}
                           </span>
                         </p>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-xs font-mono text-[#5db872] font-bold block">
+                        <span className="text-xs font-mono text-[#2e8544] dark:text-[#5db872] font-bold block">
                           {job.matchScore}% Fit
                         </span>
-                        <span className="text-[10px] text-[#a09d96] font-mono block">
+                        <span className="text-[10px] text-[#57534e] dark:text-[#a09d96] font-mono block font-semibold">
                           {job.salary}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                    <div className="flex items-center justify-between pt-2 border-t border-[#ded7cb] dark:border-white/5">
                       <div className="flex flex-wrap gap-1">
                         {job.skills.map((sk, idx) => (
-                          <span key={idx} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#181715] text-[#dcd7cb] border border-white/5">
+                          <span key={idx} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#f0ebe1] dark:bg-[#181716] text-[#121110] dark:text-[#dcd7cb] border border-[#ded7cb] dark:border-white/5 font-medium">
                             {sk}
                           </span>
                         ))}
@@ -898,7 +867,7 @@ export default function DashboardView({
                         href={deepLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[11px] font-mono text-[#cc785c] hover:underline flex items-center gap-1"
+                        className="text-[11px] font-mono text-[#cc785c] hover:underline flex items-center gap-1 font-bold"
                         title={`Search live ${job.role} postings on ${job.platform}`}
                       >
                         <span>Apply ↗</span>
@@ -909,56 +878,56 @@ export default function DashboardView({
               })}
             </div>
 
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-[#8e8b82] font-mono">LinkedIn, Naukri, Wellfound</span>
-              <Link href="/job-fit" className="text-xs font-semibold text-[#cc785c] hover:underline flex items-center gap-1">
+            <div className="pt-3 border-t border-[#ded7cb] dark:border-white/10 flex items-center justify-between">
+              <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-mono font-medium">LinkedIn, Naukri, Wellfound</span>
+              <Link href="/job-fit" className="text-xs font-bold text-[#cc785c] hover:underline flex items-center gap-1">
                 Explore All Opportunities <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </Card>
 
           {/* SECTION: CAREERPILOT AI RECOMMENDATIONS */}
-          <Card variant="dark-elevated" className="p-6 sm:p-7 border-white/10 space-y-4 bg-[#252320]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
+          <Card variant="dark-elevated" className="p-6 sm:p-8 space-y-4 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border-[#ded7cb] dark:border-white/[0.08] shadow-md">
+            <div className="flex items-center justify-between border-b border-[#ded7cb] dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
                 <Lightbulb className="w-4 h-4 text-[#cc785c]" />
-                <h3 className="font-display text-lg text-[#faf9f5]">CareerPilot Recommendations</h3>
+                <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">Strategic Directives</h3>
               </div>
               <Badge variant="coral" size="sm">Action Items</Badge>
             </div>
 
             <ul className="space-y-3">
-              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
-                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
-                  <span className="text-[#5db872]">1.</span> Target Role Alignment
+              <li className="text-xs text-[#3b3834] dark:text-[#a09d96] bg-[#f6f4ee] dark:bg-[#201e1c] p-3.5 rounded-xl border border-[#ded7cb] dark:border-white/10 space-y-1">
+                <span className="font-bold text-[#121110] dark:text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#2e8544] dark:text-[#5db872]">1.</span> Target Role Positioning
                 </span>
-                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
+                <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82] leading-relaxed font-normal">
                   Your profile demonstrates verified strength in {currentSkills.slice(0, 2).join(' and ')}. Highlight these technologies at the top of your resume.
                 </p>
               </li>
 
-              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
-                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
-                  <span className="text-[#e8a55a]">2.</span> Close Top Skill Gap: {skillsToAcquire[0] || skillGaps[0] || 'System Design'}
+              <li className="text-xs text-[#3b3834] dark:text-[#a09d96] bg-[#f6f4ee] dark:bg-[#201e1c] p-3.5 rounded-xl border border-[#ded7cb] dark:border-white/10 space-y-1">
+                <span className="font-bold text-[#121110] dark:text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#9a4b08] dark:text-[#e8a55a]">2.</span> Close Key Skill Gap: {skillsToAcquire[0] || skillGaps[0] || 'System Design'}
                 </span>
-                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
-                  High-paying roles in {location} frequently test for this competency during technical rounds.
+                <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82] leading-relaxed font-normal">
+                  High-paying roles in {location} frequently evaluate this competency during technical deep-dives.
                 </p>
               </li>
 
-              <li className="text-xs text-[#a09d96] bg-[#1f1e1b] p-3 rounded-lg border border-white/10 space-y-1">
-                <span className="font-bold text-[#faf9f5] flex items-center gap-1.5">
-                  <span className="text-[#cc785c]">3.</span> Rehearse STAR Interview Scenarios
+              <li className="text-xs text-[#3b3834] dark:text-[#a09d96] bg-[#f6f4ee] dark:bg-[#201e1c] p-3.5 rounded-xl border border-[#ded7cb] dark:border-white/10 space-y-1">
+                <span className="font-bold text-[#121110] dark:text-[#faf9f5] flex items-center gap-1.5">
+                  <span className="text-[#cc785c]">3.</span> Rehearse Live STAR Interview Drills
                 </span>
-                <p className="text-[11px] text-[#8e8b82] leading-relaxed">
-                  Practice 15 minutes of roleplay drills in the AI Mock Studio to boost live response clarity.
+                <p className="text-[11px] text-[#57534e] dark:text-[#8e8b82] leading-relaxed font-normal">
+                  Practice 15 minutes of roleplay drills in the AI Mock Studio to refine situational clarity.
                 </p>
               </li>
             </ul>
 
             <div className="pt-2">
               <Link href="/interview">
-                <Button variant="outline" size="sm" className="w-full text-xs font-mono" icon={<MessageSquare className="w-3.5 h-3.5" />}>
+                <Button variant="outline" size="md" className="w-full text-xs font-mono rounded-xl border-[#ded7cb] dark:border-white/15" icon={<MessageSquare className="w-3.5 h-3.5" />}>
                   Launch Mock Interview Simulator
                 </Button>
               </Link>

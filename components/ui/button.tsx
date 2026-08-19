@@ -23,14 +23,14 @@ export function Button({
   iconPosition = 'left',
   ...props
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#cc785c]/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-[#cc785c]/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const variants = {
     primary: 'bg-[#cc785c] text-white hover:bg-[#a9583e] active:bg-[#964a32] shadow-sm',
-    secondary: 'bg-[#faf9f5] text-[#141413] border border-[#e6dfd8] hover:bg-[#efe9de] active:bg-[#e8e0d2]',
-    'secondary-dark': 'bg-[#252320] text-[#faf9f5] hover:bg-[#2d2b27] border border-white/10',
-    outline: 'bg-transparent text-[#faf9f5] border border-white/15 hover:border-[#cc785c] hover:text-[#cc785c]',
-    ghost: 'bg-transparent text-[#faf9f5] hover:bg-white/10',
+    secondary: 'bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-[#faf9f5] border border-[#e6dfd8] dark:border-white/10 hover:bg-[#efe9de] dark:hover:bg-[#252320] shadow-sm',
+    'secondary-dark': 'bg-[#efe9de] dark:bg-[#252320] text-[#141413] dark:text-[#faf9f5] hover:bg-[#e4dcce] dark:hover:bg-[#2d2b27] border border-[#e6dfd8] dark:border-white/10 shadow-sm',
+    outline: 'bg-transparent text-[#141413] dark:text-[#faf9f5] border border-[#e6dfd8] dark:border-white/15 hover:border-[#cc785c] hover:text-[#cc785c]',
+    ghost: 'bg-transparent text-[#141413] dark:text-[#faf9f5] hover:bg-black/5 dark:hover:bg-white/10',
     'coral-outline': 'bg-transparent text-[#cc785c] border border-[#cc785c] hover:bg-[#cc785c] hover:text-white',
   };
 

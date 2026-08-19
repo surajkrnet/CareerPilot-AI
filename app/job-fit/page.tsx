@@ -119,9 +119,16 @@ export default function JobFitPage() {
       const recs = json.data?.recommendations || json.recommendations;
       if (Array.isArray(recs) && recs.length > 0) {
         setOpportunities(recs);
+        try {
+          sessionStorage.setItem('careerpilot_cached_jobs', JSON.stringify(recs));
+        } catch {}
       }
-      if (json.data?.marketInsights || json.marketInsights) {
-        setMarketInsights(json.data?.marketInsights || json.marketInsights);
+      const insights = json.data?.marketInsights || json.marketInsights;
+      if (insights) {
+        setMarketInsights(insights);
+        try {
+          sessionStorage.setItem('careerpilot_cached_market', JSON.stringify(insights));
+        } catch {}
       }
       if (json.targetRole) {
         setTargetRole(json.targetRole);
@@ -140,6 +147,7 @@ export default function JobFitPage() {
 
   useEffect(() => {
     // Read cached Career DNA on mount for zero-latency initial state
+    let hasLoadedCachedJobs = false;
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('careerpilot_career_dna');
@@ -152,9 +160,25 @@ export default function JobFitPage() {
             setVerifiedSkills(parsed.currentSkills);
           }
         }
+
+        // Zero-lag cached opportunities
+        const cachedJobs = sessionStorage.getItem('careerpilot_cached_jobs');
+        const cachedMarket = sessionStorage.getItem('careerpilot_cached_market');
+        if (cachedJobs) {
+          const parsedJobs = JSON.parse(cachedJobs);
+          if (Array.isArray(parsedJobs) && parsedJobs.length > 0) {
+            setOpportunities(parsedJobs);
+            if (cachedMarket) setMarketInsights(JSON.parse(cachedMarket));
+            setLoading(false);
+            hasLoadedCachedJobs = true;
+          }
+        }
       } catch (e) {}
     }
-    fetchRecommendations();
+    
+    if (!hasLoadedCachedJobs) {
+      fetchRecommendations();
+    }
   }, []);
 
   const handlePlatformFilterChange = (plat: string) => {
@@ -244,66 +268,67 @@ export default function JobFitPage() {
   const platformsList = ['All', 'LinkedIn', 'Wellfound', 'Naukri', 'Y Combinator', 'Indeed', 'Glassdoor'];
 
   return (
-    <main className="min-h-screen bg-[#141413] text-[#faf9f5] pt-32 sm:pt-36 pb-16 px-4 sm:px-8 md:px-10 font-sans">
-      <div className="max-w-[1400px] mx-auto space-y-8">
+    <main className="min-h-screen bg-[#f6f4ee] dark:bg-[#121110] text-[#121110] dark:text-[#faf9f5] pt-28 pb-20 px-4 sm:px-8 md:px-10 font-sans transition-colors duration-200">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Floating Toast Notification */}
+        {/* TOAST NOTIFICATION */}
         <AnimatePresence>
           {toastMsg && (
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="fixed top-24 right-6 z-50 p-4 rounded-xl bg-[#1f1e1b] border border-[#cc785c] text-[#faf9f5] text-xs font-mono shadow-2xl flex items-center gap-3"
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 rounded-xl bg-[#cc785c] text-white text-xs font-mono font-bold flex items-center justify-between shadow-xl fixed top-24 right-6 z-50 max-w-md coral-glow"
             >
-              <Sparkles className="w-4 h-4 text-[#cc785c]" />
-              <span>{toastMsg}</span>
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{toastMsg}</span>
+              </div>
+              <button onClick={() => setToastMsg(null)} className="text-white/80 hover:text-white ml-3 cursor-pointer">
+                ✕
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* HEADER */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#ded7cb] dark:border-white/[0.08] pb-6 gap-4">
           <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <span className="px-2.5 py-1 rounded bg-[#cc785c]/10 text-[#cc785c] text-[11px] font-mono font-semibold border border-[#cc785c]/30 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5" />
-                Live Job Market Hub
-              </span>
-              <span className="px-2.5 py-1 rounded bg-[#5db872]/10 text-[#5db872] text-[11px] font-mono font-semibold border border-[#5db872]/30">
-                Real Scraped Postings
-              </span>
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#cc785c] font-bold">
+              <Globe className="w-3.5 h-3.5" />
+              <span>Autonomous Job Fit &amp; Live Scraper Hub</span>
             </div>
-            <h1 className="font-display text-3xl sm:text-4xl tracking-tight text-[#faf9f5]">
-              Real-Time Job Fit &amp; Opportunity Hub
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
+              Live Opportunity Matching Hub
             </h1>
-            <p className="text-sm text-[#a09d96] mt-1 max-w-2xl">
-              Live web scraped job postings across LinkedIn, Wellfound, Naukri, and Y Combinator scored against your active Career DNA.
+            <p className="text-xs sm:text-sm text-[#57534e] dark:text-[#a09d96] mt-1 font-medium">
+              Real-time web scraping queries across LinkedIn, Wellfound, Naukri, and Y Combinator grounded in your Career DNA.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-start md:self-auto">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => fetchRecommendations(true)}
               disabled={refreshing || loading}
-              className="px-4 py-2.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-xs font-mono text-[#faf9f5] border border-white/10 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+              className="px-5 py-3 rounded-xl bg-[#ffffff] dark:bg-[#181716] hover:bg-[#ede8df] dark:hover:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 text-xs font-mono text-[#121110] dark:text-[#faf9f5] flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+              title="Refresh live web job listings"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Scraping Live Postings...' : 'Scrape Live Jobs'}</span>
+              <RefreshCw className={`w-4 h-4 text-[#cc785c] ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="font-bold">{refreshing ? 'Scraping Live...' : 'Refresh Feed'}</span>
             </button>
           </div>
-        </header>
+        </div>
 
-        {/* ERROR NOTIFICATION */}
+        {/* ERROR BANNER */}
         {errorMsg && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center justify-between gap-3 shadow-md">
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 text-xs font-mono flex items-center justify-between shadow-sm font-medium">
             <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>
             {errorMsg.includes('Onboarding') && (
               <Link href="/onboarding">
-                <button className="px-3 py-1.5 rounded bg-[#cc785c] text-white text-xs font-mono font-semibold cursor-pointer">
+                <button className="px-3 py-1.5 rounded-lg bg-[#cc785c] text-white text-xs font-mono font-bold cursor-pointer">
                   Start Onboarding ↗
                 </button>
               </Link>
@@ -312,27 +337,27 @@ export default function JobFitPage() {
         )}
 
         {/* CONTEXT BANNER: CANDIDATE CAREER DNA SNAPSHOT */}
-        <section className="p-6 rounded-2xl bg-[#1f1e1b] border border-white/10 shadow-lg space-y-4">
+        <section className="p-6 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] shadow-md space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Zap className="w-4 h-4 text-[#cc785c]" />
-                <span className="text-xs font-mono text-[#a09d96] uppercase tracking-wider font-bold">
-                  Active Career Calibration Track:
+                <span className="text-xs font-mono text-[#57534e] dark:text-[#a09d96] uppercase tracking-wider font-bold">
+                  Active Calibration Track:
                 </span>
-                <strong className="text-sm font-display text-[#faf9f5] font-semibold">{targetRole}</strong>
+                <strong className="text-sm font-display text-[#121110] dark:text-[#faf9f5] font-bold">{targetRole}</strong>
               </div>
-              <p className="text-xs text-[#a09d96]">
-                Real-time web scraping queries live job boards against candidate technical depth, frameworks, and seniority requirements.
+              <p className="text-xs text-[#57534e] dark:text-[#a09d96] font-medium">
+                Real-time scraper analyzes live job boards against candidate technical depth, frameworks, and seniority requirements.
               </p>
             </div>
 
             {marketInsights && (
-              <div className="p-3.5 rounded-xl bg-[#252320] border border-white/10 text-xs flex items-center gap-3">
-                <TrendingUp className="w-4 h-4 text-[#5db872] shrink-0" />
+              <div className="p-3.5 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 text-xs flex items-center gap-3 shadow-sm">
+                <TrendingUp className="w-4 h-4 text-[#2e8544] dark:text-[#5db872] shrink-0" />
                 <div>
-                  <span className="text-[11px] font-mono text-[#a09d96] block">Hiring Outlook:</span>
-                  <span className="text-[#faf9f5] font-medium">{marketInsights.hiringOutlook}</span>
+                  <span className="text-[11px] font-mono text-[#57534e] dark:text-[#a09d96] block font-bold">Hiring Outlook:</span>
+                  <span className="text-[#121110] dark:text-[#faf9f5] font-semibold">{marketInsights.hiringOutlook}</span>
                 </div>
               </div>
             )}
@@ -340,14 +365,14 @@ export default function JobFitPage() {
 
           {/* Verified Skills Tags */}
           {verifiedSkills.length > 0 && (
-            <div className="pt-3 border-t border-white/5 flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-mono text-[#6c6a64] uppercase tracking-wider mr-1">
-                Verified Skills:
+            <div className="pt-3 border-t border-[#ded7cb] dark:border-white/5 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-mono text-[#57534e] dark:text-[#8e8b82] uppercase tracking-wider mr-1 font-bold">
+                Verified Stack:
               </span>
               {verifiedSkills.map((skill) => (
                 <span
                   key={skill}
-                  className="px-2.5 py-1 rounded-md bg-[#252320] text-[#e6dfd8] text-[11px] font-mono border border-white/10"
+                  className="px-2.5 py-1 rounded-md bg-[#f6f4ee] dark:bg-[#201e1c] text-[#2d2a26] dark:text-[#e6dfd8] text-[11px] font-mono border border-[#ded7cb] dark:border-white/10 font-medium"
                 >
                   ✓ {skill}
                 </span>
@@ -357,20 +382,20 @@ export default function JobFitPage() {
         </section>
 
         {/* SEARCH & FILTERS BAR */}
-        <section className="p-4 rounded-xl bg-[#1f1e1b] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <section className="p-4 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
           {/* Search Form */}
           <form onSubmit={handleSearchSubmit} className="relative flex-1">
-            <Search className="w-4 h-4 text-[#6c6a64] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#57534e] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search live jobs (e.g. Associate Developer, Java Backend, React, Bangalore)..."
-              className="w-full bg-[#181715] text-[#faf9f5] text-xs font-mono pl-10 pr-20 py-2.5 rounded-lg border border-white/10 focus:border-[#cc785c] focus:outline-none placeholder-[#6c6a64]"
+              placeholder="Search live jobs (e.g. Full-Stack, Java Backend, React, Bangalore)..."
+              className="w-full bg-[#f6f4ee] dark:bg-[#201e1c] text-[#121110] dark:text-[#faf9f5] text-xs font-mono pl-10 pr-24 py-2.5 rounded-xl border border-[#ded7cb] dark:border-white/10 focus:border-[#cc785c] focus:outline-none placeholder-[#57534e] font-medium"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#cc785c] hover:bg-[#a9583e] text-white px-2.5 py-1 rounded text-xs font-mono cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#cc785c] hover:bg-[#a9583e] text-white px-3 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer shadow-sm active:scale-95"
             >
               Search
             </button>
@@ -379,15 +404,15 @@ export default function JobFitPage() {
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Platform Selector */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar max-w-full">
               {platformsList.map((plat) => (
                 <button
                   key={plat}
                   onClick={() => handlePlatformFilterChange(plat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
                     selectedPlatform === plat
-                      ? 'bg-[#cc785c] text-white font-semibold shadow-sm'
-                      : 'bg-[#252320] text-[#a09d96] hover:text-white border border-white/5'
+                      ? 'bg-[#cc785c] text-white font-bold shadow-md'
+                      : 'bg-[#f6f4ee] dark:bg-[#201e1c] text-[#3b3834] dark:text-[#a09d96] hover:text-[#121110] dark:hover:text-white border border-[#ded7cb] dark:border-white/5 font-medium'
                   }`}
                 >
                   {plat}
@@ -399,7 +424,7 @@ export default function JobFitPage() {
             <select
               value={selectedFitScore}
               onChange={(e) => setSelectedFitScore(e.target.value)}
-              className="bg-[#252320] text-[#faf9f5] text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 focus:border-[#cc785c] focus:outline-none cursor-pointer"
+              className="bg-[#f6f4ee] dark:bg-[#201e1c] text-[#121110] dark:text-[#faf9f5] text-xs font-mono px-3.5 py-1.5 rounded-xl border border-[#ded7cb] dark:border-white/10 focus:border-[#cc785c] focus:outline-none cursor-pointer font-medium"
             >
               <option value="All">All Fit Scores</option>
               <option value="90">90%+ Strong Fit</option>
@@ -412,16 +437,16 @@ export default function JobFitPage() {
         {loading ? (
           <div className="py-24 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-[#cc785c] animate-spin mx-auto" />
-            <div className="space-y-1 font-mono text-xs text-[#a09d96]">
-              <p className="text-[#faf9f5] font-semibold">Scraping Live Web Job Postings &amp; AI Scoring...</p>
+            <div className="space-y-1 font-mono text-xs text-[#6c6a64] dark:text-[#a09d96]">
+              <p className="text-[#141413] dark:text-[#faf9f5] font-bold">Scraping Live Web Job Postings &amp; AI Scoring...</p>
               <p>Fetching real-time openings from LinkedIn, Wellfound, Naukri, and Y Combinator.</p>
             </div>
           </div>
         ) : filteredJobs.length === 0 ? (
-          <div className="py-16 text-center rounded-2xl bg-[#1f1e1b] border border-white/10 space-y-3">
+          <div className="py-16 text-center rounded-2xl bg-[#ffffff] dark:bg-[#181716] border border-[#e6dfd8] dark:border-white/[0.08] space-y-3 shadow-md">
             <Briefcase className="w-8 h-8 text-[#6c6a64] mx-auto" />
-            <h3 className="text-sm font-semibold text-[#faf9f5] font-display">No matching opportunities found</h3>
-            <p className="text-xs text-[#a09d96] font-mono">
+            <h3 className="text-base font-bold text-[#141413] dark:text-[#faf9f5] font-display">No matching opportunities found</h3>
+            <p className="text-xs text-[#6c6a64] dark:text-[#a09d96] font-mono">
               Try adjusting your search keywords or clicking another platform filter.
             </p>
           </div>
@@ -435,64 +460,64 @@ export default function JobFitPage() {
               return (
                 <div
                   key={job.id}
-                  className="p-6 rounded-2xl bg-[#1f1e1b] border border-white/10 hover:border-[#cc785c]/60 transition-all flex flex-col justify-between space-y-5 shadow-md group"
+                  className="p-6 sm:p-7 rounded-2xl bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] hover:border-[#cc785c]/60 transition-all flex flex-col justify-between space-y-5 shadow-md group"
                 >
                   {/* Top: Header Info & Fit Score Badge */}
-                  <div className="space-y-3">
+                  <div className="space-y-3.5">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 rounded bg-[#252320] text-[#cc785c] font-mono text-[10px] font-bold uppercase border border-white/5">
+                          <span className="px-2.5 py-0.5 rounded-md bg-[#f0ebe1] dark:bg-[#201e1c] text-[#cc785c] font-mono text-[10px] font-bold uppercase border border-[#ded7cb] dark:border-white/5">
                             {job.platform}
                           </span>
                           {job.estimatedSalary && (
-                            <span className="px-2 py-0.5 rounded bg-[#5db872]/10 text-[#5db872] font-mono text-[10px] font-semibold border border-[#5db872]/20">
+                            <span className="px-2.5 py-0.5 rounded-md bg-[#2e8544]/10 text-[#2e8544] dark:text-[#5db872] font-mono text-[10px] font-bold border border-[#2e8544]/20">
                               {job.estimatedSalary}
                             </span>
                           )}
                         </div>
-                        <h2 className="font-display text-xl font-bold text-[#faf9f5] group-hover:text-[#cc785c] transition-colors">
+                        <h2 className="font-display text-xl sm:text-2xl font-bold text-[#121110] dark:text-[#faf9f5] group-hover:text-[#cc785c] transition-colors leading-snug">
                           {job.jobTitle}
                         </h2>
-                        <p className="text-xs font-medium text-[#e6dfd8] flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-[#2d2a26] dark:text-[#e6dfd8] flex items-center gap-1.5">
                           <Building className="w-3.5 h-3.5 text-[#cc785c]" />
                           <span>{job.companyName}</span>
-                          <span className="text-[#6c6a64]">•</span>
-                          <MapPin className="w-3.5 h-3.5 text-[#6c6a64]" />
-                          <span className="text-[#a09d96]">{job.location}</span>
+                          <span className="text-[#57534e]">•</span>
+                          <MapPin className="w-3.5 h-3.5 text-[#57534e]" />
+                          <span className="text-[#57534e] dark:text-[#a09d96] font-medium">{job.location}</span>
                         </p>
                       </div>
 
                       {/* Numeric / Radial Fit Gauge */}
                       <div
-                        className={`px-3 py-2 rounded-xl flex flex-col items-center justify-center font-mono text-center border ${
+                        className={`px-3 py-2 rounded-xl flex flex-col items-center justify-center font-mono text-center border shadow-sm ${
                           isHighFit
-                            ? 'bg-[#5db872]/10 border-[#5db872]/40 text-[#5db872]'
+                            ? 'bg-[#2e8544]/10 border-[#2e8544]/30 text-[#2e8544] dark:text-[#5db872]'
                             : 'bg-[#cc785c]/10 border-[#cc785c]/40 text-[#cc785c]'
                         }`}
                       >
                         <span className="text-xl font-bold leading-none">{job.fitScore}%</span>
-                        <span className="text-[9px] uppercase tracking-wider font-semibold mt-0.5">Fit Score</span>
+                        <span className="text-[9px] uppercase tracking-wider font-bold mt-0.5">Fit Score</span>
                       </div>
                     </div>
 
                     {/* AI Reasoning Text */}
-                    <p className="text-xs text-[#a09d96] leading-relaxed bg-[#181715] p-3 rounded-lg border border-white/5 italic">
+                    <p className="text-xs text-[#2d2a26] dark:text-[#a09d96] leading-relaxed bg-[#f6f4ee] dark:bg-[#201e1c] p-3.5 rounded-xl border border-[#ded7cb] dark:border-white/5 italic font-medium">
                       &quot;{job.whyFit}&quot;
                     </p>
 
                     {/* Skills Matrix: Matched vs Missing */}
-                    <div className="space-y-2 pt-1">
+                    <div className="space-y-2.5 pt-1">
                       {/* Matched Skills */}
                       <div className="space-y-1">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#5db872] font-bold">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#2e8544] dark:text-[#5db872] font-bold">
                           ✓ Matched Skills ({job.matchedSkills?.length || 0})
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {job.matchedSkills?.map((skill, idx) => (
                             <span
                               key={idx}
-                              className="px-2 py-0.5 rounded bg-[#5db872]/10 text-[#5db872] text-[11px] font-mono border border-[#5db872]/20"
+                              className="px-2 py-0.5 rounded bg-[#2e8544]/10 text-[#2e8544] dark:text-[#5db872] text-[11px] font-mono border border-[#2e8544]/20 font-medium"
                             >
                               ✓ {skill}
                             </span>
@@ -503,14 +528,14 @@ export default function JobFitPage() {
                       {/* Missing Gaps */}
                       {job.missingSkills && job.missingSkills.length > 0 && (
                         <div className="space-y-1 pt-1">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-[#e8a55a] font-bold">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-[#9a4b08] dark:text-[#e8a55a] font-bold">
                             ! Skill Gaps to Close ({job.missingSkills.length})
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {job.missingSkills.map((gap, idx) => (
                               <span
                                 key={idx}
-                                className="px-2 py-0.5 rounded bg-[#e8a55a]/10 text-[#e8a55a] text-[11px] font-mono border border-[#e8a55a]/20"
+                                className="px-2 py-0.5 rounded bg-[#9a4b08]/10 text-[#9a4b08] dark:text-[#e8a55a] text-[11px] font-mono border border-[#9a4b08]/20 font-medium"
                               >
                                 + {gap}
                               </span>
@@ -522,10 +547,10 @@ export default function JobFitPage() {
                   </div>
 
                   {/* Expandable Scraped JD Preview */}
-                  <div className="space-y-2 pt-2 border-t border-white/5">
+                  <div className="space-y-2 pt-2 border-t border-[#ded7cb] dark:border-white/5">
                     <button
                       onClick={() => setExpandedJdId(isExpanded ? null : job.id)}
-                      className="w-full text-left flex items-center justify-between text-xs font-mono text-[#a09d96] hover:text-white transition-colors cursor-pointer py-1"
+                      className="w-full text-left flex items-center justify-between text-xs font-mono text-[#57534e] dark:text-[#a09d96] hover:text-[#121110] dark:hover:text-white transition-colors cursor-pointer py-1 font-bold"
                     >
                       <span className="flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-[#cc785c]" />
@@ -535,24 +560,24 @@ export default function JobFitPage() {
                     </button>
 
                     {isExpanded && (
-                      <div className="p-3.5 rounded-lg bg-[#181715] border border-white/10 text-xs font-mono text-[#e6dfd8] whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                      <div className="p-4 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 text-xs font-mono text-[#121110] dark:text-[#e6dfd8] whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto shadow-inner">
                         {job.fullJobDescription}
                       </div>
                     )}
                   </div>
 
                   {/* Bottom: 4 Action CTAs */}
-                  <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                  <div className="pt-3.5 border-t border-[#ded7cb] dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
                     
                     {/* Left CTAs: 1-Click Kanban + Real Apply Link */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleSaveToTracker(job)}
                         disabled={isSaved}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer font-medium ${
                           isSaved
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
-                            : 'bg-[#252320] hover:bg-[#2c2a27] text-[#faf9f5] border border-white/10'
+                            ? 'bg-emerald-500/20 text-[#2e8544] dark:text-emerald-300 border border-emerald-500/30 font-bold'
+                            : 'bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#2c2a27] text-[#121110] dark:text-[#faf9f5] border border-[#ded7cb] dark:border-white/10'
                         }`}
                         title="Save to Application Tracker"
                       >
@@ -565,7 +590,7 @@ export default function JobFitPage() {
                         href={job.applyUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-semibold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-xl bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95"
                         title={`Open live application on ${job.platform}`}
                       >
                         <span>Apply on {job.platform}</span>
@@ -577,7 +602,7 @@ export default function JobFitPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleAnalyzeInResumeStudio(job)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-[#a09d96] hover:text-[#cc785c] text-[11px] font-mono border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#2c2a27] text-[#57534e] dark:text-[#a09d96] hover:text-[#cc785c] text-[11px] font-mono border border-[#ded7cb] dark:border-white/10 flex items-center gap-1 transition-colors cursor-pointer font-bold"
                         title="Pass this scraped JD directly into Resume Intelligence"
                       >
                         <FileText className="w-3 h-3 text-[#cc785c]" />
@@ -586,10 +611,10 @@ export default function JobFitPage() {
 
                       <button
                         onClick={() => handlePracticeMockInterview(job)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#252320] hover:bg-[#2c2a27] text-[#a09d96] hover:text-[#5db872] text-[11px] font-mono border border-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#2c2a27] text-[#57534e] dark:text-[#a09d96] hover:text-[#2e8544] dark:hover:text-[#5db872] text-[11px] font-mono border border-[#ded7cb] dark:border-white/10 flex items-center gap-1 transition-colors cursor-pointer font-bold"
                         title="Launch Mock Interview grounded in this exact scraped role"
                       >
-                        <MessageSquare className="w-3 h-3 text-[#5db872]" />
+                        <MessageSquare className="w-3 h-3 text-[#2e8544] dark:text-[#5db872]" />
                         <span>Mock Prep</span>
                       </button>
                     </div>

@@ -587,7 +587,7 @@ function OnboardingContent() {
 
   if (isCheckingExisting) {
     return (
-      <div className="min-h-screen bg-[#181715] flex items-center justify-center">
+      <div className="min-h-screen bg-[#faf9f5] dark:bg-[#141413] flex items-center justify-center transition-colors duration-200">
         <div className="flex items-center gap-3 text-sm font-mono text-[#cc785c]">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>Loading Career DNA Profiler...</span>
@@ -597,7 +597,7 @@ function OnboardingContent() {
   }
 
   return (
-    <div className="max-w-[1000px] mx-auto px-4 sm:px-6 pt-28 pb-20 space-y-8">
+    <div className="max-w-[1000px] mx-auto px-4 sm:px-6 pt-28 pb-20 space-y-8 text-[#141413] dark:text-[#faf9f5] transition-colors duration-200">
       
       {/* HEADER & STEPPER INDICATOR */}
       <div className="space-y-4 text-center">
@@ -613,13 +613,13 @@ function OnboardingContent() {
           )}
         </div>
 
-        <h1 className="font-display text-4xl sm:text-5xl text-[#faf9f5]">
+        <h1 className="font-display text-4xl sm:text-5xl text-[#141413] dark:text-[#faf9f5]">
           {isEditMode ? 'Update Your Career DNA' : 'Configure Your Career DNA'}
         </h1>
-        <p className="text-sm text-[#a09d96] max-w-xl mx-auto">
+        <p className="text-sm text-[#6c6a64] dark:text-[#a09d96] max-w-xl mx-auto">
           {currentStep === 1 && 'Select your academic credentials, experience level, and target career direction.'}
           {currentStep === 2 && 'Calibrate your primary career goals and technical competencies.'}
-          {currentStep === 3 && 'Upload your resume to trigger the AI Intelligence Engine (Gemma) Career DNA synthesis pipeline.'}
+          {currentStep === 3 && 'Upload your resume to trigger the AI Intelligence Engine Career DNA synthesis pipeline.'}
         </p>
 
         {/* STEP PROGRESS BAR */}
@@ -636,15 +636,15 @@ function OnboardingContent() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-bold transition-all ${
                     isCompleted
-                      ? 'bg-[#5db872] text-[#181715]'
+                      ? 'bg-[#5db872] text-[#141413]'
                       : isCurrent
                       ? 'bg-[#cc785c] text-white shadow-lg ring-4 ring-[#cc785c]/20'
-                      : 'bg-[#252320] text-[#6c6a64] border border-white/10'
+                      : 'bg-[#efe9de] dark:bg-[#252320] text-[#6c6a64] border border-[#e6dfd8] dark:border-white/10'
                   }`}
                 >
                   {isCompleted ? '✓' : step.num}
                 </div>
-                <span className={`text-[11px] font-mono ${isCurrent ? 'text-[#faf9f5] font-semibold' : 'text-[#6c6a64]'}`}>
+                <span className={`text-[11px] font-mono ${isCurrent ? 'text-[#141413] dark:text-[#faf9f5] font-semibold' : 'text-[#6c6a64]'}`}>
                   {step.label}
                 </span>
               </div>
@@ -654,7 +654,7 @@ function OnboardingContent() {
       </div>
 
       {/* FORM CARD CONTAINER */}
-      <Card variant="dark-elevated" className="p-6 sm:p-10 border-white/10 shadow-2xl bg-[#252320]">
+      <Card variant="dark-elevated" className="p-6 sm:p-10 border-[#e6dfd8] dark:border-white/10 shadow-xl bg-[#ffffff] dark:bg-[#252320]">
         
         {/* ================================================================ */}
         {/* STEP 1: PERSONAL, ACADEMIC & STRUCTURED PREFERENCES             */}
@@ -666,12 +666,12 @@ function OnboardingContent() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+            <div className="border-b border-[#e6dfd8] dark:border-white/10 pb-4">
+              <h2 className="font-display text-2xl text-[#141413] dark:text-[#faf9f5] flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-[#cc785c]" />
                 <span>1. Personal &amp; Career Preferences</span>
               </h2>
-              <p className="text-xs text-[#a09d96]">
+              <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
                 Select from predefined options. If your choice isn&apos;t listed, choose &quot;Other&quot; to specify manually.
               </p>
             </div>
@@ -680,7 +680,7 @@ function OnboardingContent() {
               
               {/* Full Name */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5] flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-[#cc785c]" />
                   <span>Full Name *</span>
                 </label>
@@ -689,26 +689,26 @@ function OnboardingContent() {
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   placeholder="e.g. Suraj K R"
-                  className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                  className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                 />
                 {validationErrors.fullName && (
-                  <p className="text-xs text-red-400">{validationErrors.fullName}</p>
+                  <p className="text-xs text-red-500">{validationErrors.fullName}</p>
                 )}
               </div>
 
               {/* Education Level (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Education / Degree Level *
                 </label>
                 <div className="relative">
                   <select
                     value={formData.education}
                     onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {EDUCATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -721,14 +721,14 @@ function OnboardingContent() {
                     value={formData.customEducation}
                     onChange={(e) => setFormData({ ...formData, customEducation: e.target.value })}
                     placeholder="Please specify education degree..."
-                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#faf9f5] dark:bg-[#181715] border border-[#cc785c]/40 text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                   />
                 )}
               </div>
 
               {/* Degree / Branch / Major */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Major / Field of Study
                 </label>
                 <input
@@ -736,23 +736,23 @@ function OnboardingContent() {
                   value={formData.degreeMajor}
                   onChange={(e) => setFormData({ ...formData, degreeMajor: e.target.value })}
                   placeholder="e.g. Computer Science, Information Science, ECE"
-                  className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                  className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                 />
               </div>
 
               {/* Experience Level (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Experience Level *
                 </label>
                 <div className="relative">
                   <select
                     value={formData.experienceLevel}
                     onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -765,14 +765,14 @@ function OnboardingContent() {
                     value={formData.customExperienceLevel}
                     onChange={(e) => setFormData({ ...formData, customExperienceLevel: e.target.value })}
                     placeholder="Please specify experience level..."
-                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#faf9f5] dark:bg-[#181715] border border-[#cc785c]/40 text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                   />
                 )}
               </div>
 
               {/* Target Career Track (Dynamic Driver Dropdown) */}
               <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center justify-between">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Target className="w-3.5 h-3.5 text-[#cc785c]" />
                     <span>Target Career Track (Dynamically Updates Skills) *</span>
@@ -783,10 +783,10 @@ function OnboardingContent() {
                   <select
                     value={formData.targetCareerTrack}
                     onChange={(e) => handleTrackChange(e.target.value)}
-                    className="w-full px-4 py-3.5 rounded-lg bg-[#1f1e1b] border-2 border-[#cc785c]/60 text-sm font-semibold text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer shadow-inner"
+                    className="w-full px-4 py-3.5 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border-2 border-[#cc785c]/60 text-sm font-semibold text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer shadow-inner"
                   >
                     {CAREER_TRACK_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -799,24 +799,24 @@ function OnboardingContent() {
                     value={formData.customCareerTrack}
                     onChange={(e) => setFormData({ ...formData, customCareerTrack: e.target.value })}
                     placeholder="Please specify your custom target career track..."
-                    className="w-full mt-2 px-4 py-3 rounded-lg bg-[#181715] border border-[#cc785c] text-xs text-[#faf9f5] focus:outline-none"
+                    className="w-full mt-2 px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#181715] border border-[#cc785c] text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none"
                   />
                 )}
               </div>
 
               {/* Work Preference (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Work Preference (Mode)
                 </label>
                 <div className="relative">
                   <select
                     value={formData.workPreference}
                     onChange={(e) => setFormData({ ...formData, workPreference: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {WORK_PREFERENCE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -827,17 +827,17 @@ function OnboardingContent() {
 
               {/* Job Type (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Job Type
                 </label>
                 <div className="relative">
                   <select
                     value={formData.jobType}
                     onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {JOB_TYPE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -848,17 +848,17 @@ function OnboardingContent() {
 
               {/* Preferred Industry (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                   Preferred Industry
                 </label>
                 <div className="relative">
                   <select
                     value={formData.preferredIndustry}
                     onChange={(e) => setFormData({ ...formData, preferredIndustry: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {PREFERRED_INDUSTRY_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -871,14 +871,14 @@ function OnboardingContent() {
                     value={formData.customPreferredIndustry}
                     onChange={(e) => setFormData({ ...formData, customPreferredIndustry: e.target.value })}
                     placeholder="Please specify preferred industry..."
-                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none"
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#faf9f5] dark:bg-[#181715] border border-[#cc785c]/40 text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none"
                   />
                 )}
               </div>
 
               {/* Preferred Location (Dropdown) */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5] flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#cc785c]" />
                   <span>Preferred Location</span>
                 </label>
@@ -886,10 +886,10 @@ function OnboardingContent() {
                   <select
                     value={formData.preferredLocation}
                     onChange={(e) => setFormData({ ...formData, preferredLocation: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg bg-[#1f1e1b] border border-white/10 text-sm text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-sm text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c] appearance-none cursor-pointer"
                   >
                     {PREFERRED_LOCATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1f1e1b] text-white">
+                      <option key={opt} value={opt} className="bg-[#ffffff] dark:bg-[#1f1e1b] text-[#141413] dark:text-white">
                         {opt}
                       </option>
                     ))}
@@ -902,7 +902,7 @@ function OnboardingContent() {
                     value={formData.customPreferredLocation}
                     onChange={(e) => setFormData({ ...formData, customPreferredLocation: e.target.value })}
                     placeholder="Please specify custom location..."
-                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#181715] border border-[#cc785c]/40 text-xs text-[#faf9f5] focus:outline-none"
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-lg bg-[#faf9f5] dark:bg-[#181715] border border-[#cc785c]/40 text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none"
                   />
                 )}
               </div>
@@ -910,7 +910,7 @@ function OnboardingContent() {
             </div>
 
             {/* CTA Button */}
-            <div className="pt-6 border-t border-white/10 flex justify-end">
+            <div className="pt-6 border-t border-[#e6dfd8] dark:border-white/10 flex justify-end">
               <Button
                 variant="primary"
                 size="lg"
@@ -935,15 +935,15 @@ function OnboardingContent() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-8"
           >
-            <div className="border-b border-white/10 pb-4">
+            <div className="border-b border-[#e6dfd8] dark:border-white/10 pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+                  <h2 className="font-display text-2xl text-[#141413] dark:text-[#faf9f5] flex items-center gap-2">
                     <Code2 className="w-5 h-5 text-[#cc785c]" />
                     <span>2. Dynamic Competencies &amp; Goals</span>
                   </h2>
-                  <p className="text-xs text-[#a09d96]">
-                    Skills dynamically tailored for: <strong className="text-[#faf9f5] font-mono">{effectiveTrack}</strong>
+                  <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
+                    Skills dynamically tailored for: <strong className="text-[#141413] dark:text-[#faf9f5] font-mono">{effectiveTrack}</strong>
                   </p>
                 </div>
                 <Badge variant="teal" size="sm">{formData.selectedSkills.length} Selected</Badge>
@@ -952,7 +952,7 @@ function OnboardingContent() {
 
             {/* 10 Primary Career Goals Selection Grid */}
             <div className="space-y-3">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5]">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5]">
                 Primary Career Goal
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -968,13 +968,13 @@ function OnboardingContent() {
                     }}
                     className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                       formData.selectedGoal === goal.id
-                        ? 'bg-[#181715] border-[#cc785c] shadow-md ring-1 ring-[#cc785c]'
-                        : 'bg-[#1f1e1b] border-white/10 hover:border-white/20'
+                        ? 'bg-[#ffffff] dark:bg-[#181715] border-[#cc785c] shadow-md ring-1 ring-[#cc785c]'
+                        : 'bg-[#faf9f5] dark:bg-[#1f1e1b] border-[#e6dfd8] dark:border-white/10 hover:border-black/20 dark:hover:border-white/20'
                     }`}
                   >
                     <span className="text-xl">{goal.icon}</span>
                     <div className="space-y-0.5">
-                      <h4 className="font-semibold text-xs text-[#faf9f5]">{goal.title}</h4>
+                      <h4 className="font-semibold text-xs text-[#141413] dark:text-[#faf9f5]">{goal.title}</h4>
                       <p className="text-[11px] text-[#6c6a64] leading-relaxed">{goal.desc}</p>
                     </div>
                   </div>
@@ -983,9 +983,9 @@ function OnboardingContent() {
             </div>
 
             {/* DYNAMIC SKILLS CHIPS FOR SELECTED CAREER TRACK */}
-            <div className="space-y-3 pt-4 border-t border-white/10">
+            <div className="space-y-3 pt-4 border-t border-[#e6dfd8] dark:border-white/10">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#faf9f5] flex items-center gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#141413] dark:text-[#faf9f5] flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-[#cc785c]" />
                   <span>Calibrated Skills for {effectiveTrack}</span>
                 </label>
@@ -1003,7 +1003,7 @@ function OnboardingContent() {
                       className={`px-3.5 py-2 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
                         isSelected
                           ? 'bg-[#cc785c] text-white font-bold shadow-md'
-                          : 'bg-[#1f1e1b] text-[#a09d96] border border-white/10 hover:border-white/30'
+                          : 'bg-[#faf9f5] dark:bg-[#1f1e1b] text-[#6c6a64] dark:text-[#a09d96] border border-[#e6dfd8] dark:border-white/10 hover:border-black/30 dark:hover:border-white/30'
                       }`}
                     >
                       <span>{isSelected ? '✓' : '+'}</span>
@@ -1014,13 +1014,13 @@ function OnboardingContent() {
               </div>
 
               {validationErrors.selectedSkills && (
-                <p className="text-xs text-red-400">{validationErrors.selectedSkills}</p>
+                <p className="text-xs text-red-500">{validationErrors.selectedSkills}</p>
               )}
             </div>
 
             {/* MANUAL CUSTOM SKILL INPUT */}
             <div className="space-y-2 pt-2">
-              <label className="text-xs font-semibold text-[#a09d96] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[#6c6a64] dark:text-[#a09d96] flex items-center gap-1.5">
                 <Edit3 className="w-3.5 h-3.5 text-[#cc785c]" />
                 <span>+ Add Custom / Additional Skills</span>
               </label>
@@ -1036,7 +1036,7 @@ function OnboardingContent() {
                     }
                   }}
                   placeholder="Type a skill and press Enter (e.g. Next.js, LangSmith, Tracing, AWS Lambda)"
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-[#1f1e1b] border border-white/10 text-xs text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 text-xs text-[#141413] dark:text-[#faf9f5] focus:outline-none focus:border-[#cc785c]"
                 />
                 <Button
                   type="button"
@@ -1051,7 +1051,7 @@ function OnboardingContent() {
             </div>
 
             {/* Navigation Buttons */}
-            <div className="pt-6 border-t border-white/10 flex items-center justify-between">
+            <div className="pt-6 border-t border-[#e6dfd8] dark:border-white/10 flex items-center justify-between">
               <Button
                 variant="outline"
                 size="md"
@@ -1085,13 +1085,13 @@ function OnboardingContent() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
-            <div className="border-b border-white/10 pb-4">
-              <h2 className="font-display text-2xl text-[#faf9f5] flex items-center gap-2">
+            <div className="border-b border-[#e6dfd8] dark:border-white/10 pb-4">
+              <h2 className="font-display text-2xl text-[#141413] dark:text-[#faf9f5] flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#cc785c]" />
                 <span>3. Resume Intelligence &amp; Career DNA Agent</span>
               </h2>
-              <p className="text-xs text-[#a09d96]">
-                Upload your resume (PDF/Text) to let AI Intelligence Engine (Gemma) extract your verified experience and synthesize your Career DNA.
+              <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
+                Upload your resume (PDF/Text) to let AI Intelligence Engine extract your verified experience and synthesize your Career DNA.
               </p>
             </div>
 
@@ -1104,7 +1104,7 @@ function OnboardingContent() {
               }}
             />
 
-            <div className="pt-4 border-t border-white/10 flex items-center justify-start">
+            <div className="pt-4 border-t border-[#e6dfd8] dark:border-white/10 flex items-center justify-start">
               <Button
                 variant="outline"
                 size="sm"
@@ -1127,7 +1127,7 @@ export default function OnboardingPage() {
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#181715] flex items-center justify-center">
+        <div className="min-h-screen bg-[#faf9f5] dark:bg-[#141413] flex items-center justify-center">
           <div className="flex items-center gap-3 text-sm font-mono text-[#cc785c]">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>Loading Career DNA Profiler...</span>

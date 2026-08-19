@@ -4,12 +4,13 @@
 
 @layer base {
   :root {
-    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-serif: 'Cormorant Garamond', 'Tiempos Headline', Georgia, serif;
     --font-mono: 'JetBrains Mono', monospace;
 
+    /* Base Brand Colors */
     --canvas: #faf9f5;
-    --almost-black: #181715;
+    --almost-black: #121110;
     --dark-grey: #6c6a64;
     --peach-cream: #efe9de;
     --sunset-orange: #cc785c;
@@ -39,9 +40,9 @@
     pointer-events: none;
   }
 
-  /* Tinted Cream Canvas Floor */
+  /* Tinted Warm Linen Canvas Floor (Light Default with zero eye-strain glare) */
   body {
-    background-color: var(--canvas);
+    background-color: #f6f4ee;
     color: #141413;
     font-family: var(--font-sans);
     overflow-x: hidden;
@@ -49,12 +50,14 @@
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Dark mode variant support */
+  html.dark body,
   .dark body,
   body.dark-theme {
-    background-color: #181715;
+    background-color: #121110;
     color: #faf9f5;
   }
 }
@@ -63,19 +66,76 @@
 .font-display {
   font-family: var(--font-serif);
   font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
-/* Glassmorphism nav blur utility */
-.nav-blur-cream {
-  background-color: rgba(250, 249, 245, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+/* Luxury Glassmorphic surfaces */
+.glass-nav {
+  background: rgba(246, 244, 238, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(222, 215, 203, 0.9);
 }
 
-.nav-blur-dark {
-  background-color: rgba(24, 23, 21, 0.88);
+:is(.dark, html.dark, [data-theme="dark"]) .glass-nav,
+.dark .glass-nav-light,
+.glass-nav-dark {
+  background: rgba(18, 17, 16, 0.92) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.glass-capsule {
+  background: rgba(238, 233, 224, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(215, 207, 194, 0.9);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+:is(.dark, html.dark, [data-theme="dark"]) .glass-capsule,
+.dark .glass-capsule-light,
+.glass-capsule-dark {
+  background: rgba(24, 23, 21, 0.94) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  border: 1px solid #ded7cb;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+:is(.dark, html.dark, [data-theme="dark"]) .glass-card,
+.dark .glass-card-light,
+.glass-card-dark {
+  background: rgba(24, 23, 22, 0.88) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 8px 32px -4px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 135, 125, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(204, 120, 92, 0.5);
 }
 
 /* Hide scrollbar utility */
@@ -87,11 +147,49 @@
   scrollbar-width: none;
 }
 
+/* Radiant glow utility */
+.coral-glow {
+  box-shadow: 0 0 35px -5px rgba(204, 120, 92, 0.35);
+}
+
+.coral-glow-subtle {
+  box-shadow: 0 0 20px -5px rgba(204, 120, 92, 0.2);
+}
+
 /* Micro-animations */
-@keyframes fadeInUp {
+@keyframes pulse-beacon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-beacon {
+  animation: pulse-beacon 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes float-subtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float {
+  animation: float-subtle 4s ease-in-out infinite;
+}
+
+/* Fluid Page Glide Transition for zero-glitch navigation */
+@keyframes pageFadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -99,21 +197,7 @@
   }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+main {
+  animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(0.95);
-  }
-}
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 2.5s infinite ease-in-out;
-}

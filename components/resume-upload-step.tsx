@@ -203,14 +203,14 @@ export default function ResumeUploadStep({
   return (
     <div className="space-y-6">
       {errorMsg && (
-        <div className="flex items-start gap-2 p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs shadow-md">
+        <div className="flex items-start gap-2 p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs shadow-md">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {parseNotice && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#5db872]/10 border border-[#5db872]/30 text-[#5db872] text-xs">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#5db872]/10 border border-[#5db872]/30 text-[#2e8544] dark:text-[#5db872] text-xs">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{parseNotice}</span>
         </div>
@@ -221,8 +221,8 @@ export default function ResumeUploadStep({
         onClick={() => !isParsingPdf && !isSynthesizing && fileInputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
           file
-            ? 'border-[#cc785c] bg-[#1f1e1b]'
-            : 'border-white/15 hover:border-[#cc785c] bg-[#1f1e1b] hover:bg-[#252320]'
+            ? 'border-[#cc785c] bg-[#ffffff] dark:bg-[#1f1e1b]'
+            : 'border-[#e6dfd8] dark:border-white/15 hover:border-[#cc785c] bg-[#faf9f5] dark:bg-[#1f1e1b] hover:bg-[#efe9de] dark:hover:bg-[#252320]'
         } ${isParsingPdf || isSynthesizing ? 'opacity-80 cursor-wait' : ''}`}
       >
         <input
@@ -239,7 +239,7 @@ export default function ResumeUploadStep({
           id="resume-upload"
         />
 
-        <div className="w-14 h-14 rounded-full bg-[#252320] border border-white/10 flex items-center justify-center mx-auto mb-3 text-[#cc785c]">
+        <div className="w-14 h-14 rounded-full bg-[#efe9de] dark:bg-[#252320] border border-[#e6dfd8] dark:border-white/10 flex items-center justify-center mx-auto mb-3 text-[#cc785c]">
           {isParsingPdf ? (
             <Loader2 className="w-7 h-7 animate-spin text-[#cc785c]" />
           ) : file ? (
@@ -265,23 +265,23 @@ export default function ResumeUploadStep({
                   setParsedText('');
                   setParseNotice(null);
                 }}
-                className="p-1 rounded bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer disabled:opacity-50"
+                className="p-1 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-[#141413] dark:text-white transition-colors cursor-pointer disabled:opacity-50"
                 title="Remove file"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <p className="font-sans text-base font-semibold text-[#faf9f5]">{file.name}</p>
-            <p className="text-xs text-[#a09d96]">
-              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for AI Synthesis (Gemma)'}
+            <p className="font-sans text-base font-semibold text-[#141413] dark:text-[#faf9f5]">{file.name}</p>
+            <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
+              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for AI Synthesis'}
             </p>
           </div>
         ) : (
           <div className="space-y-1.5">
-            <p className="font-display text-xl text-[#faf9f5]">Drop your resume (PDF / Text) here</p>
-            <p className="text-xs text-[#6c6a64]">Parsed server-side with zero binary leakage</p>
+            <p className="font-display text-xl text-[#141413] dark:text-[#faf9f5]">Drop your resume (PDF / Text) here</p>
+            <p className="text-xs text-[#6c6a64] dark:text-[#8e8b82]">Parsed server-side with zero binary leakage</p>
             <div className="pt-2">
-              <span className="inline-block px-4 py-2 rounded-md bg-[#252320] border border-white/10 text-xs font-mono text-[#cc785c] hover:bg-[#2d2b27]">
+              <span className="inline-block px-4 py-2 rounded-md bg-[#efe9de] dark:bg-[#252320] border border-[#e6dfd8] dark:border-white/10 text-xs font-mono text-[#cc785c] hover:bg-[#e4dcce] dark:hover:bg-[#2d2b27]">
                 Browse Files
               </span>
             </div>
@@ -291,48 +291,48 @@ export default function ResumeUploadStep({
 
       {/* Extracted Plain Text Review & Edit Area */}
       {parsedText && (
-        <div className="p-4 rounded-xl bg-[#1f1e1b] border border-[#3d3d3a] space-y-2">
+        <div className="p-4 rounded-xl bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-[#3d3d3a] space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-[#a09d96] flex items-center gap-1.5 font-semibold">
+            <span className="text-xs font-mono text-[#6c6a64] dark:text-[#a09d96] flex items-center gap-1.5 font-semibold">
               <Edit3 className="w-3.5 h-3.5 text-[#cc785c]" /> Verified Resume Text Preview (Editable)
             </span>
-            <span className="text-[11px] font-mono text-[#5db872]">✓ Plain Text Extracted</span>
+            <span className="text-[11px] font-mono text-[#2e8544] dark:text-[#5db872]">✓ Plain Text Extracted</span>
           </div>
 
           <textarea
             value={parsedText}
             onChange={(e) => setParsedText(e.target.value)}
             rows={6}
-            className="w-full bg-[#181715] border border-white/10 rounded-lg p-3 text-xs font-mono text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-y leading-relaxed"
+            className="w-full bg-[#ffffff] dark:bg-[#181715] border border-[#e6dfd8] dark:border-white/10 rounded-lg p-3 text-xs font-mono text-[#141413] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-y leading-relaxed"
             placeholder="Extracted resume text appears here..."
           />
         </div>
       )}
 
       {/* Questionnaire Context Snapshot */}
-      <div className="p-4 rounded-lg bg-[#1f1e1b] border border-white/10 space-y-2 text-xs font-mono">
-        <div className="flex justify-between text-[#6c6a64] border-b border-white/5 pb-1.5">
+      <div className="p-4 rounded-lg bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 space-y-2 text-xs font-mono">
+        <div className="flex justify-between text-[#6c6a64] dark:text-[#8e8b82] border-b border-[#e6dfd8] dark:border-white/5 pb-1.5">
           <span>TARGET ROLE TRACK:</span>
-          <span className="text-[#faf9f5] font-bold">{onboardingData.targetRole || 'Full-Stack Development'}</span>
+          <span className="text-[#141413] dark:text-[#faf9f5] font-bold">{onboardingData.targetRole || 'Full-Stack Development'}</span>
         </div>
-        <div className="flex justify-between text-[#6c6a64] border-b border-white/5 pb-1.5">
+        <div className="flex justify-between text-[#6c6a64] dark:text-[#8e8b82] border-b border-[#e6dfd8] dark:border-white/5 pb-1.5">
           <span>EXPERIENCE &amp; LOCATION:</span>
-          <span className="text-[#faf9f5]">{onboardingData.expLevel} • {onboardingData.preferredLocation || 'Remote'}</span>
+          <span className="text-[#141413] dark:text-[#faf9f5]">{onboardingData.expLevel} • {onboardingData.preferredLocation || 'Remote'}</span>
         </div>
         {onboardingData.selectedSkills && onboardingData.selectedSkills.length > 0 && (
-          <div className="flex justify-between text-[#6c6a64] pt-0.5">
+          <div className="flex justify-between text-[#6c6a64] dark:text-[#8e8b82] pt-0.5">
             <span>QUESTIONNAIRE SKILLS:</span>
-            <span className="text-[#5db872] truncate max-w-[60%]">{onboardingData.selectedSkills.join(', ')}</span>
+            <span className="text-[#2e8544] dark:text-[#5db872] truncate max-w-[60%]">{onboardingData.selectedSkills.join(', ')}</span>
           </div>
         )}
       </div>
 
       {/* Synthesis Live Progress Checklist */}
       {isSynthesizing && (
-        <div className="p-5 rounded-xl bg-[#181715] border border-[#cc785c]/40 space-y-3 shadow-lg animate-in fade-in">
+        <div className="p-5 rounded-xl bg-[#ffffff] dark:bg-[#181715] border border-[#cc785c]/40 space-y-3 shadow-lg animate-in fade-in">
           <div className="flex items-center gap-2 text-xs font-mono text-[#cc785c] font-bold">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>AI Engine (Gemma) Synthesizing Career DNA...</span>
+            <span>AI Engine Synthesizing Career DNA...</span>
           </div>
 
           <div className="space-y-1.5 text-xs font-mono">
@@ -343,8 +343,8 @@ export default function ResumeUploadStep({
                   key={stepText}
                   className={`p-2 rounded border flex items-center gap-2 transition-all ${
                     isDone
-                      ? 'bg-[#1f1e1b] border-[#5db872]/40 text-[#5db872]'
-                      : 'bg-[#1f1e1b]/40 border-white/5 text-[#6c6a64]'
+                      ? 'bg-[#faf9f5] dark:bg-[#1f1e1b] border-[#5db872]/40 text-[#2e8544] dark:text-[#5db872]'
+                      : 'bg-[#faf9f5]/40 dark:bg-[#1f1e1b]/40 border-[#e6dfd8] dark:border-white/5 text-[#8e8b82] dark:text-[#6c6a64]'
                   }`}
                 >
                   <span>{isDone ? '✓' : '○'}</span>
@@ -367,7 +367,7 @@ export default function ResumeUploadStep({
           {isSynthesizing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>AI Engine (Gemma) Synthesizing Skills...</span>
+              <span>AI Engine Synthesizing Skills...</span>
             </>
           ) : (
             <>
@@ -378,7 +378,7 @@ export default function ResumeUploadStep({
         </button>
 
         {!parsedText && !isSynthesizing && (
-          <p className="text-center text-[11px] text-[#6c6a64] font-mono">
+          <p className="text-center text-[11px] text-[#6c6a64] dark:text-[#8e8b82] font-mono">
             Tip: Attaching your resume unlocks personalized STAR bullet suggestions and real-time ATS match scoring.
           </p>
         )}

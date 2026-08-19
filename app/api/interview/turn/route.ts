@@ -10,14 +10,17 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
-    }
 
     const {
       targetJobDescription,
@@ -26,30 +29,35 @@ export async function POST(req: NextRequest) {
       userResponse,
       isFinal = false,
       company = 'Linear',
-      role = 'Full-Stack Development',
-    } = await req.json();
+      role = 'Frontend Systems',
+      candidateName: incomingCandidateName,
+    } = body;
 
     const isStartTurn = !userResponse || userResponse === 'Start session' || conversationHistory.length === 0;
 
     let candidateResume = customResume || '';
-    let candidateName = 'Candidate';
+    let candidateName = incomingCandidateName || 'Candidate';
 
-    if (!candidateResume) {
-      const [{ data: dna }, { data: profile }] = await Promise.all([
-        supabase.from('career_dna').select('raw_resume_text').eq('user_id', user.id).maybeSingle(),
-        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
-      ]);
+    if (user && !candidateResume) {
+      try {
+        const [{ data: dna }, { data: profile }] = await Promise.all([
+          supabase.from('career_dna').select('raw_resume_text').eq('user_id', user.id).maybeSingle(),
+          supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+        ]);
 
-      if (dna?.raw_resume_text) {
-        candidateResume = dna.raw_resume_text;
-      }
-      if (profile?.full_name) {
-        candidateName = profile.full_name;
+        if (dna?.raw_resume_text) {
+          candidateResume = dna.raw_resume_text;
+        }
+        if (profile?.full_name && (!incomingCandidateName || incomingCandidateName === 'Candidate')) {
+          candidateName = profile.full_name;
+        }
+      } catch (e) {
+        console.warn('Supabase profile lookup notice:', e);
       }
     }
 
     if (!candidateResume) {
-      candidateResume = 'Candidate with frontend and backend software engineering background.';
+      candidateResume = 'Candidate with comprehensive software engineering experience in full-stack web applications, TypeScript, Next.js, and APIs.';
     }
 
     const systemPrompt = `You are a Strict Senior Technical Hiring Manager conducting a realistic technical/behavioral interview with ${candidateName} for: ${
@@ -175,7 +183,7 @@ Return pure JSON only.`;
       (normalizedScores.confidenceScore + normalizedScores.technicalAccuracy + normalizedScores.structureScore) / 3
     );
 
-    if (isFinal) {
+    if (isFinal && user) {
       try {
         await supabase.from('interview_sessions').insert({
           user_id: user.id,

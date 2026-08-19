@@ -83,16 +83,16 @@ export default function AuthForm() {
   };
 
   return (
-    <div className="bg-[#252320] p-8 rounded-xl border border-white/10 max-w-md w-full shadow-2xl space-y-6">
+    <div className="bg-[#ffffff] dark:bg-[#252320] p-8 rounded-xl border border-[#e6dfd8] dark:border-white/10 max-w-md w-full shadow-2xl space-y-6 transition-colors duration-200">
       <div className="text-center space-y-1">
-        <h2 className="font-display text-3xl text-[#faf9f5]">Welcome to CareerPilot AI</h2>
-        <p className="text-xs text-[#a09d96]">
-          Sign in to synthesize your Career DNA & access your workspace.
+        <h2 className="font-display text-3xl text-[#141413] dark:text-[#faf9f5]">Welcome to CareerPilot AI</h2>
+        <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
+          Sign in to synthesize your Career DNA &amp; access your workspace.
         </p>
       </div>
 
       {errorMsg && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-xs">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
@@ -102,7 +102,7 @@ export default function AuthForm() {
       <button
         type="button"
         onClick={handleGoogleLogin}
-        className="w-full bg-[#1f1e1b] text-[#faf9f5] border border-white/10 hover:border-[#cc785c] py-2.5 px-4 rounded-md font-medium text-xs flex items-center justify-center gap-2.5 transition-all shadow-sm cursor-pointer"
+        className="w-full bg-[#faf9f5] dark:bg-[#1f1e1b] text-[#141413] dark:text-[#faf9f5] border border-[#e6dfd8] dark:border-white/10 hover:border-[#cc785c] py-2.5 px-4 rounded-md font-medium text-xs flex items-center justify-center gap-2.5 transition-all shadow-sm cursor-pointer"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -114,8 +114,8 @@ export default function AuthForm() {
       </button>
 
       <div className="relative flex items-center justify-center my-4">
-        <div className="w-full h-px bg-white/10" />
-        <span className="absolute px-3 bg-[#252320] text-[10px] uppercase font-mono text-[#6c6a64]">
+        <div className="w-full h-px bg-[#e6dfd8] dark:bg-white/10" />
+        <span className="absolute px-3 bg-[#ffffff] dark:bg-[#252320] text-[10px] uppercase font-mono text-[#8e8b82] dark:text-[#6c6a64]">
           or email
         </span>
       </div>
@@ -123,30 +123,30 @@ export default function AuthForm() {
       {/* Email / Password Form */}
       <form className="space-y-4">
         <div className="space-y-1 text-left">
-          <label className="text-[11px] font-semibold text-[#faf9f5] uppercase tracking-wider">Email address</label>
+          <label className="text-[11px] font-semibold text-[#141413] dark:text-[#faf9f5] uppercase tracking-wider">Email address</label>
           <div className="relative">
-            <Mail className="w-4 h-4 text-[#6c6a64] absolute left-3 top-2.5" />
+            <Mail className="w-4 h-4 text-[#8e8b82] dark:text-[#6c6a64] absolute left-3 top-2.5" />
             <input
               type="email"
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-[#1f1e1b] border border-white/10 rounded-md text-[#faf9f5] placeholder-[#6c6a64] focus:outline-none focus:border-[#cc785c]"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 rounded-md text-[#141413] dark:text-[#faf9f5] placeholder-[#8e8b82] dark:placeholder-[#6c6a64] focus:outline-none focus:border-[#cc785c]"
               required
             />
           </div>
         </div>
 
         <div className="space-y-1 text-left">
-          <label className="text-[11px] font-semibold text-[#faf9f5] uppercase tracking-wider">Password</label>
+          <label className="text-[11px] font-semibold text-[#141413] dark:text-[#faf9f5] uppercase tracking-wider">Password</label>
           <div className="relative">
-            <Lock className="w-4 h-4 text-[#6c6a64] absolute left-3 top-2.5" />
+            <Lock className="w-4 h-4 text-[#8e8b82] dark:text-[#6c6a64] absolute left-3 top-2.5" />
             <input
               type="password"
               placeholder="••••••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-[#1f1e1b] border border-white/10 rounded-md text-[#faf9f5] placeholder-[#6c6a64] focus:outline-none focus:border-[#cc785c]"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-[#faf9f5] dark:bg-[#1f1e1b] border border-[#e6dfd8] dark:border-white/10 rounded-md text-[#141413] dark:text-[#faf9f5] placeholder-[#8e8b82] dark:placeholder-[#6c6a64] focus:outline-none focus:border-[#cc785c]"
               required
             />
           </div>

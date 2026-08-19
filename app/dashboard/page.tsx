@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#181715] flex flex-col justify-between">
+    <div className="min-h-screen bg-[#f6f4ee] dark:bg-[#121110] text-[#121110] dark:text-[#faf9f5] flex flex-col justify-between transition-colors duration-200">
       <DashboardView
         userEmail={user?.email}
         userName={profile?.full_name || profile?.name || (user?.user_metadata?.full_name as string)}
