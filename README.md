@@ -52,12 +52,8 @@ CareerPilot AI is a comprehensive, AI-powered platform designed to help software
    cd careerpilot-ai
 
 ## 🔒 Privacy & Responsible AI
-Zero-Retention Parsing: Resumes are parsed in temporary serverless execution contexts.
+*   **Zero-Retention Parsing:** Resumes are parsed in temporary serverless execution contexts.
 
-Row-Level Security: Supabase RLS ensures candidates can only query their own interview transcripts and application data.
+*   **Row-Level Security:** Supabase RLS ensures candidates can only query their own interview transcripts and application data.
 
-AI Guardrails: Interview grading rubrics explicitly penalize low-effort/evasive responses and mandate concrete STAR methodology to prevent score inflation.
-
-Developed by Suraj K R
-
-Bridging the gap between academic computer science engineering and high-impact AI product management.
+*   **AI Guardrails:** Interview grading rubrics explicitly penalize low-effort/evasive responses and mandate concrete STAR methodology to prevent score inflation.
