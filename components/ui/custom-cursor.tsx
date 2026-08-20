@@ -84,8 +84,8 @@ export function CustomCursor() {
   return (
     <div
       ref={cursorDotRef}
-      className="fixed top-0 left-0 pointer-events-none z-[9999] hidden lg:block -translate-x-1/2 -translate-y-1/2 will-change-transform"
-      style={{ left: 0, top: 0 }}
+      className="fixed top-0 left-0 pointer-events-none z-[9999] hidden lg:block -translate-x-1/2 -translate-y-1/2 will-change-transform opacity-0"
+      style={{ left: 0, top: 0, opacity: 0 }}
     >
       <motion.div
         animate={{

@@ -524,74 +524,76 @@ export default function ResumeIntelligencePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Left: Candidate Resume (Dual Source Toggle) */}
-          <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
-              <div>
-                <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">
-                  Candidate Resume ({candidateDisplayName})
-                </h3>
-                <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Select source or upload PDF</span>
-              </div>
-
-              {/* Source Toggle */}
-              <div className="flex items-center bg-[#f0ebe1] dark:bg-[#201e1c] p-1 rounded-xl border border-[#ded7cb] dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch('stored')}
-                  className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                    inputMode === 'stored'
-                      ? 'bg-[#cc785c] text-white shadow-sm font-bold'
-                      : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
-                  }`}
-                >
-                  <Database className="w-3 h-3" /> Stored Resume
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch('upload')}
-                  className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                    inputMode === 'upload'
-                      ? 'bg-[#cc785c] text-white shadow-sm font-bold'
-                      : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
-                  }`}
-                >
-                  <UploadCloud className="w-3 h-3" /> Upload PDF
-                </button>
-              </div>
-            </div>
-
-            {inputMode === 'upload' && (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="p-4 bg-[#f6f4ee] dark:bg-[#201e1c] border border-dashed border-[#ded7cb] dark:border-white/15 hover:border-[#cc785c] rounded-xl flex items-center justify-between cursor-pointer transition-colors"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.docx,.doc,.txt,.rtf,.md"
-                  onChange={handleResumeFileUpload}
-                  className="hidden"
-                />
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
-                    {isParsingFile ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[#121110] dark:text-white">
-                      {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Resume (PDF, DOCX, DOC, TXT, RTF)'}
-                    </p>
-                    <p className="text-xs text-[#57534e] dark:text-[#8e8b82]">Accepts any standard document format without binary leakage</p>
-                  </div>
+          <div className="bg-[#ffffff] dark:bg-[#181716] border border-[#ded7cb] dark:border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-md flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
+                <div>
+                  <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">
+                    Candidate Resume
+                  </h3>
+                  <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Select stored profile or upload document</span>
                 </div>
-                <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
+
+                {/* Source Toggle */}
+                <div className="flex items-center bg-[#f0ebe1] dark:bg-[#201e1c] p-1 rounded-xl border border-[#ded7cb] dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => handleModeSwitch('stored')}
+                    className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      inputMode === 'stored'
+                        ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                        : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
+                    }`}
+                  >
+                    <Database className="w-3 h-3" /> Stored Resume
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeSwitch('upload')}
+                    className={`px-3 py-1.5 text-xs font-mono font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      inputMode === 'upload'
+                        ? 'bg-[#cc785c] text-white shadow-sm font-bold'
+                        : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
+                    }`}
+                  >
+                    <UploadCloud className="w-3 h-3" /> Upload PDF
+                  </button>
+                </div>
               </div>
-            )}
+
+              {inputMode === 'upload' && (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-4 bg-[#f6f4ee] dark:bg-[#201e1c] border border-dashed border-[#ded7cb] dark:border-white/15 hover:border-[#cc785c] rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt,.rtf,.md"
+                    onChange={handleResumeFileUpload}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
+                      {isParsingFile ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#121110] dark:text-white">
+                        {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Resume (PDF, DOCX, DOC, TXT, RTF)'}
+                      </p>
+                      <p className="text-xs text-[#57534e] dark:text-[#8e8b82]">Accepts any standard document format without binary leakage</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
+                </div>
+              )}
+            </div>
 
             <textarea
               value={resumeText}
               onChange={(e) => setResumeText(e.target.value)}
               placeholder={initialLoading ? "Loading candidate resume from database..." : "Paste or review your resume plain text here..."}
-              className="w-full h-72 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner"
+              className="w-full h-80 min-h-[300px] bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs sm:text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-y leading-relaxed shadow-inner mt-4"
             />
           </div>
 
@@ -715,7 +717,7 @@ export default function ResumeIntelligencePage() {
                 setSelectedJdLabel(null);
               }}
               placeholder="Target Job Description will appear here. Upload a JD file above, paste text directly, or click 'Auto-Match'..."
-              className="w-full h-64 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-3"
+              className="w-full h-80 min-h-[300px] bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs sm:text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-y leading-relaxed shadow-inner mt-4"
             />
           </div>
 

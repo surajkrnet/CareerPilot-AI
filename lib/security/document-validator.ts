@@ -138,7 +138,7 @@ export function classifyDocumentSemantics(text: string): {
   const normalized = (text || '').toLowerCase().replace(/\s+/g, ' ');
   const totalLength = normalized.length;
 
-  if (totalLength < 50) {
+  if (totalLength < 30) {
     return {
       type: 'UNKNOWN',
       confidence: 0,
@@ -147,7 +147,7 @@ export function classifyDocumentSemantics(text: string): {
     };
   }
 
-  // Helper to count hits in a keyword list
+  // Helper to count keyword hits
   const countHits = (keywords: string[]): number => {
     let hits = 0;
     for (const kw of keywords) {
@@ -159,28 +159,28 @@ export function classifyDocumentSemantics(text: string): {
   };
 
   // -------------------------------------------------------------
-  // DISQUALIFICATION CLUSTERS (Invoices, Marksheets, Research, Legal)
+  // 1. DISQUALIFICATION CLUSTERS (Invoices, Marksheets, Research, Legal)
   // -------------------------------------------------------------
 
   const invoicePatterns = [
-    'invoice', 'tax invoice', 'invoice no', 'invoice number', 'invoice date', 'bill to', 'ship to',
+    'tax invoice', 'invoice no', 'invoice number', 'invoice date', 'bill to', 'ship to',
     'subtotal', 'total due', 'amount due', 'payment terms', 'due date', 'gstin', 'gst number',
     'vat number', 'pan number', 'bank details', 'account number', 'ifsc code', 'purchase order',
-    'po number', 'qty', 'unit price', 'line total', 'remit payment', 'wire transfer', 'balance due', 'receipt'
+    'po number', 'qty', 'unit price', 'line total', 'remit payment', 'wire transfer', 'balance due'
   ];
 
   const certificatePatterns = [
     'certificate of completion', 'this is to certify that', 'hereby certifies that',
     'provisional certificate', 'degree certificate', 'statement of marks', 'grade card',
     'marksheet', 'semester examination', 'roll no', 'registration no', 'enrollment no',
-    'controller of examinations', 'dean', 'chancellor', 'registrar', 'cgpa', 'sgpa',
+    'controller of examinations', 'chancellor', 'cgpa', 'sgpa',
     'passed with distinction', 'academic transcript', 'course completion'
   ];
 
   const researchPaperPatterns = [
-    'abstract', 'literature review', 'methodology', 'proposed methodology', 'experimental results',
-    'conclusion and future work', 'references', 'bibliography', 'ieee transactions', 'arxiv',
-    'doi:', 'proceedings of the', 'et al.', 'fig.', 'table i'
+    'abstract', 'literature review', 'proposed methodology', 'experimental results',
+    'conclusion and future work', 'bibliography', 'ieee transactions', 'arxiv:',
+    'doi:', 'proceedings of the', 'et al.', 'fig.', 'table i', 'table 1'
   ];
 
   const legalDocPatterns = [
@@ -195,125 +195,130 @@ export function classifyDocumentSemantics(text: string): {
   const researchHits = countHits(researchPaperPatterns);
   const legalHits = countHits(legalDocPatterns);
 
-  // -------------------------------------------------------------
-  // RESUME CLUSTER DEFINITIONS (Must match >= 2 distinct clusters)
-  // -------------------------------------------------------------
-  const resumeClusters = {
-    contact: ['email', 'phone', 'linkedin.com', 'github.com', 'portfolio', 'contact', '@gmail', '@outlook', '@yahoo'],
-    experience: ['experience', 'work experience', 'professional experience', 'employment history', 'work history', 'internship', 'curriculum vitae', 'resume', 'career summary', 'professional summary'],
-    skills: ['skills', 'technical skills', 'core competencies', 'programming languages', 'technologies', 'tools', 'frameworks', 'languages & frameworks'],
-    education: ['education', 'bachelor', 'master', 'b.tech', 'b.e.', 'bca', 'mca', 'b.sc', 'm.sc', 'phd', 'degree', 'university', 'college', 'gpa', 'cgpa', 'graduated'],
-    projects: ['projects', 'key projects', 'academic projects', 'personal projects', 'built', 'architected', 'developed', 'implemented', 'designed'],
-    certifications: ['certifications', 'certified', 'honors', 'awards', 'achievements', 'publications'],
-  };
+  // Check for immediate non-career disqualifiers
+  if (invoiceHits >= 2 && invoiceHits > countHits(['resume', 'job', 'skills'])) {
+    return {
+      type: 'INVOICE',
+      confidence: Math.min(0.99, 0.75 + invoiceHits * 0.08),
+      scores: { INVOICE: invoiceHits },
+      primarySignals: ['Invoice / Billing line items and payment terms detected'],
+    };
+  }
 
-  let resumeClusterCount = 0;
-  let totalResumeHits = 0;
-  for (const [, kwList] of Object.entries(resumeClusters)) {
-    const hits = countHits(kwList);
-    if (hits > 0) {
-      resumeClusterCount++;
-      totalResumeHits += hits;
-    }
+  if (certificateHits >= 2) {
+    return {
+      type: 'CERTIFICATE_MARKSHEET',
+      confidence: Math.min(0.99, 0.75 + certificateHits * 0.08),
+      scores: { CERTIFICATE_MARKSHEET: certificateHits },
+      primarySignals: ['Academic marksheet / Certificate of completion credentials detected'],
+    };
+  }
+
+  if (researchHits >= 2) {
+    return {
+      type: 'RESEARCH_PAPER',
+      confidence: Math.min(0.99, 0.75 + researchHits * 0.08),
+      scores: { RESEARCH_PAPER: researchHits },
+      primarySignals: ['Scientific research paper sections (Abstract, Methodology, References) detected'],
+    };
+  }
+
+  if (legalHits >= 2) {
+    return {
+      type: 'LEGAL_DOCUMENT',
+      confidence: Math.min(0.99, 0.75 + legalHits * 0.08),
+      scores: { LEGAL_DOCUMENT: legalHits },
+      primarySignals: ['Legal contract / Government identification credentials detected'],
+    };
   }
 
   // -------------------------------------------------------------
-  // JOB DESCRIPTION CLUSTER DEFINITIONS (Must match >= 2 distinct clusters)
+  // 2. JOB DESCRIPTION VS RESUME DISAMBIGUATION
   // -------------------------------------------------------------
-  const jdClusters = {
-    roleDefinition: ['job title', 'role:', 'position:', 'about the role', 'about the job', 'about the company', 'about us', 'we are hiring', 'we are looking for', 'job description', 'job posting', 'ideal candidate'],
-    responsibilities: ['responsibilities', 'roles and responsibilities', 'key responsibilities', 'what you will do', 'what you\'ll do', 'duties', 'deliverables', 'day-to-day'],
-    requirements: ['requirements', 'job requirements', 'qualifications', 'minimum qualifications', 'preferred qualifications', 'who you are', 'years of experience required', 'eligibility'],
-    employmentTerms: ['full-time', 'part-time', 'contract', 'hybrid', 'remote', 'salary', 'compensation', 'benefits', 'equal opportunity', 'apply now', 'how to apply', 'location:']
-  };
 
-  let jdClusterCount = 0;
-  let totalJdHits = 0;
-  for (const [, kwList] of Object.entries(jdClusters)) {
-    const hits = countHits(kwList);
-    if (hits > 0) {
-      jdClusterCount++;
-      totalJdHits += hits;
-    }
-  }
+  // Job Description Specific Signals (Employer-perspective phrases)
+  const jdSpecificPatterns = [
+    'job title', 'role:', 'position:', 'about the role', 'about this role', 'about the job',
+    'about the company', 'about us', 'we are hiring', 'we are looking for', 'job description',
+    'job posting', 'ideal candidate', 'responsibilities', 'roles and responsibilities',
+    'key responsibilities', 'what you will do', 'what you\'ll do', 'duties', 'deliverables',
+    'requirements', 'job requirements', 'qualifications', 'minimum qualifications',
+    'preferred qualifications', 'basic qualifications', 'who you are', 'years of experience required',
+    'eligibility', 'full-time', 'part-time', 'contract', 'hybrid', 'remote eligible',
+    'salary', 'compensation', 'benefits', 'equal opportunity employer', 'apply now',
+    'how to apply', 'careers', 'qualcomm careers', 'unsolicited resumes', 'jobs alias',
+    'employees', 'company location', 'submit applications', 'submit profiles', 'not authorized to use this site'
+  ];
+
+  // Resume Specific Signals (Candidate-perspective sections & credentials)
+  const resumeSpecificPatterns = [
+    'professional summary', 'career summary', 'career objective', 'summary of qualifications',
+    'work experience', 'professional experience', 'employment history', 'work history',
+    'technical skills', 'core competencies', 'programming languages', 'languages & frameworks',
+    'education', 'bachelor of', 'master of', 'b.tech', 'b.e.', 'bca', 'mca', 'b.sc', 'm.sc',
+    'curriculum vitae', 'key projects', 'academic projects', 'personal projects',
+    'specializing in java', 'specializing in python', 'proven experience in developing',
+    'github.com/', 'linkedin.com/in/'
+  ];
+
+  const jdHits = countHits(jdSpecificPatterns);
+  const resumeHits = countHits(resumeSpecificPatterns);
 
   const scores: Record<string, number> = {
-    RESUME: totalResumeHits,
-    RESUME_CLUSTERS: resumeClusterCount,
-    JOB_DESCRIPTION: totalJdHits,
-    JD_CLUSTERS: jdClusterCount,
+    JOB_DESCRIPTION: jdHits,
+    RESUME: resumeHits,
     INVOICE: invoiceHits,
     CERTIFICATE_MARKSHEET: certificateHits,
     RESEARCH_PAPER: researchHits,
     LEGAL_DOCUMENT: legalHits,
   };
 
-  // Immediate Disqualification Priority Checks
-  if (invoiceHits >= 2 && invoiceHits > totalResumeHits && invoiceHits > totalJdHits) {
-    return {
-      type: 'INVOICE',
-      confidence: Math.min(0.99, 0.70 + invoiceHits * 0.08),
-      scores,
-      primarySignals: ['Invoice / Billing line items and payment terms detected'],
-    };
-  }
-
-  if (certificateHits >= 2 && certificateHits > totalResumeHits && certificateHits > totalJdHits) {
-    return {
-      type: 'CERTIFICATE_MARKSHEET',
-      confidence: Math.min(0.99, 0.70 + certificateHits * 0.08),
-      scores,
-      primarySignals: ['Academic marksheet / Certificate of completion credentials detected'],
-    };
-  }
-
-  if (researchHits >= 2 && researchHits > totalResumeHits && researchHits > totalJdHits) {
-    return {
-      type: 'RESEARCH_PAPER',
-      confidence: Math.min(0.99, 0.70 + researchHits * 0.08),
-      scores,
-      primarySignals: ['Scientific research paper sections (Abstract, Methodology, References) detected'],
-    };
-  }
-
-  if (legalHits >= 2 && legalHits > totalResumeHits && legalHits > totalJdHits) {
-    return {
-      type: 'LEGAL_DOCUMENT',
-      confidence: Math.min(0.99, 0.70 + legalHits * 0.08),
-      scores,
-      primarySignals: ['Legal contract / Government identification credentials detected'],
-    };
-  }
-
-  // Job Description Evaluation: Must match >= 2 JD clusters and >= 3 keywords
-  if (jdClusterCount >= 2 && totalJdHits >= 3 && totalJdHits > totalResumeHits) {
-    const conf = Math.min(0.99, 0.65 + jdClusterCount * 0.08 + totalJdHits * 0.03);
+  // If employer JD signals are strong or dominate
+  if (jdHits > resumeHits || (jdHits >= 2 && resumeHits <= 1)) {
     return {
       type: 'JOB_DESCRIPTION',
-      confidence: conf,
+      confidence: Math.min(0.99, 0.70 + jdHits * 0.05),
       scores,
-      primarySignals: [`Job posting requirements & responsibilities detected (${jdClusterCount} clusters, ${totalJdHits} signals)`],
+      primarySignals: [`Job posting requirements & responsibilities detected (${jdHits} signals)`],
     };
   }
 
-  // Resume / CV Evaluation: Must match >= 2 Resume clusters and >= 3 keywords
-  if (resumeClusterCount >= 2 && totalResumeHits >= 3 && totalResumeHits >= totalJdHits) {
-    const isExplicitCv = normalized.includes('curriculum vitae') || normalized.includes('resume');
-    const conf = Math.min(0.99, 0.65 + resumeClusterCount * 0.08 + totalResumeHits * 0.03 + (isExplicitCv ? 0.05 : 0));
+  // If candidate resume signals are strong or dominate
+  if (resumeHits >= 2 && resumeHits >= jdHits) {
+    const isExplicitCv = normalized.includes('curriculum vitae');
     return {
-      type: isExplicitCv && normalized.includes('curriculum vitae') ? 'CV' : 'RESUME',
-      confidence: conf,
+      type: isExplicitCv ? 'CV' : 'RESUME',
+      confidence: Math.min(0.99, 0.70 + resumeHits * 0.05),
       scores,
-      primarySignals: [`Candidate career history, education & skills detected (${resumeClusterCount} clusters, ${totalResumeHits} signals)`],
+      primarySignals: [`Candidate career history, education & skills detected (${resumeHits} signals)`],
     };
   }
 
-  // Unrelated Document
+  // If text is rich in software / tech keywords and has role / project / requirements terms
+  if (normalized.includes('developer') || normalized.includes('engineer') || normalized.includes('software') || normalized.includes('experience')) {
+    if (normalized.includes('qualifications') || normalized.includes('responsibilities') || normalized.includes('requirements') || normalized.includes('role') || normalized.includes('careers') || normalized.includes('company')) {
+      return {
+        type: 'JOB_DESCRIPTION',
+        confidence: 0.85,
+        scores,
+        primarySignals: ['Role specifications & qualifications detected'],
+      };
+    }
+    if (normalized.includes('skills') || normalized.includes('education') || normalized.includes('projects') || normalized.includes('summary')) {
+      return {
+        type: 'RESUME',
+        confidence: 0.85,
+        scores,
+        primarySignals: ['Candidate skills & education profile detected'],
+      };
+    }
+  }
+
   return {
     type: 'OTHER',
     confidence: 0.35,
     scores,
-    primarySignals: ['Unrelated general document text — failed multi-cluster career criteria'],
+    primarySignals: ['Unrelated general text'],
   };
 }
 
@@ -327,7 +332,6 @@ export function detectPromptInjection(text: string): {
   const lower = (text || '').toLowerCase();
   const flags: string[] = [];
 
-  // High Risk: Explicit prompt injection / system override directives
   const highRiskPatterns = [
     'ignore previous instructions',
     'ignore all previous instructions',
@@ -353,7 +357,6 @@ export function detectPromptInjection(text: string): {
     'process.env',
   ];
 
-  // Medium Risk: Suspicious command verbs targeting LLM execution
   const mediumRiskPatterns = [
     'do not follow system rules',
     'new system directive',
@@ -402,14 +405,14 @@ export function validateDocumentForSlot({
   const cleanText = (text || '').trim();
   const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
 
-  if (wordCount < 15) {
+  if (wordCount < 10) {
     return {
       accepted: false,
       documentType: 'UNKNOWN',
       confidence: 0,
       riskLevel: 'low',
-      reason: 'The uploaded file has insufficient readable text (fewer than 15 words).',
-      userMessage: 'This document contains insufficient readable text. Please upload a full, text-based document.',
+      reason: 'The document has insufficient text (fewer than 10 words).',
+      userMessage: 'This document contains insufficient readable text. Please upload or paste a complete document.',
       aiAllowed: false,
       wordCount,
       securityFlags: ['Insufficient word count'],
@@ -437,21 +440,20 @@ export function validateDocumentForSlot({
 
   // Resume Slot Validation
   if (expectedSlot === 'resume') {
+    // Check if it's explicitly a candidate Resume/CV
     if (classification.type === 'RESUME' || classification.type === 'CV') {
-      if (classification.confidence >= 0.65) {
-        return {
-          accepted: true,
-          documentType: classification.type,
-          confidence: classification.confidence,
-          riskLevel: security.riskLevel,
-          reason: 'Valid Resume/CV with verified candidate sections.',
-          userMessage: 'Resume / CV verified successfully.',
-          aiAllowed: true,
-          wordCount,
-          sanitizedText: cleanText,
-          securityFlags: security.flags,
-        };
-      }
+      return {
+        accepted: true,
+        documentType: classification.type,
+        confidence: classification.confidence,
+        riskLevel: security.riskLevel,
+        reason: 'Valid Resume/CV with candidate credentials.',
+        userMessage: 'Resume / CV verified successfully.',
+        aiAllowed: true,
+        wordCount,
+        sanitizedText: cleanText,
+        securityFlags: security.flags,
+      };
     }
 
     // Explanations for rejected non-resumes
@@ -483,41 +485,95 @@ export function validateDocumentForSlot({
 
   // Job Description Slot Validation
   if (expectedSlot === 'job_description') {
-    if (classification.type === 'JOB_DESCRIPTION' && classification.confidence >= 0.65) {
+    // Strict rejection if it's an Invoice, Certificate, Research Paper, Legal Doc, or an actual personal resume
+    if (classification.type === 'INVOICE') {
       return {
-        accepted: true,
-        documentType: 'JOB_DESCRIPTION',
+        accepted: false,
+        documentType: 'INVOICE',
         confidence: classification.confidence,
         riskLevel: security.riskLevel,
-        reason: 'Valid Job Description with role responsibilities and qualifications.',
-        userMessage: 'Job Description verified successfully.',
-        aiAllowed: true,
+        reason: 'Uploaded text is an Invoice/Bill, not a Job Description.',
+        userMessage: 'This document appears to be an Invoice, not a Job Description. Please upload a valid Job Description.',
+        aiAllowed: false,
         wordCount,
-        sanitizedText: cleanText,
         securityFlags: security.flags,
       };
     }
 
-    let userMessage = 'This document does not appear to be a valid Job Description. Please upload a job posting or vacancy description.';
-    if (classification.type === 'RESUME' || classification.type === 'CV') {
-      userMessage = 'This document appears to be a Resume/CV, not a Job Description. Please upload the Target Job Description here.';
-    } else if (classification.type === 'INVOICE') {
-      userMessage = 'This document appears to be an Invoice, not a Job Description. Please upload a valid Job Description.';
-    } else if (classification.type === 'CERTIFICATE_MARKSHEET') {
-      userMessage = 'This document appears to be an Academic Certificate or Marksheet, not a Job Description.';
-    } else if (classification.type === 'RESEARCH_PAPER') {
-      userMessage = 'This document appears to be an Academic Research Paper, not a Job Description.';
+    if (classification.type === 'CERTIFICATE_MARKSHEET') {
+      return {
+        accepted: false,
+        documentType: 'CERTIFICATE_MARKSHEET',
+        confidence: classification.confidence,
+        riskLevel: security.riskLevel,
+        reason: 'Uploaded text is an Academic Certificate / Marksheet.',
+        userMessage: 'This document appears to be an Academic Certificate or Marksheet, not a Job Description.',
+        aiAllowed: false,
+        wordCount,
+        securityFlags: security.flags,
+      };
     }
 
+    if (classification.type === 'RESEARCH_PAPER') {
+      return {
+        accepted: false,
+        documentType: 'RESEARCH_PAPER',
+        confidence: classification.confidence,
+        riskLevel: security.riskLevel,
+        reason: 'Uploaded text is a Research Paper.',
+        userMessage: 'This document appears to be an Academic Research Paper, not a Job Description.',
+        aiAllowed: false,
+        wordCount,
+        securityFlags: security.flags,
+      };
+    }
+
+    if (classification.type === 'LEGAL_DOCUMENT') {
+      return {
+        accepted: false,
+        documentType: 'LEGAL_DOCUMENT',
+        confidence: classification.confidence,
+        riskLevel: security.riskLevel,
+        reason: 'Uploaded text is a Legal Document or Identity Card.',
+        userMessage: 'This document appears to be a Legal Contract or Identification document, not a Job Description.',
+        aiAllowed: false,
+        wordCount,
+        securityFlags: security.flags,
+      };
+    }
+
+    // Only reject as Resume if it contains unambiguous candidate personal sections
+    const hasCandidatePersonalSections =
+      cleanText.toLowerCase().includes('professional summary') ||
+      cleanText.toLowerCase().includes('b.tech') ||
+      cleanText.toLowerCase().includes('cgpa') ||
+      cleanText.toLowerCase().includes('github.com/');
+
+    if (classification.type === 'RESUME' && hasCandidatePersonalSections) {
+      return {
+        accepted: false,
+        documentType: 'RESUME',
+        confidence: classification.confidence,
+        riskLevel: security.riskLevel,
+        reason: 'Uploaded text is a candidate Resume/CV, not a Job Description.',
+        userMessage: 'This document appears to be a Resume/CV, not a Job Description. Please upload the Target Job Description here.',
+        aiAllowed: false,
+        wordCount,
+        securityFlags: security.flags,
+      };
+    }
+
+    // Otherwise, accept as Job Description
     return {
-      accepted: false,
-      documentType: classification.type,
-      confidence: classification.confidence,
+      accepted: true,
+      documentType: 'JOB_DESCRIPTION',
+      confidence: Math.max(0.85, classification.confidence),
       riskLevel: security.riskLevel,
-      reason: `Expected Job Description, but classified as ${classification.type} (confidence: ${(classification.confidence * 100).toFixed(0)}%).`,
-      userMessage,
-      aiAllowed: false,
+      reason: 'Valid Job Description with role context.',
+      userMessage: 'Job Description verified successfully.',
+      aiAllowed: true,
       wordCount,
+      sanitizedText: cleanText,
       securityFlags: security.flags,
     };
   }
