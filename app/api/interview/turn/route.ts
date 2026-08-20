@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { aiModel } from '@/lib/ai/openrouter';
 import { generateText } from 'ai';
 import { extractAndParseJSON } from '@/lib/ai/json-extractor';
+import {
+  detectPromptInjection,
+  sanitizeAndEncapsulateForAI,
+} from '@/lib/security/document-validator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +37,16 @@ export async function POST(req: NextRequest) {
       candidateName: incomingCandidateName,
     } = body;
 
+    // Check for prompt-injection in user input / resume
+    if (userResponse && detectPromptInjection(userResponse).riskLevel === 'high') {
+      return NextResponse.json(
+        {
+          error: 'Security alert: User response contains prohibited adversarial instructions.',
+        },
+        { status: 400 }
+      );
+    }
+
     const isStartTurn = !userResponse || userResponse === 'Start session' || conversationHistory.length === 0;
 
     let candidateResume = customResume || '';
@@ -60,10 +74,12 @@ export async function POST(req: NextRequest) {
       candidateResume = 'Candidate with comprehensive software engineering experience in full-stack web applications, TypeScript, Next.js, and APIs.';
     }
 
-    const systemPrompt = `You are a Strict Senior Technical Hiring Manager conducting a realistic technical/behavioral interview with ${candidateName} for: ${
-      targetJobDescription?.slice(0, 300) || role
-    }.
-Resume Highlights: ${candidateResume?.slice(0, 600) || 'Engineering Candidate'}.
+    const encapsulatedResume = sanitizeAndEncapsulateForAI(candidateResume.slice(0, 600), 'Resume Summary');
+    const safeRole = (targetJobDescription?.slice(0, 300) || role).replace(/[\r\n]+/g, ' ');
+
+    const systemPrompt = `You are a Strict Senior Technical Hiring Manager conducting a realistic technical/behavioral interview with ${candidateName} for: ${safeRole}.
+
+${encapsulatedResume}
 
 STRICT SCORING RUBRIC (0-100):
 - Single-word, 2-3 word replies, or evasive answers (e.g. "good", "yes", "idk", "ok") MUST BE SCORED 0-15 across all meters.

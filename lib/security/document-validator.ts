@@ -533,13 +533,9 @@ export function validateDocumentForSlot({
   };
 }
 
-/**
- * 5. Structural AI Containment Wrapper
- * Encases untrusted document text so it cannot override system/developer prompts.
- */
 export function sanitizeAndEncapsulateForAI(
   text: string,
-  documentRole: 'Candidate Resume' | 'Target Job Description'
+  documentRole: string = 'User Document'
 ): string {
   // Strip control chars and zero-width spaces
   const sanitized = (text || '')
