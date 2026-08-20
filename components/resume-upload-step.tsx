@@ -64,36 +64,52 @@ export default function ResumeUploadStep({
     'Career DNA calibration complete',
   ];
 
-  // Handle immediate server-side PDF parsing upon file selection
+  // Handle immediate server-side PDF parsing and document validation upon file selection
+  const [parsingStageText, setParsingStageText] = useState<string>('Validating document...');
+
   const handleFileSelect = async (selectedFile: File) => {
     setFile(selectedFile);
     setErrorMsg(null);
     setParseNotice(null);
     setIsParsingPdf(true);
+    setParsingStageText('Checking file signature & format...');
 
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('slot', 'resume');
 
-      const res = await fetch('/api/career-dna/parse-pdf', {
+      setParsingStageText('Reading & extracting document text...');
+      const res = await fetch('/api/career-dna/parse-pdf?slot=resume', {
         method: 'POST',
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to extract text from PDF.');
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        data = { error: text || 'Failed to parse document response.' };
+      }
+
+      if (!res.ok || !data.accepted) {
+        setFile(null);
+        setParsedText('');
+        throw new Error(data.error || data.reason || 'This document was not accepted as a Resume/CV. Please upload a valid Resume or CV.');
       }
 
       if (data.text) {
         setParsedText(data.text);
-        setParseNotice(`Extracted ${data.wordCount || ''} words cleanly. Review below or proceed.`);
+        const confPercent = Math.round((data.classification?.confidence || 0.95) * 100);
+        setParseNotice(`✓ Resume Verified (${data.wordCount || ''} words extracted · ${confPercent}% Match). Review below or proceed.`);
       }
     } catch (err: any) {
-      console.warn('PDF parse error:', err);
-      setErrorMsg(err.message || 'Unable to extract text from PDF. You can paste your resume text directly.');
+      console.warn('Resume validation/parse error:', err);
+      setErrorMsg(err.message || 'Unable to extract text from this document. Please upload a standard Resume/CV (PDF, DOCX, DOC, TXT, RTF).');
     } finally {
       setIsParsingPdf(false);
+      setParsingStageText('Validating document...');
     }
   };
 
@@ -202,17 +218,42 @@ export default function ResumeUploadStep({
 
   return (
     <div className="space-y-6">
+      {/* Document Validation & Rejection Banner */}
       {errorMsg && (
-        <div className="flex items-start gap-2 p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs shadow-md">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{errorMsg}</span>
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-bold text-sm block text-[#141413] dark:text-[#faf9f5]">Document Not Accepted</span>
+              <p className="text-xs leading-relaxed text-[#57534e] dark:text-[#a09d96]">{errorMsg}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMsg(null);
+                fileInputRef.current?.click();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold cursor-pointer transition-colors shadow-sm"
+            >
+              Choose Another File ↗
+            </button>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="text-[#57534e] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white text-xs font-mono px-2 py-1 cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
       {parseNotice && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#5db872]/10 border border-[#5db872]/30 text-[#2e8544] dark:text-[#5db872] text-xs">
+        <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-[#5db872]/10 border border-[#5db872]/30 text-[#2e8544] dark:text-[#5db872] text-xs font-mono shadow-sm">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{parseNotice}</span>
+          <span className="font-semibold">{parseNotice}</span>
         </div>
       )}
 
@@ -249,7 +290,16 @@ export default function ResumeUploadStep({
           )}
         </div>
 
-        {file ? (
+        {isParsingPdf ? (
+          <div className="space-y-1.5">
+            <p className="font-display text-lg text-[#141413] dark:text-[#faf9f5]">
+              Validating Document Before AI Analysis...
+            </p>
+            <p className="text-xs font-mono text-[#cc785c] font-bold animate-pulse">
+              {parsingStageText}
+            </p>
+          </div>
+        ) : file ? (
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2">
               <Badge variant="coral" size="sm">
@@ -273,16 +323,16 @@ export default function ResumeUploadStep({
             </div>
             <p className="font-sans text-base font-semibold text-[#141413] dark:text-[#faf9f5]">{file.name}</p>
             <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
-              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing document server-side...' : 'Ready for AI Calibration'}
+              {(file.size / 1024).toFixed(1)} KB · Ready for AI Calibration
             </p>
           </div>
         ) : (
           <div className="space-y-1.5">
             <p className="font-display text-xl text-[#141413] dark:text-[#faf9f5]">
-              Upload Your Resume (PDF, DOCX, DOC, TXT, RTF)
+              Upload Resume / CV
             </p>
             <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
-              Drag &amp; drop your resume document here, or click to browse (up to 15MB)
+              PDF, DOC, DOCX, TXT, RTF (up to 15MB) · Verified before AI analysis
             </p>
             <div className="pt-2">
               <span className="inline-block px-4 py-2 rounded-md bg-[#efe9de] dark:bg-[#252320] border border-[#e6dfd8] dark:border-white/10 text-xs font-mono text-[#cc785c] hover:bg-[#e4dcce] dark:hover:bg-[#2d2b27]">

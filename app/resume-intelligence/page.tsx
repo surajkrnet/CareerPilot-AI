@@ -121,7 +121,7 @@ export default function ResumeIntelligencePage() {
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      setUploadError('File size exceeds 15MB limit.');
+      setUploadError('File size exceeds 15MB limit. Please upload a smaller Resume/CV.');
       return;
     }
 
@@ -133,26 +133,30 @@ export default function ResumeIntelligencePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('slot', 'resume');
 
-      const res = await fetch('/api/career-dna/parse-pdf', {
+      const res = await fetch('/api/career-dna/parse-pdf?slot=resume', {
         method: 'POST',
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract text from document.');
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { error: 'Failed to read document response.' };
+      }
+
+      if (!res.ok || !data.accepted) {
+        setUploadedFileName(null);
+        throw new Error(data.error || data.reason || 'This document does not appear to be a Resume or CV. Please upload a valid Resume or CV.');
+      }
 
       if (data.text) {
         setResumeText(data.text);
-        // Check document classification: If user uploaded a JD instead of a resume
-        if (data.classification?.isJobDescription) {
-          setDocWarning(
-            'Notice: This document appears to be a Job Description rather than a Resume/CV. Please verify or upload your candidate Resume.'
-          );
-        }
       }
     } catch (err: any) {
-      setUploadError(err.message || 'Unable to parse document. You can paste your resume text directly below.');
+      setUploadError(err.message || 'Unable to parse document as a Resume/CV. Please upload a valid Resume or CV.');
     } finally {
       setIsParsingFile(false);
     }
@@ -173,7 +177,7 @@ export default function ResumeIntelligencePage() {
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      setJdUploadError('File size exceeds 15MB limit.');
+      setJdUploadError('File size exceeds 15MB limit. Please upload a smaller Job Description.');
       return;
     }
 
@@ -185,26 +189,31 @@ export default function ResumeIntelligencePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('slot', 'job_description');
 
-      const res = await fetch('/api/career-dna/parse-pdf', {
+      const res = await fetch('/api/career-dna/parse-pdf?slot=job_description', {
         method: 'POST',
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract text from JD document.');
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { error: 'Failed to read JD document response.' };
+      }
+
+      if (!res.ok || !data.accepted) {
+        setUploadedJdFileName(null);
+        throw new Error(data.error || data.reason || 'This document does not appear to be a Job Description. Please upload a valid Job Description.');
+      }
 
       if (data.text) {
         setTargetJd(data.text);
         setSelectedJdLabel(null);
-        if (data.classification?.isResume) {
-          setDocWarning(
-            'Notice: This uploaded JD document looks like a candidate Resume/CV. Please verify you uploaded the intended Job Description.'
-          );
-        }
       }
     } catch (err: any) {
-      setJdUploadError(err.message || 'Unable to parse JD file. You can paste the job description directly.');
+      setJdUploadError(err.message || 'Unable to parse document as a Job Description. Please upload a valid Job Description.');
     } finally {
       setIsParsingJdFile(false);
     }
@@ -436,32 +445,83 @@ export default function ResumeIntelligencePage() {
           </div>
         )}
 
-        {/* Upload Parsing Error Banners */}
+        {/* Upload Parsing Error Banners with Action Buttons */}
         {uploadError && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-sm flex items-center gap-2.5 shadow-sm font-medium">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
-            <span>{uploadError}</span>
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-bold text-sm block text-[#141413] dark:text-[#faf9f5]">Resume Document Not Accepted</span>
+                <p className="text-xs leading-relaxed text-[#57534e] dark:text-[#a09d96]">{uploadError}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadError(null);
+                  fileInputRef.current?.click();
+                }}
+                className="px-3 py-1.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold cursor-pointer transition-colors shadow-sm"
+              >
+                Choose Another File ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="text-[#57534e] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white text-xs font-mono px-2 py-1 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
         {jdUploadError && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-sm flex items-center gap-2.5 shadow-sm font-medium">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
-            <span>{jdUploadError}</span>
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-bold text-sm block text-[#141413] dark:text-[#faf9f5]">Job Description Not Accepted</span>
+                <p className="text-xs leading-relaxed text-[#57534e] dark:text-[#a09d96]">{jdUploadError}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setJdUploadError(null);
+                  jdFileInputRef.current?.click();
+                }}
+                className="px-3 py-1.5 rounded-lg bg-[#cc785c] hover:bg-[#a9583e] text-white text-xs font-mono font-bold cursor-pointer transition-colors shadow-sm"
+              >
+                Choose Another File ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => setJdUploadError(null)}
+                className="text-[#57534e] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white text-xs font-mono px-2 py-1 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
         {/* Analysis Status Notification with 1-Click Retry */}
         {analysisError && (
-          <div className="p-4 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-xl text-[#121110] dark:text-[#faf9f5] text-sm flex items-center justify-between gap-3 shadow-md">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-5 h-5 shrink-0 text-[#cc785c]" />
-              <span className="text-[#2d2a26] dark:text-[#e6dfd8] font-medium">{analysisError}</span>
+          <div className="p-4 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-xl text-[#121110] dark:text-[#faf9f5] text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 shrink-0 text-[#cc785c] mt-0.5" />
+              <div>
+                <span className="font-bold text-sm block text-[#141413] dark:text-[#faf9f5]">Analysis Notice</span>
+                <p className="text-xs text-[#2d2a26] dark:text-[#e6dfd8] leading-relaxed">{analysisError}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
               <button
                 onClick={handleAnalyzeFit}
-                className="bg-[#cc785c] text-white px-3 py-1.5 rounded-lg text-xs font-mono font-bold hover:bg-[#a9583e] cursor-pointer"
+                className="bg-[#cc785c] text-white px-3 py-1.5 rounded-lg text-xs font-mono font-bold hover:bg-[#a9583e] cursor-pointer shadow-sm"
               >
                 Retry Analysis
               </button>
