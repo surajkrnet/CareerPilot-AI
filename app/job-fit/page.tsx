@@ -45,6 +45,14 @@ interface JobOpportunity {
   applyUrl: string;
   estimatedSalary?: string;
   fullJobDescription: string;
+  postedAt?: string;
+  scrapedAt?: string;
+  freshness?: {
+    tier: 'Fresh' | 'Recent' | 'Aging' | 'Old' | 'Stale';
+    label: string;
+    daysAgo: number;
+    isStale: boolean;
+  };
 }
 
 interface MarketInsights {
@@ -77,6 +85,8 @@ export default function JobFitPage() {
   // Modal JD State
   const [modalJob, setModalJob] = useState<JobOpportunity | null>(null);
 
+  const [lastRefreshedTime, setLastRefreshedTime] = useState<string | null>(null);
+
   const fetchRecommendations = async (
     isRefresh = false,
     searchOverride?: string,
@@ -97,6 +107,7 @@ export default function JobFitPage() {
           roleQuery: activeRole,
           searchQuery: activeRole,
           platformFilter: activePlatform,
+          forceRefresh: isRefresh,
         }),
       });
 
@@ -135,6 +146,9 @@ export default function JobFitPage() {
       }
       if (json.currentSkills) {
         setVerifiedSkills(json.currentSkills);
+      }
+      if (json.lastRefreshedAt) {
+        setLastRefreshedTime(json.lastRefreshedAt);
       }
     } catch (err: any) {
       console.error('Job fit fetch error:', err);
@@ -298,15 +312,20 @@ export default function JobFitPage() {
               <Globe className="w-3.5 h-3.5" />
               <span>Autonomous Job Fit &amp; Live Scraper Hub</span>
             </div>
-            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
+            <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
               Live Opportunity Matching Hub
             </h1>
-            <p className="text-xs sm:text-sm text-[#57534e] dark:text-[#a09d96] mt-1 font-medium">
+            <p className="text-sm sm:text-base text-[#57534e] dark:text-[#a09d96] mt-1 font-medium leading-relaxed">
               Real-time web scraping queries across LinkedIn, Wellfound, Naukri, and Y Combinator grounded in your Career DNA.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {lastRefreshedTime && (
+              <span className="text-xs font-mono text-[#57534e] dark:text-[#8e8b82] bg-[#f6f4ee] dark:bg-[#201e1c] px-3 py-2 rounded-xl border border-[#ded7cb] dark:border-white/10">
+                Last refreshed: <strong className="text-[#121110] dark:text-white">{lastRefreshedTime}</strong>
+              </span>
+            )}
             <button
               onClick={() => fetchRecommendations(true)}
               disabled={refreshing || loading}
@@ -470,6 +489,19 @@ export default function JobFitPage() {
                           <span className="px-2.5 py-0.5 rounded-md bg-[#f0ebe1] dark:bg-[#201e1c] text-[#cc785c] font-mono text-[10px] font-bold uppercase border border-[#ded7cb] dark:border-white/5">
                             {job.platform}
                           </span>
+                          {job.freshness?.tier === 'Fresh' ? (
+                            <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-[#2e8544] dark:text-emerald-300 font-mono text-[10px] font-bold border border-emerald-500/30">
+                              ⚡ {job.freshness.label} • Fresh
+                            </span>
+                          ) : job.freshness?.tier === 'Recent' ? (
+                            <span className="px-2.5 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono text-[10px] font-bold border border-sky-500/30">
+                              🕒 {job.freshness.label}
+                            </span>
+                          ) : job.freshness?.label ? (
+                            <span className="px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold border border-amber-500/30">
+                              📅 {job.freshness.label}
+                            </span>
+                          ) : null}
                           {job.estimatedSalary && (
                             <span className="px-2.5 py-0.5 rounded-md bg-[#2e8544]/10 text-[#2e8544] dark:text-[#5db872] font-mono text-[10px] font-bold border border-[#2e8544]/20">
                               {job.estimatedSalary}

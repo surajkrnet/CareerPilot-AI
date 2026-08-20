@@ -228,7 +228,7 @@ export default function ResumeUploadStep({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.txt,.md"
+          accept=".pdf,.docx,.doc,.txt,.rtf,.md"
           disabled={isParsingPdf || isSynthesizing}
           onChange={(e) => {
             if (e.target.files?.[0]) {
@@ -254,7 +254,7 @@ export default function ResumeUploadStep({
             <div className="inline-flex items-center gap-2">
               <Badge variant="coral" size="sm">
                 <ShieldCheck className="w-3 h-3 mr-1" />
-                PDF Verified
+                Document Verified
               </Badge>
               <button
                 type="button"
@@ -273,13 +273,17 @@ export default function ResumeUploadStep({
             </div>
             <p className="font-sans text-base font-semibold text-[#141413] dark:text-[#faf9f5]">{file.name}</p>
             <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
-              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing with unpdf...' : 'Ready for AI Synthesis'}
+              {(file.size / 1024).toFixed(1)} KB · {isParsingPdf ? 'Parsing document server-side...' : 'Ready for AI Calibration'}
             </p>
           </div>
         ) : (
           <div className="space-y-1.5">
-            <p className="font-display text-xl text-[#141413] dark:text-[#faf9f5]">Drop your resume (PDF / Text) here</p>
-            <p className="text-xs text-[#6c6a64] dark:text-[#8e8b82]">Parsed server-side with zero binary leakage</p>
+            <p className="font-display text-xl text-[#141413] dark:text-[#faf9f5]">
+              Upload Your Resume (PDF, DOCX, DOC, TXT, RTF)
+            </p>
+            <p className="text-xs text-[#6c6a64] dark:text-[#a09d96]">
+              Drag &amp; drop your resume document here, or click to browse (up to 15MB)
+            </p>
             <div className="pt-2">
               <span className="inline-block px-4 py-2 rounded-md bg-[#efe9de] dark:bg-[#252320] border border-[#e6dfd8] dark:border-white/10 text-xs font-mono text-[#cc785c] hover:bg-[#e4dcce] dark:hover:bg-[#2d2b27]">
                 Browse Files

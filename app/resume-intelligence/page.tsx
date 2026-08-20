@@ -56,6 +56,9 @@ export default function ResumeIntelligencePage() {
   const [latestScanId, setLatestScanId] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
+  const [analysisStage, setAnalysisStage] = useState<number>(0);
+  const [docWarning, setDocWarning] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jdFileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
@@ -98,6 +101,7 @@ export default function ResumeIntelligencePage() {
   const handleModeSwitch = (mode: 'stored' | 'upload') => {
     setInputMode(mode);
     setUploadError(null);
+    setDocWarning(null);
     if (mode === 'stored' && storedResumeText) {
       setResumeText(storedResumeText);
     }
@@ -107,23 +111,24 @@ export default function ResumeIntelligencePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validExtensions = ['.pdf', '.txt', '.md'];
+    const validExtensions = ['.pdf', '.docx', '.doc', '.txt', '.rtf', '.md'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some((ext) => fileName.endsWith(ext));
 
     if (!isValid) {
-      setUploadError('Please upload a PDF or plain text resume.');
+      setUploadError('Supported document formats: PDF, Word (DOCX/DOC), Text (TXT/RTF/MD).');
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('File size exceeds 10MB limit.');
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError('File size exceeds 15MB limit.');
       return;
     }
 
     setUploadedFileName(file.name);
     setIsParsingFile(true);
     setUploadError(null);
+    setDocWarning(null);
 
     try {
       const formData = new FormData();
@@ -135,40 +140,47 @@ export default function ResumeIntelligencePage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract text from PDF');
+      if (!res.ok) throw new Error(data.error || 'Failed to extract text from document.');
 
       if (data.text) {
         setResumeText(data.text);
+        // Check document classification: If user uploaded a JD instead of a resume
+        if (data.classification?.isJobDescription) {
+          setDocWarning(
+            'Notice: This document appears to be a Job Description rather than a Resume/CV. Please verify or upload your candidate Resume.'
+          );
+        }
       }
     } catch (err: any) {
-      setUploadError(err.message || 'Unable to parse PDF. You can paste your resume text directly below.');
+      setUploadError(err.message || 'Unable to parse document. You can paste your resume text directly below.');
     } finally {
       setIsParsingFile(false);
     }
   };
 
-  // Handle Target Job Description file upload (PDF / TXT / MD)
+  // Handle Target Job Description file upload (PDF / DOCX / TXT / RTF / MD)
   const handleJdFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validExtensions = ['.pdf', '.txt', '.md'];
+    const validExtensions = ['.pdf', '.docx', '.doc', '.txt', '.rtf', '.md'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some((ext) => fileName.endsWith(ext));
 
     if (!isValid) {
-      setJdUploadError('Please upload a PDF or plain text Job Description.');
+      setJdUploadError('Supported document formats: PDF, Word (DOCX/DOC), Text (TXT/RTF/MD).');
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setJdUploadError('File size exceeds 10MB limit.');
+    if (file.size > 15 * 1024 * 1024) {
+      setJdUploadError('File size exceeds 15MB limit.');
       return;
     }
 
     setUploadedJdFileName(file.name);
     setIsParsingJdFile(true);
     setJdUploadError(null);
+    setDocWarning(null);
 
     try {
       const formData = new FormData();
@@ -180,11 +192,16 @@ export default function ResumeIntelligencePage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to extract text from JD file');
+      if (!res.ok) throw new Error(data.error || 'Failed to extract text from JD document.');
 
       if (data.text) {
         setTargetJd(data.text);
         setSelectedJdLabel(null);
+        if (data.classification?.isResume) {
+          setDocWarning(
+            'Notice: This uploaded JD document looks like a candidate Resume/CV. Please verify you uploaded the intended Job Description.'
+          );
+        }
       }
     } catch (err: any) {
       setJdUploadError(err.message || 'Unable to parse JD file. You can paste the job description directly.');
@@ -219,7 +236,6 @@ export default function ResumeIntelligencePage() {
       const roles = json.data || json.suggestedRoles;
       if (Array.isArray(roles) && roles.length > 0) {
         setSuggestedJds(roles);
-        // Auto-select the first suggested JD
         setTargetJd(roles[0].fullJobDescription);
         setSelectedJdLabel(roles[0].label);
         if (typeof window !== 'undefined') {
@@ -252,7 +268,6 @@ export default function ResumeIntelligencePage() {
       return;
     }
 
-    // If target JD is empty, auto-generate and populate the best matched JD on the fly
     if (!currentJd) {
       setIsSuggestingJds(true);
       try {
@@ -277,12 +292,30 @@ export default function ResumeIntelligencePage() {
     }
 
     if (!currentJd) {
-      setAnalysisError('Please upload a target Job Description or click "Refresh Roles" to match your stack.');
+      setAnalysisError('Please upload a target Job Description or click "Auto-Match" to match your stack.');
       return;
     }
 
+    // Check deterministic scan cache
+    const cacheKey = `careerpilot_scan_${resume.slice(0, 80)}_${currentJd.slice(0, 80)}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const cachedParsed = JSON.parse(cached);
+        if (cachedParsed && cachedParsed.atsScore) {
+          setAnalysis(cachedParsed);
+          return;
+        }
+      }
+    } catch {}
+
     setLoading(true);
     setAnalysisError(null);
+    setAnalysisStage(1);
+
+    const stageTimer1 = setTimeout(() => setAnalysisStage(2), 600);
+    const stageTimer2 = setTimeout(() => setAnalysisStage(3), 1300);
+    const stageTimer3 = setTimeout(() => setAnalysisStage(4), 2100);
 
     try {
       const res = await fetch('/api/resume/analyze', {
@@ -300,17 +333,26 @@ export default function ResumeIntelligencePage() {
       }
 
       if (!res.ok) {
-        throw new Error(json.error || 'AI Intelligence Engine (Gemma) analysis request failed');
+        throw new Error(json.error || 'AI Resume Intelligence analysis request failed.');
       }
 
-      setAnalysis(json.data || json.analysis);
+      const finalData = json.data || json.analysis;
+      setAnalysis(finalData);
       if (json.scanId) {
         setLatestScanId(json.scanId);
       }
+
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(finalData));
+      } catch {}
     } catch (err: any) {
-      setAnalysisError(err.message || 'Failed to analyze resume fit with AI Intelligence Engine (Gemma).');
+      setAnalysisError(err.message || 'Failed to analyze resume fit with AI Intelligence Engine. Click "Retry" to try again.');
     } finally {
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
       setLoading(false);
+      setAnalysisStage(0);
     }
   };
 
@@ -332,52 +374,104 @@ export default function ResumeIntelligencePage() {
             <span className="text-xs uppercase tracking-widest text-[#cc785c] font-bold flex items-center gap-2 font-mono">
               <Briefcase className="w-3.5 h-3.5" /> Resume Intelligence &amp; ATS Studio
             </span>
-            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
+            <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#121110] dark:text-[#faf9f5] mt-1.5">
               Resume Intelligence &amp; ATS Match
             </h1>
-            <p className="text-xs sm:text-sm text-[#57534e] dark:text-[#a09d96] mt-1 font-medium">
-              Cross-evaluating candidate resume against target role requirements with AI Intelligence Engine.
+            <p className="text-sm sm:text-base text-[#57534e] dark:text-[#a09d96] mt-1 font-medium leading-relaxed">
+              Upload any document format (PDF, DOCX, DOC, TXT, RTF) to cross-evaluate resume fit against target requirements.
             </p>
           </div>
 
           <button
             onClick={handleAnalyzeFit}
             disabled={loading || initialLoading || isParsingFile || isParsingJdFile}
-            className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-7 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2.5 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] font-mono coral-glow-subtle"
+            className="bg-[#cc785c] hover:bg-[#a9583e] text-white px-7 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-2.5 self-start md:self-auto disabled:opacity-50 cursor-pointer shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] font-mono coral-glow-subtle"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span>{loading ? 'Analyzing with AI...' : 'Analyze Fit with AI'}</span>
+            <span>{loading ? 'Analyzing...' : 'Analyze Fit with AI'}</span>
           </button>
         </div>
 
+        {/* Staged Progressive AI Progress Box */}
+        {loading && (
+          <div className="p-6 bg-[#ffffff] dark:bg-[#181716] border border-[#cc785c]/30 rounded-2xl shadow-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-display text-lg font-bold text-[#121110] dark:text-white flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-[#cc785c]" />
+                Analyzing Candidate Resume &amp; Role Fit...
+              </h4>
+              <span className="text-xs font-mono text-[#cc785c] font-bold">Stage {analysisStage}/4</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+              <div className={`p-3 rounded-xl border transition-all ${analysisStage >= 1 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-[#ded7cb] dark:border-white/10 opacity-50'}`}>
+                {analysisStage > 1 ? '✓' : '○'} Reading document &amp; structure
+              </div>
+              <div className={`p-3 rounded-xl border transition-all ${analysisStage >= 2 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-[#ded7cb] dark:border-white/10 opacity-50'}`}>
+                {analysisStage > 2 ? '✓' : '○'} Extracting verified stack &amp; skills
+              </div>
+              <div className={`p-3 rounded-xl border transition-all ${analysisStage >= 3 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-[#ded7cb] dark:border-white/10 opacity-50'}`}>
+                {analysisStage > 3 ? '✓' : '○'} Evaluating ATS keyword gaps
+              </div>
+              <div className={`p-3 rounded-xl border transition-all ${analysisStage >= 4 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-[#ded7cb] dark:border-white/10 opacity-50'}`}>
+                {analysisStage === 4 ? '⏳' : '○'} Synthesizing STAR metric rewrites
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Document Classification Warning */}
+        {docWarning && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-sm flex items-center justify-between gap-3 shadow-sm font-medium">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>{docWarning}</span>
+            </div>
+            <button
+              onClick={() => setDocWarning(null)}
+              className="text-xs font-mono font-bold hover:underline cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Upload Parsing Error Banners */}
         {uploadError && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2.5 shadow-sm font-medium">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-sm flex items-center gap-2.5 shadow-sm font-medium">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
             <span>{uploadError}</span>
           </div>
         )}
 
         {jdUploadError && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-xs flex items-center gap-2.5 shadow-sm font-medium">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-300 text-sm flex items-center gap-2.5 shadow-sm font-medium">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
             <span>{jdUploadError}</span>
           </div>
         )}
 
-        {/* Analysis Status Notification */}
+        {/* Analysis Status Notification with 1-Click Retry */}
         {analysisError && (
-          <div className="p-4 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-xl text-[#121110] dark:text-[#faf9f5] text-xs flex items-center justify-between gap-3 shadow-md">
+          <div className="p-4 bg-[#cc785c]/10 border border-[#cc785c]/30 rounded-xl text-[#121110] dark:text-[#faf9f5] text-sm flex items-center justify-between gap-3 shadow-md">
             <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0 text-[#cc785c]" />
+              <AlertCircle className="w-5 h-5 shrink-0 text-[#cc785c]" />
               <span className="text-[#2d2a26] dark:text-[#e6dfd8] font-medium">{analysisError}</span>
             </div>
-            <button
-              onClick={() => setAnalysisError(null)}
-              className="text-[#57534e] dark:text-[#a09d96] hover:text-[#121110] dark:hover:text-white text-xs font-mono cursor-pointer font-bold"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAnalyzeFit}
+                className="bg-[#cc785c] text-white px-3 py-1.5 rounded-lg text-xs font-mono font-bold hover:bg-[#a9583e] cursor-pointer"
+              >
+                Retry Analysis
+              </button>
+              <button
+                onClick={() => setAnalysisError(null)}
+                className="text-[#57534e] dark:text-[#a09d96] hover:text-[#121110] dark:hover:text-white text-xs font-mono cursor-pointer font-bold px-2"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
@@ -429,19 +523,19 @@ export default function ResumeIntelligencePage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt,.md"
+                  accept=".pdf,.docx,.doc,.txt,.rtf,.md"
                   onChange={handleResumeFileUpload}
                   className="hidden"
                 />
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
-                    {isParsingFile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  <div className="w-10 h-10 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
+                    {isParsingFile ? <RefreshCw className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-[#121110] dark:text-white">
-                      {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Resume (PDF / TXT)'}
+                    <p className="text-sm font-semibold text-[#121110] dark:text-white">
+                      {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Resume (PDF, DOCX, DOC, TXT, RTF)'}
                     </p>
-                    <p className="text-[10px] text-[#57534e] dark:text-[#8e8b82]">Parses plain text server-side without binary corruption</p>
+                    <p className="text-xs text-[#57534e] dark:text-[#8e8b82]">Accepts any standard document format without binary leakage</p>
                   </div>
                 </div>
                 <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
@@ -452,7 +546,7 @@ export default function ResumeIntelligencePage() {
               value={resumeText}
               onChange={(e) => setResumeText(e.target.value)}
               placeholder={initialLoading ? "Loading candidate resume from database..." : "Paste or review your resume plain text here..."}
-              className="w-full h-72 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner"
+              className="w-full h-72 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner"
             />
           </div>
 
@@ -462,7 +556,7 @@ export default function ResumeIntelligencePage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ded7cb] dark:border-white/10 pb-3.5">
                 <div>
                   <h3 className="font-display text-xl font-bold text-[#121110] dark:text-[#faf9f5]">Target Job Description (JD)</h3>
-                  <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Upload JD document or paste requirements</span>
+                  <span className="text-xs text-[#57534e] dark:text-[#8e8b82] font-medium">Upload JD document (PDF/DOCX/TXT) or paste requirements</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -477,7 +571,7 @@ export default function ResumeIntelligencePage() {
                           : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                       }`}
                     >
-                      <FileText className="w-3 h-3" /> Paste JD
+                      <FileText className="w-3.5 h-3.5" /> Paste JD
                     </button>
                     <button
                       type="button"
@@ -488,7 +582,7 @@ export default function ResumeIntelligencePage() {
                           : 'text-[#3b3834] dark:text-[#8e8b82] hover:text-[#121110] dark:hover:text-white'
                       }`}
                     >
-                      <UploadCloud className="w-3 h-3" /> Upload JD
+                      <UploadCloud className="w-3.5 h-3.5" /> Upload JD
                     </button>
                   </div>
 
@@ -497,10 +591,10 @@ export default function ResumeIntelligencePage() {
                     type="button"
                     onClick={() => handleSuggestJds()}
                     disabled={isSuggestingJds || !resumeText.trim()}
-                    className="bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c] text-[#121110] dark:text-[#faf9f5] px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-sm"
+                    className="bg-[#f6f4ee] dark:bg-[#201e1c] hover:bg-[#ede8df] dark:hover:bg-[#282624] border border-[#ded7cb] dark:border-white/10 hover:border-[#cc785c] text-[#121110] dark:text-[#faf9f5] px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 shadow-sm"
                     title="Generate tailored role descriptions based on active resume"
                   >
-                    <RefreshCw className={`w-3 h-3 text-[#cc785c] ${isSuggestingJds ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 text-[#cc785c] ${isSuggestingJds ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline font-medium">{isSuggestingJds ? 'Matching...' : 'Auto-Match'}</span>
                   </button>
                 </div>
@@ -515,19 +609,19 @@ export default function ResumeIntelligencePage() {
                   <input
                     ref={jdFileInputRef}
                     type="file"
-                    accept=".pdf,.txt,.md"
+                    accept=".pdf,.docx,.doc,.txt,.rtf,.md"
                     onChange={handleJdFileUpload}
                     className="hidden"
                   />
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
-                      {isParsingJdFile ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                    <div className="w-10 h-10 rounded-xl bg-[#f0ebe1] dark:bg-[#181716] flex items-center justify-center text-[#cc785c] shadow-sm">
+                      {isParsingJdFile ? <RefreshCw className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-[#121110] dark:text-white">
-                        {uploadedJdFileName ? `Loaded: ${uploadedJdFileName}` : 'Click to Upload Target JD (PDF / TXT)'}
+                      <p className="text-sm font-semibold text-[#121110] dark:text-white">
+                        {uploadedJdFileName ? `Loaded: ${uploadedJdFileName}` : 'Click to Upload Target JD (PDF, DOCX, DOC, TXT, RTF)'}
                       </p>
-                      <p className="text-[10px] text-[#57534e] dark:text-[#8e8b82]">Extracts job requirements and role stack automatically</p>
+                      <p className="text-xs text-[#57534e] dark:text-[#8e8b82]">Extracts job requirements and role stack automatically</p>
                     </div>
                   </div>
                   <span className="text-xs text-[#cc785c] font-mono font-bold hover:underline">Choose File ↗</span>
@@ -538,10 +632,10 @@ export default function ResumeIntelligencePage() {
               {suggestedJds.length > 0 && (
                 <div className="mt-3.5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-[#57534e] dark:text-[#a09d96] flex items-center gap-1.5 font-bold">
+                    <span className="text-xs font-mono text-[#57534e] dark:text-[#a09d96] flex items-center gap-1.5 font-bold">
                       <Layers className="w-3.5 h-3.5 text-[#cc785c]" /> Tailored Roles for Your Stack:
                     </span>
-                    <span className="text-[10px] font-mono text-[#57534e] dark:text-[#8e8b82]">Click chip to load JD</span>
+                    <span className="text-xs font-mono text-[#57534e] dark:text-[#8e8b82]">Click chip to load JD</span>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -559,7 +653,7 @@ export default function ResumeIntelligencePage() {
                           }`}
                           title={`${item.roleTitle} (${item.companyType})`}
                         >
-                          <Briefcase className="w-3 h-3 opacity-75 shrink-0" />
+                          <Briefcase className="w-3.5 h-3.5 opacity-75 shrink-0" />
                           <span>{item.label}</span>
                         </button>
                       );
@@ -576,7 +670,7 @@ export default function ResumeIntelligencePage() {
                 setSelectedJdLabel(null);
               }}
               placeholder="Target Job Description will appear here. Upload a JD file above, paste text directly, or click 'Auto-Match'..."
-              className="w-full h-64 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-xs font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-3"
+              className="w-full h-64 bg-[#f6f4ee] dark:bg-[#201e1c] border border-[#ded7cb] dark:border-white/10 rounded-xl p-4 text-sm font-mono text-[#121110] dark:text-[#e6dfd8] focus:outline-none focus:border-[#cc785c] resize-none leading-relaxed shadow-inner mt-3"
             />
           </div>
 

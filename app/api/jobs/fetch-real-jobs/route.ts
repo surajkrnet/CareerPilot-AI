@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { aiModel } from '@/lib/ai/openrouter';
 import { generateText } from 'ai';
 import { extractAndParseJSON } from '@/lib/ai/json-extractor';
-import { fetchLiveJobsFromWeb, ScrapedJobPosting } from '@/lib/jobs/real-job-scraper';
+import { fetchLiveJobsFromWeb, ScrapedJobPosting, JobFreshnessInfo } from '@/lib/jobs/real-job-scraper';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,9 @@ export interface ScoredJobOpportunity {
   applyUrl: string;
   estimatedSalary?: string;
   fullJobDescription: string;
+  postedAt?: string;
+  scrapedAt?: string;
+  freshness?: JobFreshnessInfo;
 }
 
 export async function POST(req: NextRequest) {
@@ -36,12 +39,14 @@ export async function POST(req: NextRequest) {
     let customRoleQuery = '';
     let customLocationQuery = '';
     let platformFilter = 'All';
+    let forceRefresh = false;
 
     try {
       const body = await req.json();
       customRoleQuery = body.roleQuery || body.searchQuery || '';
       customLocationQuery = body.locationQuery || '';
       platformFilter = body.platformFilter || 'All';
+      forceRefresh = !!body.forceRefresh;
     } catch {}
 
     // Read candidate's verified Career DNA and Profile from Supabase
@@ -68,20 +73,26 @@ export async function POST(req: NextRequest) {
       : ['React', 'TypeScript', 'Java', 'Python', 'SQL', 'Git'];
     const candidateResume: string = dna?.raw_resume_text || `Skills: ${candidateSkills.join(', ')}. Target: ${targetRole}`;
 
-    // 1. Fetch live jobs from web scraper
-    const rawJobs: ScrapedJobPosting[] = await fetchLiveJobsFromWeb(targetRole, location, platformFilter);
+    // 1. Fetch live jobs with in-memory caching and freshness metadata
+    const { jobs: rawJobs, lastRefreshedAt, cached } = await fetchLiveJobsFromWeb(
+      targetRole,
+      location,
+      platformFilter,
+      forceRefresh
+    );
 
-    // 2. Batch AI Scoring for each live scraped job
+    // 2. Deterministic Skill Matching & Scoring
     const scoredJobs: ScoredJobOpportunity[] = [];
 
     for (let i = 0; i < rawJobs.length; i++) {
       const job = rawJobs[i];
       const descLower = job.description.toLowerCase();
 
-      // Deterministic skill matching calculation
       const matched = candidateSkills.filter((sk) => descLower.includes(sk.toLowerCase()));
       const commonGaps = ['System Design', 'Redis', 'Docker', 'Kubernetes', 'CI/CD', 'Kafka', 'GraphQL'];
-      const missing = commonGaps.filter((gap) => descLower.includes(gap.toLowerCase()) && !matched.map((m) => m.toLowerCase()).includes(gap.toLowerCase()));
+      const missing = commonGaps.filter(
+        (gap) => descLower.includes(gap.toLowerCase()) && !matched.map((m) => m.toLowerCase()).includes(gap.toLowerCase())
+      );
 
       let calculatedScore = Math.min(95, Math.max(68, 70 + matched.length * 6 - missing.length * 3));
       if (matched.length >= 3) calculatedScore = Math.max(88, calculatedScore);
@@ -102,10 +113,13 @@ export async function POST(req: NextRequest) {
         applyUrl: job.applyUrl,
         estimatedSalary: job.salary,
         fullJobDescription: job.description,
+        postedAt: job.postedAt,
+        scrapedAt: job.scrapedAt,
+        freshness: job.freshness,
       });
     }
 
-    // Attempt AI enrichment on the top matching jobs
+    // 3. AI Enrichment with strict SLA timeout
     try {
       const prompt = `You are a Principal Technical Recruiter. Score and rank these real live scraped job postings for the candidate.
 
@@ -141,28 +155,36 @@ Output a valid JSON object matching this schema:
 
 Return ONLY the JSON object.`;
 
-      const aiPromise = generateText({
-        model: aiModel,
-        prompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('AI scoring timeout')), 3000)
-      );
-
-      const aiResponse: any = await Promise.race([aiPromise, timeoutPromise]);
-      const parsed: any = extractAndParseJSON(aiResponse.text, {});
-
-      if (parsed && Array.isArray(parsed.scored)) {
-        parsed.scored.forEach((s: any) => {
-          const matchIdx = scoredJobs.findIndex((j) => j.id === s.id);
-          if (matchIdx !== -1) {
-            if (typeof s.fitScore === 'number') scoredJobs[matchIdx].fitScore = s.fitScore;
-            if (Array.isArray(s.matchedSkills) && s.matchedSkills.length > 0) scoredJobs[matchIdx].matchedSkills = s.matchedSkills;
-            if (Array.isArray(s.missingSkills) && s.missingSkills.length > 0) scoredJobs[matchIdx].missingSkills = s.missingSkills;
-            if (s.whyFit) scoredJobs[matchIdx].whyFit = s.whyFit;
-          }
+      try {
+        const aiPromise = generateText({
+          model: aiModel,
+          prompt,
+          abortSignal: controller.signal,
         });
+
+        const timeoutPromise = new Promise<{ text: string }>((resolve) =>
+          setTimeout(() => resolve({ text: '{}' }), 2500)
+        );
+
+        const aiResponse: any = await Promise.race([aiPromise, timeoutPromise]);
+        const parsed: any = extractAndParseJSON(aiResponse.text, {});
+
+        if (parsed && Array.isArray(parsed.scored)) {
+          parsed.scored.forEach((s: any) => {
+            const matchIdx = scoredJobs.findIndex((j) => j.id === s.id);
+            if (matchIdx !== -1) {
+              if (typeof s.fitScore === 'number') scoredJobs[matchIdx].fitScore = s.fitScore;
+              if (Array.isArray(s.matchedSkills) && s.matchedSkills.length > 0) scoredJobs[matchIdx].matchedSkills = s.matchedSkills;
+              if (Array.isArray(s.missingSkills) && s.missingSkills.length > 0) scoredJobs[matchIdx].missingSkills = s.missingSkills;
+              if (s.whyFit) scoredJobs[matchIdx].whyFit = s.whyFit;
+            }
+          });
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (aiErr: any) {
       // Fallback is already computed
@@ -178,11 +200,14 @@ Return ONLY the JSON object.`;
 
     return NextResponse.json({
       success: true,
+      lastRefreshedAt,
+      cached,
       data: {
         recommendations: scoredJobs,
         marketInsights,
         targetRole,
         currentSkills: candidateSkills,
+        lastRefreshedAt,
       },
       recommendations: scoredJobs,
       marketInsights,

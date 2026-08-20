@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parsePdfBuffer, countRecognizableWords, isHumanResumeText } from '@/lib/parsers/pdf-parser';
+import { extractTextFromDocument } from '@/lib/parsers/document-parser';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,7 +9,8 @@ export async function POST(request: Request) {
   try {
     const contentType = request.headers.get('content-type') || '';
     let fileBuffer: Buffer | null = null;
-    let fileName = 'resume.pdf';
+    let fileName = 'document.pdf';
+    let mimeType = '';
     let fileSize = 0;
 
     if (contentType.includes('multipart/form-data')) {
@@ -17,33 +18,37 @@ export async function POST(request: Request) {
       const file = formData.get('file') as File | null;
 
       if (!file || file.size === 0) {
-        return NextResponse.json({ error: 'No PDF file attached. Please select a resume file.' }, { status: 400 });
+        return NextResponse.json({ error: 'No document file attached. Please select a file (PDF, DOCX, DOC, TXT, RTF).' }, { status: 400 });
       }
 
       fileName = file.name;
+      mimeType = file.type || '';
       fileSize = file.size;
       const arrayBuffer = await file.arrayBuffer();
       fileBuffer = Buffer.from(arrayBuffer);
     } else {
       const arrayBuffer = await request.arrayBuffer();
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-        return NextResponse.json({ error: 'Empty file payload received' }, { status: 400 });
+        return NextResponse.json({ error: 'Empty file payload received.' }, { status: 400 });
       }
       fileBuffer = Buffer.from(arrayBuffer);
       fileSize = fileBuffer.length;
     }
 
-    // Server-side PDF extraction with unpdf & multi-engine fallback
-    const extractedText = await parsePdfBuffer(fileBuffer, fileName);
-    const wordCount = countRecognizableWords(extractedText);
+    // Universal multi-format extraction (PDF, DOCX, DOC, TXT, RTF, MD)
+    const result = await extractTextFromDocument({
+      buffer: fileBuffer,
+      fileName,
+      mimeType,
+    });
 
-    // Guardrail: Ensure extracted text is genuine human content with at least 25-30 words
-    if (!isHumanResumeText(extractedText) || wordCount < 20) {
+    if (!result.success || !result.text) {
       return NextResponse.json(
         {
-          error: 'Could not extract sufficient text from this PDF format. Please paste your resume text directly into the box.',
-          partialText: extractedText || '',
-          wordCount,
+          error: result.error || 'We could not extract readable text from this document. Please upload a standard text-based PDF, DOCX, or TXT file.',
+          partialText: result.text || '',
+          wordCount: result.wordCount,
+          fileType: result.fileType,
         },
         { status: 422 }
       );
@@ -51,15 +56,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      text: extractedText,
+      text: result.text,
       fileName,
       fileSize,
-      wordCount,
+      wordCount: result.wordCount,
+      fileType: result.fileType,
+      classification: result.classification,
     });
   } catch (error: any) {
-    console.error('PDF parsing endpoint error:', error);
+    console.error('Document parsing endpoint error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to parse PDF document. Please paste resume text directly.' },
+      { error: error.message || 'Failed to parse document. Please upload a standard PDF or DOCX file.' },
       { status: 500 }
     );
   }
