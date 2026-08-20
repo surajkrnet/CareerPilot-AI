@@ -127,7 +127,7 @@ export function validateFileSignature(
 }
 
 /**
- * 2. Multi-Dimensional Semantic Document Classifier
+ * 2. Multi-Dimensional Cluster-Based Semantic Document Classifier
  */
 export function classifyDocumentSemantics(text: string): {
   type: DocumentClassificationType;
@@ -138,7 +138,7 @@ export function classifyDocumentSemantics(text: string): {
   const normalized = (text || '').toLowerCase().replace(/\s+/g, ' ');
   const totalLength = normalized.length;
 
-  if (totalLength < 40) {
+  if (totalLength < 50) {
     return {
       type: 'UNKNOWN',
       confidence: 0,
@@ -147,8 +147,8 @@ export function classifyDocumentSemantics(text: string): {
     };
   }
 
-  // Feature matchers
-  const checkFeatures = (keywords: string[]): number => {
+  // Helper to count hits in a keyword list
+  const countHits = (keywords: string[]): number => {
     let hits = 0;
     for (const kw of keywords) {
       if (normalized.includes(kw)) {
@@ -158,38 +158,17 @@ export function classifyDocumentSemantics(text: string): {
     return hits;
   };
 
-  // 1. Resume / CV Indicators
-  const resumePatterns = [
-    'experience', 'work experience', 'professional experience', 'employment history',
-    'career summary', 'professional summary', 'education', 'bachelor', 'master',
-    'degree', 'university', 'college', 'gpa', 'skills', 'technical skills',
-    'core competencies', 'projects', 'key projects', 'certifications', 'curriculum vitae',
-    'resume', 'contact', 'email', 'phone', 'linkedin', 'github', 'achievements',
-    'honors', 'languages', 'work history', 'internship', 'software engineer',
-    'developer', 'analyst', 'manager', 'lead', 'designed', 'developed', 'implemented'
-  ];
+  // -------------------------------------------------------------
+  // DISQUALIFICATION CLUSTERS (Invoices, Marksheets, Research, Legal)
+  // -------------------------------------------------------------
 
-  // 2. Job Description Indicators
-  const jdPatterns = [
-    'responsibilities', 'roles and responsibilities', 'key responsibilities',
-    'requirements', 'job requirements', 'qualifications', 'minimum qualifications',
-    'preferred qualifications', 'what you will do', 'what you\'ll do', 'who you are',
-    'about the role', 'about the job', 'about us', 'about the company', 'benefits',
-    'compensation', 'salary range', 'equal opportunity', 'employment type', 'full-time',
-    'part-time', 'hybrid', 'remote', 'apply now', 'how to apply', 'we are hiring',
-    'we are looking for', 'ideal candidate', 'years of experience required', 'job description'
-  ];
-
-  // 3. Invoice / Financial Billing Indicators
   const invoicePatterns = [
-    'invoice', 'invoice number', 'invoice no', 'invoice date', 'bill to', 'ship to',
-    'subtotal', 'total due', 'amount due', 'payment terms', 'due date', 'tax invoice',
-    'gstin', 'gst number', 'vat number', 'pan number', 'bank details', 'account number',
-    'ifsc code', 'purchase order', 'po number', 'qty', 'unit price', 'line total',
-    'remit payment', 'wire transfer', 'balance due', 'receipt'
+    'invoice', 'tax invoice', 'invoice no', 'invoice number', 'invoice date', 'bill to', 'ship to',
+    'subtotal', 'total due', 'amount due', 'payment terms', 'due date', 'gstin', 'gst number',
+    'vat number', 'pan number', 'bank details', 'account number', 'ifsc code', 'purchase order',
+    'po number', 'qty', 'unit price', 'line total', 'remit payment', 'wire transfer', 'balance due', 'receipt'
   ];
 
-  // 4. Academic Certificate / Marksheet / Transcript Indicators
   const certificatePatterns = [
     'certificate of completion', 'this is to certify that', 'hereby certifies that',
     'provisional certificate', 'degree certificate', 'statement of marks', 'grade card',
@@ -198,120 +177,143 @@ export function classifyDocumentSemantics(text: string): {
     'passed with distinction', 'academic transcript', 'course completion'
   ];
 
-  // 5. Research Paper / Academic Article Indicators
   const researchPaperPatterns = [
-    'abstract', 'keywords', 'introduction', 'literature review', 'methodology',
-    'proposed methodology', 'experimental results', 'discussion', 'conclusion and future work',
-    'references', 'bibliography', 'ieee transactions', 'arxiv', 'doi:', 'volume', 'issue',
-    'proceedings of the', 'et al.', 'fig.', 'table i', 'table 1'
+    'abstract', 'literature review', 'methodology', 'proposed methodology', 'experimental results',
+    'conclusion and future work', 'references', 'bibliography', 'ieee transactions', 'arxiv',
+    'doi:', 'proceedings of the', 'et al.', 'fig.', 'table i'
   ];
 
-  // 6. Legal / ID / Confidential Contract Indicators
   const legalDocPatterns = [
     'non-disclosure agreement', 'terms and conditions', 'agreement entered into',
     'party of the first part', 'whereas', 'indemnification', 'jurisdiction',
     'aadhaar number', 'unique identification authority of india', 'passport of india',
-    'election commission of india', 'driving licence', 'permanent account number card'
+    'election commission of india', 'driving licence'
   ];
 
-  const resumeHits = checkFeatures(resumePatterns);
-  const jdHits = checkFeatures(jdPatterns);
-  const invoiceHits = checkFeatures(invoicePatterns);
-  const certificateHits = checkFeatures(certificatePatterns);
-  const researchHits = checkFeatures(researchPaperPatterns);
-  const legalHits = checkFeatures(legalDocPatterns);
+  const invoiceHits = countHits(invoicePatterns);
+  const certificateHits = countHits(certificatePatterns);
+  const researchHits = countHits(researchPaperPatterns);
+  const legalHits = countHits(legalDocPatterns);
+
+  // -------------------------------------------------------------
+  // RESUME CLUSTER DEFINITIONS (Must match >= 2 distinct clusters)
+  // -------------------------------------------------------------
+  const resumeClusters = {
+    contact: ['email', 'phone', 'linkedin.com', 'github.com', 'portfolio', 'contact', '@gmail', '@outlook', '@yahoo'],
+    experience: ['experience', 'work experience', 'professional experience', 'employment history', 'work history', 'internship', 'curriculum vitae', 'resume', 'career summary', 'professional summary'],
+    skills: ['skills', 'technical skills', 'core competencies', 'programming languages', 'technologies', 'tools', 'frameworks', 'languages & frameworks'],
+    education: ['education', 'bachelor', 'master', 'b.tech', 'b.e.', 'bca', 'mca', 'b.sc', 'm.sc', 'phd', 'degree', 'university', 'college', 'gpa', 'cgpa', 'graduated'],
+    projects: ['projects', 'key projects', 'academic projects', 'personal projects', 'built', 'architected', 'developed', 'implemented', 'designed'],
+    certifications: ['certifications', 'certified', 'honors', 'awards', 'achievements', 'publications'],
+  };
+
+  let resumeClusterCount = 0;
+  let totalResumeHits = 0;
+  for (const [, kwList] of Object.entries(resumeClusters)) {
+    const hits = countHits(kwList);
+    if (hits > 0) {
+      resumeClusterCount++;
+      totalResumeHits += hits;
+    }
+  }
+
+  // -------------------------------------------------------------
+  // JOB DESCRIPTION CLUSTER DEFINITIONS (Must match >= 2 distinct clusters)
+  // -------------------------------------------------------------
+  const jdClusters = {
+    roleDefinition: ['job title', 'role:', 'position:', 'about the role', 'about the job', 'about the company', 'about us', 'we are hiring', 'we are looking for', 'job description', 'job posting', 'ideal candidate'],
+    responsibilities: ['responsibilities', 'roles and responsibilities', 'key responsibilities', 'what you will do', 'what you\'ll do', 'duties', 'deliverables', 'day-to-day'],
+    requirements: ['requirements', 'job requirements', 'qualifications', 'minimum qualifications', 'preferred qualifications', 'who you are', 'years of experience required', 'eligibility'],
+    employmentTerms: ['full-time', 'part-time', 'contract', 'hybrid', 'remote', 'salary', 'compensation', 'benefits', 'equal opportunity', 'apply now', 'how to apply', 'location:']
+  };
+
+  let jdClusterCount = 0;
+  let totalJdHits = 0;
+  for (const [, kwList] of Object.entries(jdClusters)) {
+    const hits = countHits(kwList);
+    if (hits > 0) {
+      jdClusterCount++;
+      totalJdHits += hits;
+    }
+  }
 
   const scores: Record<string, number> = {
-    RESUME: resumeHits,
-    JOB_DESCRIPTION: jdHits,
+    RESUME: totalResumeHits,
+    RESUME_CLUSTERS: resumeClusterCount,
+    JOB_DESCRIPTION: totalJdHits,
+    JD_CLUSTERS: jdClusterCount,
     INVOICE: invoiceHits,
     CERTIFICATE_MARKSHEET: certificateHits,
     RESEARCH_PAPER: researchHits,
     LEGAL_DOCUMENT: legalHits,
   };
 
-  // Specific high-priority rejection checks
-  if (invoiceHits >= 3 && invoiceHits > resumeHits && invoiceHits > jdHits) {
+  // Immediate Disqualification Priority Checks
+  if (invoiceHits >= 2 && invoiceHits > totalResumeHits && invoiceHits > totalJdHits) {
     return {
       type: 'INVOICE',
-      confidence: Math.min(0.98, 0.65 + invoiceHits * 0.08),
+      confidence: Math.min(0.99, 0.70 + invoiceHits * 0.08),
       scores,
       primarySignals: ['Invoice / Billing line items and payment terms detected'],
     };
   }
 
-  if (certificateHits >= 3 && certificateHits > resumeHits && certificateHits > jdHits) {
+  if (certificateHits >= 2 && certificateHits > totalResumeHits && certificateHits > totalJdHits) {
     return {
       type: 'CERTIFICATE_MARKSHEET',
-      confidence: Math.min(0.98, 0.65 + certificateHits * 0.08),
+      confidence: Math.min(0.99, 0.70 + certificateHits * 0.08),
       scores,
       primarySignals: ['Academic marksheet / Certificate of completion credentials detected'],
     };
   }
 
-  if (researchHits >= 4 && researchHits > resumeHits && researchHits > jdHits) {
+  if (researchHits >= 2 && researchHits > totalResumeHits && researchHits > totalJdHits) {
     return {
       type: 'RESEARCH_PAPER',
-      confidence: Math.min(0.98, 0.65 + researchHits * 0.08),
+      confidence: Math.min(0.99, 0.70 + researchHits * 0.08),
       scores,
-      primarySignals: ['Scientific paper sections (Abstract, Methodology, References) detected'],
+      primarySignals: ['Scientific research paper sections (Abstract, Methodology, References) detected'],
     };
   }
 
-  if (legalHits >= 3 && legalHits > resumeHits && legalHits > jdHits) {
+  if (legalHits >= 2 && legalHits > totalResumeHits && legalHits > totalJdHits) {
     return {
       type: 'LEGAL_DOCUMENT',
-      confidence: Math.min(0.98, 0.65 + legalHits * 0.08),
+      confidence: Math.min(0.99, 0.70 + legalHits * 0.08),
       scores,
       primarySignals: ['Legal contract / Government identification credentials detected'],
     };
   }
 
-  // Resume vs Job Description
-  if (jdHits > resumeHits && jdHits >= 3) {
-    const conf = Math.min(0.98, 0.55 + jdHits * 0.07);
+  // Job Description Evaluation: Must match >= 2 JD clusters and >= 3 keywords
+  if (jdClusterCount >= 2 && totalJdHits >= 3 && totalJdHits > totalResumeHits) {
+    const conf = Math.min(0.99, 0.65 + jdClusterCount * 0.08 + totalJdHits * 0.03);
     return {
       type: 'JOB_DESCRIPTION',
       confidence: conf,
       scores,
-      primarySignals: [`Job posting requirements & responsibilities detected (${jdHits} signals)`],
+      primarySignals: [`Job posting requirements & responsibilities detected (${jdClusterCount} clusters, ${totalJdHits} signals)`],
     };
   }
 
-  if (resumeHits >= 3) {
+  // Resume / CV Evaluation: Must match >= 2 Resume clusters and >= 3 keywords
+  if (resumeClusterCount >= 2 && totalResumeHits >= 3 && totalResumeHits >= totalJdHits) {
     const isExplicitCv = normalized.includes('curriculum vitae') || normalized.includes('resume');
-    const conf = Math.min(0.99, 0.6 + resumeHits * 0.06 + (isExplicitCv ? 0.1 : 0));
+    const conf = Math.min(0.99, 0.65 + resumeClusterCount * 0.08 + totalResumeHits * 0.03 + (isExplicitCv ? 0.05 : 0));
     return {
       type: isExplicitCv && normalized.includes('curriculum vitae') ? 'CV' : 'RESUME',
       confidence: conf,
       scores,
-      primarySignals: [`Candidate career history, education & skills detected (${resumeHits} signals)`],
+      primarySignals: [`Candidate career history, education & skills detected (${resumeClusterCount} clusters, ${totalResumeHits} signals)`],
     };
   }
 
-  if (resumeHits >= 2 && jdHits === 0) {
-    return {
-      type: 'RESUME',
-      confidence: 0.72,
-      scores,
-      primarySignals: ['Core candidate profile sections detected'],
-    };
-  }
-
-  if (jdHits >= 2 && resumeHits === 0) {
-    return {
-      type: 'JOB_DESCRIPTION',
-      confidence: 0.72,
-      scores,
-      primarySignals: ['Core job posting requirements detected'],
-    };
-  }
-
+  // Unrelated Document
   return {
     type: 'OTHER',
-    confidence: 0.4,
+    confidence: 0.35,
     scores,
-    primarySignals: ['Unrelated general document text'],
+    primarySignals: ['Unrelated general document text — failed multi-cluster career criteria'],
   };
 }
 

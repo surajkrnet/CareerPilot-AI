@@ -305,19 +305,6 @@ export default function ResumeIntelligencePage() {
       return;
     }
 
-    // Check deterministic scan cache
-    const cacheKey = `careerpilot_scan_${resume.slice(0, 80)}_${currentJd.slice(0, 80)}`;
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        const cachedParsed = JSON.parse(cached);
-        if (cachedParsed && cachedParsed.atsScore) {
-          setAnalysis(cachedParsed);
-          return;
-        }
-      }
-    } catch {}
-
     setLoading(true);
     setAnalysisError(null);
     setAnalysisStage(1);
@@ -341,8 +328,9 @@ export default function ResumeIntelligencePage() {
         json = { error: text || 'Resume analysis response could not be parsed. Please retry.' };
       }
 
-      if (!res.ok) {
-        throw new Error(json.error || 'AI Resume Intelligence analysis request failed.');
+      if (!res.ok || json.accepted === false) {
+        setAnalysis(null);
+        throw new Error(json.error || json.reason || 'Document validation failed. Upload a valid Resume and Job Description to continue.');
       }
 
       const finalData = json.data || json.analysis;
@@ -350,11 +338,8 @@ export default function ResumeIntelligencePage() {
       if (json.scanId) {
         setLatestScanId(json.scanId);
       }
-
-      try {
-        sessionStorage.setItem(cacheKey, JSON.stringify(finalData));
-      } catch {}
     } catch (err: any) {
+      setAnalysis(null);
       setAnalysisError(err.message || 'Failed to analyze resume fit with AI Intelligence Engine. Click "Retry" to try again.');
     } finally {
       clearTimeout(stageTimer1);
